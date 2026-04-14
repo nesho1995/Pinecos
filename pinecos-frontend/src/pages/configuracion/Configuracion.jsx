@@ -203,19 +203,42 @@ function Configuracion() {
     setError('');
     if (!sucursalSar) return setError('Selecciona una sucursal');
 
+    const dedupe = (list) => {
+      const seen = new Set();
+      return (list || [])
+        .map((x) => String(x || '').trim())
+        .filter(Boolean)
+        .filter((x) => {
+          const k = x.toUpperCase();
+          if (seen.has(k)) return false;
+          seen.add(k);
+          return true;
+        });
+    };
+
     const payload = {
       pos: (canalesForm.pos || []).map((x) => String(x || '').trim()).filter(Boolean),
       delivery: (canalesForm.delivery || []).map((x) => String(x || '').trim()).filter(Boolean),
       requiereMontoEnTodos: true
     };
 
+    payload.pos = dedupe(payload.pos);
+    payload.delivery = dedupe(payload.delivery);
+
     if (payload.pos.length === 0) return setError('Debes configurar al menos un POS');
     if (payload.delivery.length === 0) return setError('Debes configurar al menos una empresa de pedidos');
 
     try {
-      await api.put('/Cajas/canales-config', payload, {
+      const res = await api.put('/Cajas/canales-config', payload, {
         params: { idSucursal: Number(sucursalSar) }
       });
+      const data = res?.data?.data || {};
+      setCanalesForm({
+        pos: data.pos || payload.pos,
+        delivery: data.delivery || payload.delivery,
+        requiereMontoEnTodos: data.requiereMontoEnTodos ?? true
+      });
+      await cargarCanalesSucursal(sucursalSar);
       setMensaje('Canales de cuadre guardados correctamente');
     } catch (err) {
       setError(err?.response?.data?.message || 'Error al guardar canales de cuadre');

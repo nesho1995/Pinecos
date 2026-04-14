@@ -65,8 +65,8 @@ namespace Pinecos.Controllers
 
         private static bool EsMetodoDelivery(string? metodo)
         {
-            var m = (metodo ?? string.Empty).Trim().ToUpper();
-            return m == "PEDIDOSYA" || m == "PEDIDOS_YA" || m.StartsWith("PEDIDOS_") || m.StartsWith("DELIVERY_");
+            var m = NormalizeCanal(metodo);
+            return m == "PEDIDOSYA" || m.StartsWith("PEDIDOSYA") || m.StartsWith("DELIVERY");
         }
 
         private static bool EsIngreso(string? tipo)
@@ -83,7 +83,9 @@ namespace Pinecos.Controllers
 
         private static string NormalizeCanal(string? canal)
         {
-            return (canal ?? string.Empty).Trim().ToUpper();
+            var raw = (canal ?? string.Empty).Trim().ToUpperInvariant();
+            if (string.IsNullOrWhiteSpace(raw)) return string.Empty;
+            return new string(raw.Where(char.IsLetterOrDigit).ToArray());
         }
 
         private async Task<CuadreResumenDto> ConstruirResumenCuadreAsync(Caja caja, DateTime fechaCorte)
