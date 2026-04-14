@@ -105,6 +105,12 @@ namespace Pinecos.Controllers
             if (gasto.Monto > 1000000)
                 return BadRequest(new { message = "El monto excede el limite permitido" });
 
+            var cajaAbierta = await _context.Cajas
+                .FirstOrDefaultAsync(x => x.Id_Sucursal == idSucursal.Value && x.Estado == "ABIERTA");
+
+            if (cajaAbierta == null)
+                return BadRequest(new { message = "No hay caja abierta en la sucursal para registrar este gasto" });
+
             gasto.Fecha = FechaHelper.AhoraHonduras();
             gasto.Activo = true;
             gasto.Id_Usuario = idUsuario.Value;
@@ -113,6 +119,18 @@ namespace Pinecos.Controllers
             gasto.Descripcion = descripcion;
 
             _context.Gastos.Add(gasto);
+            await _context.SaveChangesAsync();
+
+            // Todo gasto impacta caja chica como egreso del turno actual.
+            _context.MovimientosCaja.Add(new MovimientoCaja
+            {
+                Id_Caja = cajaAbierta.Id_Caja,
+                Fecha = gasto.Fecha,
+                Tipo = "EGRESO_GASTO",
+                Descripcion = $"Gasto #{gasto.Id_Gasto}: {gasto.Categoria_Gasto}",
+                Monto = gasto.Monto,
+                Id_Usuario = idUsuario.Value
+            });
             await _context.SaveChangesAsync();
 
             await BitacoraHelper.RegistrarAsync(_context, idUsuario.Value, "GASTOS", "CREAR", $"Gasto #{gasto.Id_Gasto} creado");

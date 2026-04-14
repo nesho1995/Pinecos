@@ -300,12 +300,31 @@ namespace Pinecos.Controllers
             if (cajaAbierta)
                 return BadRequest(new { message = "Ya existe una caja abierta en esta sucursal" });
 
+            if (model.Monto_Inicial < 0)
+                return BadRequest(new { message = "El monto inicial no puede ser negativo" });
+
+            if (model.Monto_Inicial > 1000000)
+                return BadRequest(new { message = "El monto inicial excede el limite permitido" });
+
             model.Id_Sucursal = idSucursal.Value;
             model.Id_Usuario_Apertura = idUsuario.Value;
             model.Fecha_Apertura = FechaHelper.AhoraHonduras();
             model.Estado = "ABIERTA";
+            model.Observacion = (model.Observacion ?? string.Empty).Trim();
 
             _context.Cajas.Add(model);
+            await _context.SaveChangesAsync();
+
+            // Mantiene traza de caja chica inicial asociada a esta caja.
+            _context.MovimientosCaja.Add(new MovimientoCaja
+            {
+                Id_Caja = model.Id_Caja,
+                Fecha = model.Fecha_Apertura,
+                Tipo = "APERTURA_CAJA_CHICA",
+                Descripcion = "Apertura de caja con monto inicial",
+                Monto = model.Monto_Inicial,
+                Id_Usuario = idUsuario.Value
+            });
             await _context.SaveChangesAsync();
 
             await BitacoraHelper.RegistrarAsync(_context, idUsuario.Value, "CAJA", "ABRIR", $"Caja #{model.Id_Caja} abierta");
@@ -405,6 +424,12 @@ namespace Pinecos.Controllers
             if (caja.Estado == "CERRADA")
                 return BadRequest(new { message = "La caja ya esta cerrada" });
 
+            var cuentasAbiertas = await _context.CuentasMesa
+                .AnyAsync(x => x.Id_Sucursal == caja.Id_Sucursal && x.Estado == "ABIERTA");
+
+            if (cuentasAbiertas)
+                return BadRequest(new { message = "No se puede cerrar caja: existen cuentas de mesa abiertas en la sucursal" });
+
             if (request.Monto_Cierre < 0)
                 return BadRequest(new { message = "El efectivo final no puede ser negativo" });
 
@@ -474,6 +499,16 @@ namespace Pinecos.Controllers
             caja.Fecha_Cierre = fechaCierre;
             caja.Monto_Cierre = request.Monto_Cierre;
             caja.Observacion = JsonSerializer.Serialize(cierreDetalle);
+
+            _context.MovimientosCaja.Add(new MovimientoCaja
+            {
+                Id_Caja = caja.Id_Caja,
+                Fecha = fechaCierre,
+                Tipo = "CIERRE_CAJA",
+                Descripcion = "Cierre de caja",
+                Monto = request.Monto_Cierre,
+                Id_Usuario = idUsuario.Value
+            });
 
             await _context.SaveChangesAsync();
 
