@@ -38,16 +38,16 @@ namespace Pinecos.Controllers
 
         [HttpPost("login")]
         [EnableRateLimiting("auth-login")]
-        public async Task<IActionResult> Login(
-            [FromBody] LoginRequestDto? body,
-            [FromQuery] string? usuario,
-            [FromQuery] string? clave)
+        public async Task<IActionResult> Login([FromBody] LoginRequestDto? body)
         {
-            var usuarioValue = (body?.Usuario ?? usuario)?.Trim();
-            var claveValue = body?.Clave ?? clave;
+            var usuarioValue = body?.Usuario?.Trim();
+            var claveValue = body?.Clave;
 
             if (string.IsNullOrWhiteSpace(usuarioValue) || string.IsNullOrWhiteSpace(claveValue))
                 return BadRequest(new { message = "Usuario y clave son requeridos" });
+
+            if (usuarioValue.Length > 80)
+                return BadRequest(new { message = "El usuario excede el tamano permitido" });
 
             var userKey = usuarioValue.ToLowerInvariant();
             var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
@@ -65,7 +65,10 @@ namespace Pinecos.Controllers
             }
 
             var user = await _context.Usuarios
-                .FirstOrDefaultAsync(u => u.UsuarioLogin == usuarioValue && u.Activo);
+                .FirstOrDefaultAsync(u =>
+                    u.Activo &&
+                    u.UsuarioLogin != null &&
+                    u.UsuarioLogin.Trim().ToLower() == userKey);
 
             var credencialesValidas = user != null && BCrypt.Net.BCrypt.Verify(claveValue, user.Clave);
 

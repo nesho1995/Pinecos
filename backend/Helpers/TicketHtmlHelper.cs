@@ -113,7 +113,16 @@ namespace Pinecos.Helpers
         <div class='small'>Fecha: {ticket.Fecha:dd/MM/yyyy HH:mm}</div>
         <div class='small'>Cajero: {ticket.Cajero}</div>
         <div class='small'>Pago: {ticket.MetodoPago}</div>
+        <div class='small'>CAI sucursal: {(ticket.CaiHabilitadoSucursal ? "ACTIVO" : "INACTIVO")}</div>
+        <div class='small'>Sucursal ticket: {ticket.Sucursal}</div>
 ");
+
+            if (ticket.CaiHabilitadoSucursal && !string.IsNullOrWhiteSpace(ticket.CaiSucursalConfigurado))
+            {
+                sb.Append($@"
+        <div class='small'>CAI configurado: {ticket.CaiSucursalConfigurado}</div>
+");
+            }
 
             if (ticket.EsFacturaCai)
             {

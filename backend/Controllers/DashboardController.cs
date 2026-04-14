@@ -148,20 +148,30 @@ namespace Pinecos.Controllers
         }
 
         [HttpGet("caja-actual")]
-        public async Task<ActionResult> GetCajaActual()
+        public async Task<ActionResult> GetCajaActual([FromQuery] int? idSucursal = null)
         {
             var rol = UserHelper.GetUserRole(User);
-            var idSucursal = UserHelper.GetSucursalId(User);
+            var idSucursalToken = UserHelper.GetSucursalId(User);
 
-            if (rol != "ADMIN" && !idSucursal.HasValue)
+            if (rol != "ADMIN" && !idSucursalToken.HasValue)
                 return BadRequest(new { message = "El usuario no tiene sucursal asignada" });
+
+            int? sucursalObjetivo = null;
+            if (rol == "ADMIN")
+            {
+                sucursalObjetivo = idSucursalToken ?? idSucursal;
+            }
+            else
+            {
+                sucursalObjetivo = idSucursalToken;
+            }
 
             var query = _context.Cajas
                 .Where(x => x.Estado == "ABIERTA");
 
-            if (rol != "ADMIN" && idSucursal.HasValue)
+            if (sucursalObjetivo.HasValue)
             {
-                query = query.Where(x => x.Id_Sucursal == idSucursal.Value);
+                query = query.Where(x => x.Id_Sucursal == sucursalObjetivo.Value);
             }
 
             var caja = await query
@@ -176,6 +186,7 @@ namespace Pinecos.Controllers
                 abierta = true,
                 caja.Id_Caja,
                 caja.Id_Sucursal,
+                caja.Id_Usuario_Apertura,
                 caja.Fecha_Apertura,
                 caja.Monto_Inicial,
                 caja.Estado,

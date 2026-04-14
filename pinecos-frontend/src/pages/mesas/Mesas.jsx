@@ -3,17 +3,6 @@ import api from '../../services/api';
 import { imprimirTicketHtml } from '../../utils/printTicket';
 import { getUsuario } from '../../utils/auth';
 
-const mesaFormInicial = {
-  nombre: '',
-  capacidad: 2,
-  forma: 'RECTANGULAR',
-  pos_X: 30,
-  pos_Y: 30,
-  ancho: 120,
-  alto: 70,
-  activo: true
-};
-
 function Mesas() {
   const usuario = getUsuario();
   const esAdmin = String(usuario?.rol || usuario?.Rol || '').toUpperCase() === 'ADMIN';
@@ -39,9 +28,6 @@ function Mesas() {
   const [ajustesVenta, setAjustesVenta] = useState({ descuentos: [], impuestos: [] });
   const [facturacionSar, setFacturacionSar] = useState({ habilitadoCai: false });
   const [emitirFactura, setEmitirFactura] = useState(false);
-
-  const [mesaForm, setMesaForm] = useState(mesaFormInicial);
-  const [mesaEditandoId, setMesaEditandoId] = useState(null);
 
   const [menuItems, setMenuItems] = useState([]);
   const [cajaActual, setCajaActual] = useState(null);
@@ -243,43 +229,6 @@ function Mesas() {
   const getCuentaMesa = (idMesa) => cuentas.find((c) => c.id_Mesa === idMesa);
   const mesasActivas = mesas.filter((m) => m.activo);
 
-  const seSobreponen = (a, b, margen = 14) => {
-    return !(
-      a.x + a.w + margen <= b.x ||
-      b.x + b.w + margen <= a.x ||
-      a.y + a.h + margen <= b.y ||
-      b.y + b.h + margen <= a.y
-    );
-  };
-
-  const calcularPosicionLibre = (anchoMesa, altoMesa, idMesaEdicion = null) => {
-    const anchoLienzo = 920;
-    const altoLienzo = 520;
-    const pasoX = 28;
-    const pasoY = 24;
-    const inicioX = 20;
-    const inicioY = 20;
-
-    const ocupadas = mesas
-      .filter((m) => m.activo && m.id_Mesa !== idMesaEdicion)
-      .map((m) => ({
-        x: Number(m.pos_X || 0),
-        y: Number(m.pos_Y || 0),
-        w: Number(m.ancho || 120),
-        h: Number(m.alto || 70)
-      }));
-
-    for (let y = inicioY; y <= altoLienzo - altoMesa - 10; y += pasoY) {
-      for (let x = inicioX; x <= anchoLienzo - anchoMesa - 10; x += pasoX) {
-        const candidata = { x, y, w: anchoMesa, h: altoMesa };
-        const colisiona = ocupadas.some((o) => seSobreponen(candidata, o));
-        if (!colisiona) return { x, y };
-      }
-    }
-
-    return { x: inicioX, y: inicioY };
-  };
-
   const abrirCuenta = async () => {
     limpiarMensajes();
     if (!mesaSeleccionada) return setError('Selecciona una mesa');
@@ -400,69 +349,6 @@ function Mesas() {
     if (cuenta) await cargarCuentaDetalle(cuenta.id_Cuenta_Mesa);
   };
 
-  const handleMesaFormChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setMesaForm((prev) => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
-  };
-
-  const guardarMesa = async (e) => {
-    e.preventDefault();
-    limpiarMensajes();
-    if (!sucursalSeleccionada) return setError('Selecciona una sucursal');
-    if (!mesaForm.nombre.trim()) return setError('Nombre de mesa requerido');
-    try {
-      const payload = {
-        id_Sucursal: Number(sucursalSeleccionada),
-        nombre: mesaForm.nombre.trim(),
-        capacidad: Number(mesaForm.capacidad || 0),
-        forma: mesaForm.forma,
-        pos_X: Number(mesaForm.pos_X || 0),
-        pos_Y: Number(mesaForm.pos_Y || 0),
-        ancho: Number(mesaForm.ancho || 120),
-        alto: Number(mesaForm.alto || 70),
-        activo: true
-      };
-
-      if (mesaEditandoId) {
-        const posicion = calcularPosicionLibre(payload.ancho, payload.alto, mesaEditandoId);
-        payload.pos_X = posicion.x;
-        payload.pos_Y = posicion.y;
-        await api.put(`/Mesas/${mesaEditandoId}`, payload);
-        setMensaje('Mesa actualizada correctamente (reubicada automaticamente para evitar choques)');
-      } else {
-        const posicion = calcularPosicionLibre(payload.ancho, payload.alto);
-        payload.pos_X = posicion.x;
-        payload.pos_Y = posicion.y;
-        await api.post('/Mesas', payload);
-        setMensaje(`Mesa creada correctamente en posicion X:${payload.pos_X} Y:${payload.pos_Y}`);
-      }
-
-      setMesaForm(mesaFormInicial);
-      setMesaEditandoId(null);
-      await cargarMesas(sucursalSeleccionada);
-    } catch (err) {
-      setError(err?.response?.data?.message || 'Error al guardar mesa');
-    }
-  };
-
-  const editarMesa = (mesa) => {
-    setMesaEditandoId(mesa.id_Mesa);
-    setMesaForm({
-      nombre: mesa.nombre || '',
-      capacidad: mesa.capacidad || 2,
-      forma: mesa.forma || 'RECTANGULAR',
-      pos_X: mesa.pos_X || 0,
-      pos_Y: mesa.pos_Y || 0,
-      ancho: mesa.ancho || 120,
-      alto: mesa.alto || 70,
-      activo: mesa.activo ?? true
-    });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
   return (
     <div>
       <h2 className="mb-4">Mesas y Cuentas</h2>
@@ -479,77 +365,16 @@ function Mesas() {
                 {sucursales.map((s) => <option key={s.id_Sucursal} value={s.id_Sucursal}>{s.nombre}</option>)}
               </select>
             </div>
+            {esAdmin && (
+              <div className="col-md-8">
+                <div className="alert alert-info mb-0">
+                  La configuracion de mesas se hace en Administracion {'>'} Mesas.
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
-
-      {sucursalSeleccionada && esAdmin && (
-        <div className="card shadow-sm mb-4">
-          <div className="card-body">
-            <h5 className="mb-3">{mesaEditandoId ? `Editar mesa #${mesaEditandoId}` : 'Agregar mesa a sucursal'}</h5>
-            <form onSubmit={guardarMesa} className="row g-2">
-              <div className="col-md-2">
-                <input className="form-control" name="nombre" value={mesaForm.nombre} onChange={handleMesaFormChange} placeholder="Nombre" />
-              </div>
-              <div className="col-md-1">
-                <input className="form-control" type="number" name="capacidad" value={mesaForm.capacidad} onChange={handleMesaFormChange} placeholder="Cap." />
-              </div>
-              <div className="col-md-2">
-                <select className="form-select" name="forma" value={mesaForm.forma} onChange={handleMesaFormChange}>
-                  <option value="RECTANGULAR">RECTANGULAR</option>
-                  <option value="CIRCULAR">CIRCULAR</option>
-                </select>
-              </div>
-              <div className="col-md-1">
-                <input className="form-control" type="number" name="pos_X" value={mesaForm.pos_X} onChange={handleMesaFormChange} placeholder="X" />
-              </div>
-              <div className="col-md-1">
-                <input className="form-control" type="number" name="pos_Y" value={mesaForm.pos_Y} onChange={handleMesaFormChange} placeholder="Y" />
-              </div>
-              <div className="col-md-1">
-                <input className="form-control" type="number" name="ancho" value={mesaForm.ancho} onChange={handleMesaFormChange} placeholder="Ancho" />
-              </div>
-              <div className="col-md-1">
-                <input className="form-control" type="number" name="alto" value={mesaForm.alto} onChange={handleMesaFormChange} placeholder="Alto" />
-              </div>
-              <div className="col-md-2 d-flex gap-2">
-                <button className="btn btn-dark w-100" type="submit">{mesaEditandoId ? 'Actualizar' : 'Crear'}</button>
-                <button className="btn btn-outline-secondary w-100" type="button" onClick={() => { setMesaForm(mesaFormInicial); setMesaEditandoId(null); }}>
-                  Limpiar
-                </button>
-              </div>
-            </form>
-
-            <div className="table-responsive mt-3">
-              <table className="table table-bordered align-middle">
-                <thead>
-                  <tr>
-                    <th>Codigo</th><th>Nombre</th><th>Cap.</th><th>Forma</th><th>Posicion</th><th>Tamano</th><th>Estado</th><th>Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {mesas.map((m) => (
-                    <tr key={m.id_Mesa}>
-                      <td>{m.id_Mesa}</td>
-                      <td>{m.nombre}</td>
-                      <td>{m.capacidad}</td>
-                      <td>{m.forma}</td>
-                      <td>({m.pos_X},{m.pos_Y})</td>
-                      <td>{m.ancho}x{m.alto}</td>
-                      <td><span className={`status-pill ${m.activo ? 'active' : 'inactive'}`}>{m.activo ? 'Activa' : 'Inactiva'}</span></td>
-                      <td>
-                        <div className="d-flex gap-2">
-                          <button className="btn btn-sm btn-outline-primary" onClick={() => editarMesa(m)}>Editar</button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
 
       <div className="row">
         <div className="col-md-8">
@@ -747,6 +572,3 @@ function Mesas() {
 }
 
 export default Mesas;
-
-
-

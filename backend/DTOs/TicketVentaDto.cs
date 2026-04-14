@@ -30,6 +30,8 @@
         public DateTime? FechaLimiteEmision { get; set; }
         public string RangoInicio { get; set; } = string.Empty;
         public string RangoFin { get; set; } = string.Empty;
+        public bool CaiHabilitadoSucursal { get; set; }
+        public string CaiSucursalConfigurado { get; set; } = string.Empty;
         public List<TicketVentaDetalleDto> Detalles { get; set; } = new();
     }
 }

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import api from '../../services/api';
 
 function Productos() {
@@ -143,6 +144,15 @@ function Productos() {
   return (
     <div>
       <h2 className="mb-4">Productos</h2>
+
+      <div className="alert alert-info d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <span>
+          En esta pantalla defines el catalogo y costo. El precio de venta se configura por sucursal.
+        </span>
+        <Link className="btn btn-sm btn-outline-primary" to="/menu-sucursal">
+          Ir a Precios por Sucursal
+        </Link>
+      </div>
 
       <div className="card shadow-sm mb-4">
         <div className="card-body">

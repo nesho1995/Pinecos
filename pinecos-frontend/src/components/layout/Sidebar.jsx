@@ -19,6 +19,7 @@ const sections = [
     title: 'Administracion',
     items: [
       { to: '/menu-sucursal', label: 'Precios por Sucursal' },
+      { to: '/mesas-admin', label: 'Mesas' },
       { to: '/productos', label: 'Productos' },
       { to: '/categorias', label: 'Categorias' },
       { to: '/presentaciones', label: 'Presentaciones' },
@@ -30,7 +31,7 @@ const sections = [
   }
 ];
 
-function Sidebar() {
+function Sidebar({ onNavigate }) {
   const admin = isAdmin();
   const visibleSections = sections
     .map((section) => ({
@@ -47,6 +48,9 @@ function Sidebar() {
   return (
     <aside className="app-sidebar p-3">
       <div className="brand-block mb-3">
+        <div className="brand-logo-wrap mb-2">
+          <img src="/PinecosCafe.jpeg" alt="Cafe Pinecos" className="brand-logo" />
+        </div>
         <div className="brand-title">Pinecos</div>
         <div className="brand-subtitle">Sistema de cafeteria</div>
       </div>
@@ -56,7 +60,7 @@ function Sidebar() {
           <div className="sidebar-section-title">{section.title}</div>
           <nav className="nav flex-column gap-1">
             {section.items.map((item) => (
-              <NavLink key={item.to} to={item.to} className="sidebar-link">
+              <NavLink key={item.to} to={item.to} className="sidebar-link" onClick={onNavigate}>
                 {item.label}
               </NavLink>
             ))}

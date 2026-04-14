@@ -7,6 +7,7 @@ const routeTitles = {
   '/movimientos-caja': 'Movimientos de Caja',
   '/ventas': 'Punto de Venta',
   '/mesas': 'Mesas y Cuentas',
+  '/mesas-admin': 'Administracion de Mesas',
   '/gastos': 'Gastos',
   '/reportes': 'Reportes',
   '/estado-cuenta': 'Estado de Cuenta',
@@ -20,7 +21,7 @@ const routeTitles = {
   '/bitacora': 'Bitacora'
 };
 
-function Header() {
+function Header({ onToggleSidebar }) {
   const navigate = useNavigate();
   const location = useLocation();
   const usuario = getUsuario();
@@ -33,9 +34,14 @@ function Header() {
 
   return (
     <header className="app-header px-4 py-3 d-flex justify-content-between align-items-center">
-      <div>
+      <div className="d-flex align-items-center gap-2">
+        <button className="btn btn-outline-secondary btn-sm d-lg-none" onClick={onToggleSidebar} type="button">
+          Menu
+        </button>
+        <div>
         <div className="header-title">{titulo}</div>
         <div className="header-subtitle">Operacion del dia</div>
+        </div>
       </div>
 
       <div className="d-flex align-items-center gap-3">

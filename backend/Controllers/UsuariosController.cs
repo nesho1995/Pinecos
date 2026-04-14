@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using Pinecos.Attributes;
 using Pinecos.Data;
+using Pinecos.Helpers;
 using Pinecos.Models;
 
 namespace Pinecos.Controllers
@@ -83,17 +84,24 @@ namespace Pinecos.Controllers
         [HttpPost]
         public async Task<ActionResult> CrearUsuario([FromBody] Usuario usuario)
         {
-            if (string.IsNullOrWhiteSpace(usuario.Nombre))
-                return BadRequest(new { message = "El nombre es requerido" });
+            if (!SecurityValidationHelper.EsNombreValido(usuario.Nombre))
+                return BadRequest(new { message = "El nombre es requerido y debe tener entre 3 y 120 caracteres" });
 
-            if (string.IsNullOrWhiteSpace(usuario.UsuarioLogin))
-                return BadRequest(new { message = "El usuario es requerido" });
+            if (!SecurityValidationHelper.EsUsuarioLoginValido(usuario.UsuarioLogin))
+                return BadRequest(new { message = "El usuario debe tener entre 4 y 40 caracteres (letras, numeros, punto, guion o guion bajo)" });
 
             if (string.IsNullOrWhiteSpace(usuario.Clave))
                 return BadRequest(new { message = "La clave es requerida" });
 
-            if (string.IsNullOrWhiteSpace(usuario.Rol))
-                return BadRequest(new { message = "El rol es requerido" });
+            if (!SecurityValidationHelper.EsClaveFuerte(usuario.Clave))
+                return BadRequest(new { message = "La clave debe tener minimo 8 caracteres e incluir mayuscula, minuscula, numero y simbolo" });
+
+            if (!SecurityValidationHelper.EsRolValido(usuario.Rol))
+                return BadRequest(new { message = "Rol invalido. Solo se permite ADMIN o CAJERO" });
+
+            usuario.Nombre = usuario.Nombre.Trim();
+            usuario.UsuarioLogin = usuario.UsuarioLogin.Trim();
+            usuario.Rol = SecurityValidationHelper.NormalizeRol(usuario.Rol);
 
             var existeUsuario = await _context.Usuarios
                 .AnyAsync(u => u.UsuarioLogin == usuario.UsuarioLogin);
@@ -138,14 +146,18 @@ namespace Pinecos.Controllers
             if (usuarioDb == null)
                 return NotFound(new { message = "Usuario no encontrado" });
 
-            if (string.IsNullOrWhiteSpace(usuario.Nombre))
-                return BadRequest(new { message = "El nombre es requerido" });
+            if (!SecurityValidationHelper.EsNombreValido(usuario.Nombre))
+                return BadRequest(new { message = "El nombre es requerido y debe tener entre 3 y 120 caracteres" });
 
-            if (string.IsNullOrWhiteSpace(usuario.UsuarioLogin))
-                return BadRequest(new { message = "El usuario es requerido" });
+            if (!SecurityValidationHelper.EsUsuarioLoginValido(usuario.UsuarioLogin))
+                return BadRequest(new { message = "El usuario debe tener entre 4 y 40 caracteres (letras, numeros, punto, guion o guion bajo)" });
 
-            if (string.IsNullOrWhiteSpace(usuario.Rol))
-                return BadRequest(new { message = "El rol es requerido" });
+            if (!SecurityValidationHelper.EsRolValido(usuario.Rol))
+                return BadRequest(new { message = "Rol invalido. Solo se permite ADMIN o CAJERO" });
+
+            usuario.Nombre = usuario.Nombre.Trim();
+            usuario.UsuarioLogin = usuario.UsuarioLogin.Trim();
+            usuario.Rol = SecurityValidationHelper.NormalizeRol(usuario.Rol);
 
             var existeUsuario = await _context.Usuarios
                 .AnyAsync(u => u.UsuarioLogin == usuario.UsuarioLogin && u.Id_Usuario != id);
@@ -170,6 +182,8 @@ namespace Pinecos.Controllers
 
             if (!string.IsNullOrWhiteSpace(usuario.Clave))
             {
+                if (!SecurityValidationHelper.EsClaveFuerte(usuario.Clave))
+                    return BadRequest(new { message = "La nueva clave debe tener minimo 8 caracteres e incluir mayuscula, minuscula, numero y simbolo" });
                 usuarioDb.Clave = BCrypt.Net.BCrypt.HashPassword(usuario.Clave);
             }
 

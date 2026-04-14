@@ -58,7 +58,19 @@ function Configuracion() {
   const cargarConfiguracionSucursal = async (idSucursal) => {
     if (!idSucursal) return;
     const configRes = await api.get('/Configuracion', { params: { idSucursal: Number(idSucursal) } });
-    setForm(configRes.data);
+    const data = configRes.data || {};
+    setForm({
+      id_Configuracion: data.id_Configuracion || 0,
+      nombre_Negocio: data.nombre_Negocio || '',
+      direccion: data.direccion || '',
+      telefono: data.telefono || '',
+      rtn: data.rtn || '',
+      mensaje_Ticket: data.mensaje_Ticket || '',
+      ancho_Ticket: data.ancho_Ticket || '80mm',
+      logo_Url: data.logo_Url || '',
+      moneda: data.moneda || 'L',
+      activo: data.activo ?? true
+    });
   };
 
   const cargarSarLista = async () => {
@@ -142,12 +154,12 @@ function Configuracion() {
     setError('');
 
     try {
-      const params = sucursalSar ? { idSucursal: Number(sucursalSar) } : {};
-      const response = await api.put('/Configuracion', form, { params });
+      if (!sucursalSar) return setError('Selecciona una sucursal');
+      const response = await api.put('/Configuracion', form, { params: { idSucursal: Number(sucursalSar) } });
       setForm(response.data.data);
-      setMensaje('Configuracion guardada correctamente');
+      setMensaje('Configuracion por sucursal guardada correctamente');
     } catch (err) {
-      setError(err?.response?.data?.message || 'Error al guardar configuracion');
+      setError(err?.response?.data?.message || 'Error al guardar configuracion de sucursal');
     }
   };
 
@@ -333,13 +345,27 @@ function Configuracion() {
 
   if (loading) return <div>Cargando configuracion...</div>;
 
+  const sucursalActualNombre = sucursales.find((s) => String(s.id_Sucursal) === String(sucursalSar))?.nombre || 'Sin sucursal';
+  const nombreSucursalPorId = (idSucursal) =>
+    sucursales.find((s) => Number(s.id_Sucursal) === Number(idSucursal))?.nombre || `Sucursal #${idSucursal}`;
+
   return (
     <div>
       <h2 className="mb-4">Configuracion del negocio</h2>
 
       <div className="card shadow-sm">
         <div className="card-body">
+          <h5 className="mb-1">Configuracion por sucursal</h5>
+          <div className="small text-muted mb-3">
+            Editando sucursal: <strong>{sucursalActualNombre}</strong>
+          </div>
           <form onSubmit={guardarConfiguracion} className="row g-3">
+            <div className="col-md-4">
+              <label className="form-label">Sucursal</label>
+              <select className="form-select" value={sucursalSar} onChange={(e) => setSucursalSar(e.target.value)}>
+                {sucursales.map((s) => <option key={s.id_Sucursal} value={s.id_Sucursal}>{s.nombre}</option>)}
+              </select>
+            </div>
             <div className="col-md-6">
               <label className="form-label">Nombre del negocio</label>
               <input type="text" className="form-control" name="nombre_Negocio" value={form.nombre_Negocio} onChange={handleChange} required />
@@ -365,12 +391,12 @@ function Configuracion() {
               <input type="text" className="form-control" name="moneda" value={form.moneda} onChange={handleChange} />
             </div>
 
-            <div className="col-md-6">
+            <div className="col-md-8">
               <label className="form-label">Mensaje ticket</label>
               <input type="text" className="form-control" name="mensaje_Ticket" value={form.mensaje_Ticket} onChange={handleChange} />
             </div>
 
-            <div className="col-md-3">
+            <div className="col-md-4">
               <label className="form-label">Ancho ticket</label>
               <select className="form-select" name="ancho_Ticket" value={form.ancho_Ticket} onChange={handleChange}>
                 <option value="58mm">58mm</option>
@@ -378,13 +404,14 @@ function Configuracion() {
               </select>
             </div>
 
-            <div className="col-md-3">
+            <div className="col-md-12">
               <label className="form-label">Logo URL</label>
               <input type="text" className="form-control" name="logo_Url" value={form.logo_Url} onChange={handleChange} placeholder="/logo-pinecos.png" />
+              <small className="text-muted">Ejemplo local: /logo-pinecos.png (archivo en pinecos-frontend/public)</small>
             </div>
 
             <div className="col-md-12">
-              <button className="btn btn-dark" type="submit">Guardar configuracion</button>
+              <button className="btn btn-dark" type="submit">Guardar configuracion de sucursal</button>
             </div>
           </form>
         </div>
@@ -392,7 +419,10 @@ function Configuracion() {
 
       <div className="card shadow-sm mt-4">
         <div className="card-body">
-          <h5 className="mb-3">Facturacion SAR (CAI)</h5>
+          <h5 className="mb-1">Facturacion SAR (CAI) por sucursal</h5>
+          <div className="small text-muted mb-3">
+            Editando: <strong>{sucursalActualNombre}</strong>
+          </div>
           <form onSubmit={guardarFacturacionSar} className="row g-3">
             <div className="col-md-4">
               <label className="form-label">Sucursal SAR</label>
@@ -484,7 +514,7 @@ function Configuracion() {
               <tbody>
                 {listaSar.map((x) => (
                   <tr key={x.idSucursal}>
-                    <td>{x.idSucursal}</td>
+                    <td>{nombreSucursalPorId(x.idSucursal)}</td>
                     <td>{x.habilitadoCai ? 'SI' : 'NO'}</td>
                     <td>{x.cai || '-'}</td>
                     <td>{x.siguienteCorrelativo ?? '-'}</td>

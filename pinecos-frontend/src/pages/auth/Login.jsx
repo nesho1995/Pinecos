@@ -47,6 +47,9 @@ function Login() {
     <div className="container-fluid min-vh-100 d-flex align-items-center justify-content-center bg-light">
       <div className="card shadow-sm" style={{ width: '420px' }}>
         <div className="card-body p-4">
+          <div className="text-center mb-2">
+            <img src="/PinecosCafe.jpeg" alt="Cafe Pinecos" className="auth-logo" />
+          </div>
           <h3 className="text-center mb-4">Pinecos</h3>
 
           <form onSubmit={handleSubmit}>

@@ -1,7 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import api from '../../services/api';
+import { getUsuario } from '../../utils/auth';
 
 const lineaCanal = (canal = '', monto = '') => ({ canal, monto });
+const cierreBase = {
+  monto_Cierre: '',
+  pos: [lineaCanal('POS 1')],
+  delivery: [lineaCanal('PEDIDOS_YA')],
+  observacion: ''
+};
 
 const buildCierreFromCanales = (canalesConfig, previous = null) => {
   const pos = (canalesConfig?.pos || ['POS 1']).map((c) => {
@@ -23,6 +30,8 @@ const buildCierreFromCanales = (canalesConfig, previous = null) => {
 };
 
 function Caja() {
+  const usuario = getUsuario();
+  const idUsuario = Number(usuario?.id_Usuario ?? usuario?.id_usuario ?? 0);
   const [cajaActual, setCajaActual] = useState(null);
   const [cuadrePrevio, setCuadrePrevio] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -34,12 +43,8 @@ function Caja() {
     observacion: ''
   });
 
-  const [cierre, setCierre] = useState({
-    monto_Cierre: '',
-    pos: [lineaCanal('POS 1')],
-    delivery: [lineaCanal('PEDIDOS_YA')],
-    observacion: ''
-  });
+  const [cierre, setCierre] = useState(cierreBase);
+  const [idCajaCargadaEnCierre, setIdCajaCargadaEnCierre] = useState(null);
 
   const cargarCajaActual = async () => {
     const response = await api.get('/Dashboard/caja-actual');
@@ -50,11 +55,15 @@ function Caja() {
   const cargarCuadrePrevio = async (idCaja) => {
     if (!idCaja) {
       setCuadrePrevio(null);
+      setIdCajaCargadaEnCierre(null);
+      setCierre(cierreBase);
       return;
     }
     const response = await api.get(`/Cajas/cuadre-previo/${idCaja}`);
     setCuadrePrevio(response.data);
-    setCierre((prev) => buildCierreFromCanales(response.data?.canalesConfig, prev));
+    const esMismaCaja = Number(idCajaCargadaEnCierre) === Number(idCaja);
+    setCierre((prev) => buildCierreFromCanales(response.data?.canalesConfig, esMismaCaja ? prev : null));
+    setIdCajaCargadaEnCierre(idCaja);
   };
 
   const refrescarPantalla = async () => {
@@ -62,7 +71,11 @@ function Caja() {
       setLoading(true);
       const caja = await cargarCajaActual();
       if (caja?.abierta && caja?.id_Caja) await cargarCuadrePrevio(caja.id_Caja);
-      else setCuadrePrevio(null);
+      else {
+        setCuadrePrevio(null);
+        setIdCajaCargadaEnCierre(null);
+        setCierre(cierreBase);
+      }
     } catch (err) {
       setError(err?.response?.data?.message || 'Error al cargar caja');
     } finally {
@@ -132,6 +145,8 @@ function Caja() {
       const cuadro = response?.data?.cuadre?.cuadro;
       const dif = Number(response?.data?.cuadre?.diferencia || 0);
       setMensaje(cuadro ? 'Caja cerrada y cuadra correctamente.' : `Caja cerrada pero NO cuadra. Diferencia: L ${dif.toFixed(2)}`);
+      setCierre(cierreBase);
+      setIdCajaCargadaEnCierre(null);
 
       await refrescarPantalla();
     } catch (err) {
@@ -193,8 +208,14 @@ function Caja() {
                 <h5>Caja abierta</h5>
                 <p><strong>Caja:</strong> {cajaActual.id_Caja}</p>
                 <p><strong>Sucursal:</strong> {cajaActual.id_Sucursal}</p>
+                <p><strong>Abierta por usuario:</strong> {cajaActual.id_Usuario_Apertura}</p>
                 <p><strong>Fecha apertura:</strong> {new Date(cajaActual.fecha_Apertura).toLocaleString('es-HN')}</p>
                 <p><strong>Monto inicial:</strong> L {Number(cajaActual.monto_Inicial || 0).toFixed(2)}</p>
+                {idUsuario > 0 && Number(cajaActual.id_Usuario_Apertura) !== idUsuario && (
+                  <div className="alert alert-info mt-2 mb-0">
+                    Esta caja fue abierta por otro usuario de tu sucursal, pero esta disponible para operar.
+                  </div>
+                )}
               </div>
             </div>
           </div>

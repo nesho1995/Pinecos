@@ -151,10 +151,28 @@ namespace Pinecos.Controllers
         }
 
         [HttpGet("abiertas")]
-        public async Task<ActionResult> GetCajasAbiertas()
+        public async Task<ActionResult> GetCajasAbiertas([FromQuery] int? idSucursal = null)
         {
-            var cajas = await _context.Cajas
+            var rol = UserHelper.GetUserRole(User);
+            var idSucursalToken = UserHelper.GetSucursalId(User);
+
+            var query = _context.Cajas
                 .Where(x => x.Estado == "ABIERTA")
+                .AsQueryable();
+
+            if (rol != "ADMIN")
+            {
+                if (!idSucursalToken.HasValue)
+                    return BadRequest(new { message = "El usuario no tiene sucursal asignada" });
+
+                query = query.Where(x => x.Id_Sucursal == idSucursalToken.Value);
+            }
+            else if (idSucursal.HasValue && idSucursal.Value > 0)
+            {
+                query = query.Where(x => x.Id_Sucursal == idSucursal.Value);
+            }
+
+            var cajas = await query
                 .OrderByDescending(x => x.Fecha_Apertura)
                 .ToListAsync();
 
@@ -200,6 +218,7 @@ namespace Pinecos.Controllers
         }
 
         [HttpGet("cierres")]
+        [AuthorizeRoles("ADMIN")]
         public async Task<ActionResult> GetCierres(
             [FromQuery] DateTime? desde = null,
             [FromQuery] DateTime? hasta = null,
@@ -362,6 +381,7 @@ namespace Pinecos.Controllers
         }
 
         [HttpGet("estado-cuenta/{idCaja}")]
+        [AuthorizeRoles("ADMIN")]
         public async Task<ActionResult> GetEstadoCuenta(int idCaja)
         {
             var cajaResult = await GetCajaValidadaAsync(idCaja);

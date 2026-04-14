@@ -63,6 +63,7 @@ namespace Pinecos.Controllers
 
             var costoTotal = detalles.Sum(d => d.CostoUnitario * d.Cantidad);
             var facturaMeta = FacturaMetadataHelper.ParseFromObservacion(venta.Observacion);
+            var sarConfig = FacturacionSarStore.GetConfig(_env.ContentRootPath, venta.Id_Sucursal);
 
             var ticket = new TicketVentaDto
             {
@@ -84,6 +85,8 @@ namespace Pinecos.Controllers
                 FechaLimiteEmision = facturaMeta.FechaLimiteEmision,
                 RangoInicio = facturaMeta.RangoInicio,
                 RangoFin = facturaMeta.RangoFin,
+                CaiHabilitadoSucursal = sarConfig.HabilitadoCai,
+                CaiSucursalConfigurado = sarConfig.Cai ?? "",
                 Detalles = detalles
             };
 
@@ -131,6 +134,7 @@ namespace Pinecos.Controllers
 
             var costoTotal = detalles.Sum(d => d.CostoUnitario * d.Cantidad);
             var facturaMeta = FacturaMetadataHelper.ParseFromObservacion(venta.Observacion);
+            var sarConfig = FacturacionSarStore.GetConfig(_env.ContentRootPath, venta.Id_Sucursal);
 
             var ticket = new TicketVentaDto
             {
@@ -152,6 +156,8 @@ namespace Pinecos.Controllers
                 FechaLimiteEmision = facturaMeta.FechaLimiteEmision,
                 RangoInicio = facturaMeta.RangoInicio,
                 RangoFin = facturaMeta.RangoFin,
+                CaiHabilitadoSucursal = sarConfig.HabilitadoCai,
+                CaiSucursalConfigurado = sarConfig.Cai ?? "",
                 Detalles = detalles
             };
 
@@ -206,6 +212,7 @@ namespace Pinecos.Controllers
 
             var costoTotal = detalles.Sum(d => d.CostoUnitario * d.Cantidad);
             var facturaMeta = FacturaMetadataHelper.ParseFromObservacion(venta.Observacion);
+            var sarConfig = FacturacionSarStore.GetConfig(_env.ContentRootPath, venta.Id_Sucursal);
 
             var ticket = new TicketVentaDto
             {
@@ -227,6 +234,8 @@ namespace Pinecos.Controllers
                 FechaLimiteEmision = facturaMeta.FechaLimiteEmision,
                 RangoInicio = facturaMeta.RangoInicio,
                 RangoFin = facturaMeta.RangoFin,
+                CaiHabilitadoSucursal = sarConfig.HabilitadoCai,
+                CaiSucursalConfigurado = sarConfig.Cai ?? "",
                 Detalles = detalles
             };
 
@@ -281,6 +290,7 @@ namespace Pinecos.Controllers
 
             var costoTotal = detalles.Sum(d => d.CostoUnitario * d.Cantidad);
             var facturaMeta = FacturaMetadataHelper.ParseFromObservacion(venta.Observacion);
+            var sarConfig = FacturacionSarStore.GetConfig(_env.ContentRootPath, venta.Id_Sucursal);
 
             var ticket = new TicketVentaDto
             {
@@ -302,6 +312,8 @@ namespace Pinecos.Controllers
                 FechaLimiteEmision = facturaMeta.FechaLimiteEmision,
                 RangoInicio = facturaMeta.RangoInicio,
                 RangoFin = facturaMeta.RangoFin,
+                CaiHabilitadoSucursal = sarConfig.HabilitadoCai,
+                CaiSucursalConfigurado = sarConfig.Cai ?? "",
                 Detalles = detalles
             };
 
