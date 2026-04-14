@@ -1,0 +1,22 @@
+﻿# Visual Studio / IDE
+.vs/
+**/.vs/
+
+# Build artifacts
+**/bin/
+**/obj/
+
+# Frontend artifacts
+pinecos-frontend/node_modules/
+pinecos-frontend/dist/
+
+# Logs
+*.log
+
+# Environment
+.env
+.env.*
+
+# OS
+Thumbs.db
+.DS_Store

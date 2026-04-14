@@ -1,0 +1,171 @@
+:root {
+  --bg: #f3f4f6;
+  --surface: #ffffff;
+  --text: #111827;
+  --muted: #6b7280;
+  --brand-700: #0f766e;
+  --brand-800: #115e59;
+  --brand-soft: #ccfbf1;
+  --line: #e5e7eb;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: radial-gradient(circle at top right, #d1fae5 0%, #f3f4f6 40%, #eef2ff 100%);
+  color: var(--text);
+}
+
+.app-shell {
+  backdrop-filter: blur(2px);
+}
+
+.app-sidebar {
+  width: 280px;
+  background: linear-gradient(180deg, #062f2f 0%, #0f172a 100%);
+  color: #e5e7eb;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.brand-block {
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.brand-title {
+  font-size: 1.4rem;
+  font-weight: 800;
+}
+
+.brand-subtitle {
+  color: #a7f3d0;
+  font-size: 0.9rem;
+}
+
+.sidebar-section-title {
+  color: #93c5fd;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin: 10px 0 8px;
+  padding-left: 4px;
+}
+
+.sidebar-link {
+  color: #e5e7eb;
+  text-decoration: none;
+  border-radius: 10px;
+  padding: 8px 10px;
+  transition: background 0.2s ease, transform 0.2s ease;
+  font-weight: 500;
+}
+
+.sidebar-link:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  transform: translateX(1px);
+}
+
+.sidebar-link.active {
+  background: linear-gradient(135deg, var(--brand-700), var(--brand-800));
+  color: #fff;
+}
+
+.app-main {
+  min-width: 0;
+}
+
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(255, 255, 255, 0.88);
+  border-bottom: 1px solid var(--line);
+  backdrop-filter: blur(8px);
+}
+
+.header-title {
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.header-subtitle {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.user-pill {
+  background: var(--brand-soft);
+  color: #134e4a;
+  border: 1px solid #99f6e4;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 0.85rem;
+}
+
+.app-content .card {
+  border: 1px solid rgba(15, 23, 42, 0.07);
+  border-radius: 14px;
+}
+
+.app-content .table th {
+  background: #f8fafc;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.status-pill.active {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.status-pill.inactive {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.pos-page .product-card {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.pos-page .product-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.12) !important;
+}
+
+.carrito-sticky {
+  position: sticky;
+  top: 1rem;
+}
+
+@media (max-width: 991px) {
+  .app-sidebar {
+    width: 100%;
+    height: auto;
+    position: static;
+  }
+
+  .app-shell {
+    flex-direction: column;
+  }
+
+  .carrito-sticky {
+    position: static;
+  }
+}

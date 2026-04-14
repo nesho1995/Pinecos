@@ -1,0 +1,431 @@
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Pinecos.Attributes;
+using Pinecos.Data;
+using Pinecos.DTOs;
+using Pinecos.Helpers;
+using Pinecos.Models;
+using System.Text.Json;
+
+namespace Pinecos.Controllers
+{
+    [Route("api/[controller]")]
+    [ApiController]
+    [AuthorizeRoles("ADMIN", "CAJERO")]
+    public class CajasController : ControllerBase
+    {
+        private readonly PinecosDbContext _context;
+
+        public CajasController(PinecosDbContext context)
+        {
+            _context = context;
+        }
+
+        private class CuadreResumenDto
+        {
+            public decimal MontoInicial { get; set; }
+            public decimal VentasTotal { get; set; }
+            public decimal VentasEfectivo { get; set; }
+            public decimal VentasPos { get; set; }
+            public decimal VentasDelivery { get; set; }
+            public decimal IngresosCaja { get; set; }
+            public decimal EgresosCaja { get; set; }
+            public decimal Gastos { get; set; }
+            public decimal EfectivoEsperado { get; set; }
+            public decimal TotalEsperado { get; set; }
+            public List<object> VentasPorMetodo { get; set; } = new();
+        }
+
+        private async Task<ActionResult<Caja>> GetCajaValidadaAsync(int idCaja)
+        {
+            var idSucursal = UserHelper.GetSucursalId(User);
+            var rol = UserHelper.GetUserRole(User);
+
+            if (rol != "ADMIN" && !idSucursal.HasValue)
+                return BadRequest(new { message = "El usuario no tiene sucursal asignada" });
+
+            var caja = await _context.Cajas.FirstOrDefaultAsync(x => x.Id_Caja == idCaja);
+
+            if (caja == null)
+                return NotFound(new { message = "Caja no encontrada" });
+
+            if (rol != "ADMIN" && caja.Id_Sucursal != idSucursal!.Value)
+                return Forbid();
+
+            return caja;
+        }
+
+        private static bool EsMetodoEfectivo(string? metodo)
+        {
+            var m = (metodo ?? string.Empty).Trim().ToUpper();
+            return m == "EFECTIVO" || m == "CASH";
+        }
+
+        private static bool EsMetodoDelivery(string? metodo)
+        {
+            var m = (metodo ?? string.Empty).Trim().ToUpper();
+            return m == "PEDIDOSYA" || m == "PEDIDOS_YA" || m.StartsWith("PEDIDOS_") || m.StartsWith("DELIVERY_");
+        }
+
+        private static bool EsIngreso(string? tipo)
+        {
+            var t = (tipo ?? string.Empty).Trim().ToUpper();
+            return t.Contains("INGRESO") || t == "ENTRADA";
+        }
+
+        private static bool EsEgreso(string? tipo)
+        {
+            var t = (tipo ?? string.Empty).Trim().ToUpper();
+            return t.Contains("EGRESO") || t == "SALIDA";
+        }
+
+        private async Task<CuadreResumenDto> ConstruirResumenCuadreAsync(Caja caja, DateTime fechaCorte)
+        {
+            var ventas = await _context.Ventas
+                .Where(x =>
+                    x.Id_Caja == caja.Id_Caja &&
+                    x.Estado == "ACTIVA" &&
+                    x.Fecha >= caja.Fecha_Apertura &&
+                    x.Fecha <= fechaCorte)
+                .ToListAsync();
+
+            var movimientos = await _context.MovimientosCaja
+                .Where(x => x.Id_Caja == caja.Id_Caja)
+                .ToListAsync();
+
+            var gastos = await _context.Gastos
+                .Where(x =>
+                    x.Id_Sucursal == caja.Id_Sucursal &&
+                    x.Activo &&
+                    x.Fecha >= caja.Fecha_Apertura &&
+                    x.Fecha <= fechaCorte)
+                .ToListAsync();
+
+            var ventasTotal = ventas.Sum(x => x.Total);
+            var ventasEfectivo = ventas.Where(x => EsMetodoEfectivo(x.Metodo_Pago)).Sum(x => x.Total);
+            var ventasDelivery = ventas.Where(x => EsMetodoDelivery(x.Metodo_Pago)).Sum(x => x.Total);
+            var ventasPos = ventasTotal - ventasEfectivo - ventasDelivery;
+
+            var ingresosCaja = movimientos.Where(x => EsIngreso(x.Tipo)).Sum(x => x.Monto);
+            var egresosCaja = movimientos.Where(x => EsEgreso(x.Tipo)).Sum(x => x.Monto);
+            var totalGastos = gastos.Sum(x => x.Monto);
+
+            var efectivoEsperado = caja.Monto_Inicial + ventasEfectivo + ingresosCaja - egresosCaja - totalGastos;
+            var totalEsperado = efectivoEsperado + ventasPos + ventasDelivery;
+
+            var ventasPorMetodo = ventas
+                .GroupBy(x => (x.Metodo_Pago ?? string.Empty).Trim().ToUpper())
+                .Select(g => new
+                {
+                    metodo = string.IsNullOrWhiteSpace(g.Key) ? "SIN_METODO" : g.Key,
+                    total = g.Sum(x => x.Total),
+                    cantidad = g.Count()
+                })
+                .OrderByDescending(x => x.total)
+                .Cast<object>()
+                .ToList();
+
+            return new CuadreResumenDto
+            {
+                MontoInicial = caja.Monto_Inicial,
+                VentasTotal = ventasTotal,
+                VentasEfectivo = ventasEfectivo,
+                VentasPos = ventasPos,
+                VentasDelivery = ventasDelivery,
+                IngresosCaja = ingresosCaja,
+                EgresosCaja = egresosCaja,
+                Gastos = totalGastos,
+                EfectivoEsperado = efectivoEsperado,
+                TotalEsperado = totalEsperado,
+                VentasPorMetodo = ventasPorMetodo
+            };
+        }
+
+        [HttpGet("abiertas")]
+        public async Task<ActionResult> GetCajasAbiertas()
+        {
+            var cajas = await _context.Cajas
+                .Where(x => x.Estado == "ABIERTA")
+                .OrderByDescending(x => x.Fecha_Apertura)
+                .ToListAsync();
+
+            return Ok(cajas);
+        }
+
+        [HttpGet("cierres")]
+        public async Task<ActionResult> GetCierres(
+            [FromQuery] DateTime? desde = null,
+            [FromQuery] DateTime? hasta = null,
+            [FromQuery] int? idSucursal = null)
+        {
+            var rol = UserHelper.GetUserRole(User);
+            var idSucursalToken = UserHelper.GetSucursalId(User);
+
+            if (rol != "ADMIN" && !idSucursalToken.HasValue)
+                return BadRequest(new { message = "El usuario no tiene sucursal asignada" });
+
+            var query = _context.Cajas
+                .Where(x => x.Estado == "CERRADA")
+                .AsQueryable();
+
+            if (rol != "ADMIN")
+            {
+                query = query.Where(x => x.Id_Sucursal == idSucursalToken!.Value);
+            }
+            else if (idSucursal.HasValue)
+            {
+                query = query.Where(x => x.Id_Sucursal == idSucursal.Value);
+            }
+
+            if (desde.HasValue)
+                query = query.Where(x => x.Fecha_Cierre.HasValue && x.Fecha_Cierre.Value >= desde.Value);
+
+            if (hasta.HasValue)
+                query = query.Where(x => x.Fecha_Cierre.HasValue && x.Fecha_Cierre.Value <= hasta.Value);
+
+            var cajas = await query
+                .OrderByDescending(x => x.Fecha_Cierre)
+                .Take(300)
+                .ToListAsync();
+
+            var data = cajas.Select(c =>
+            {
+                bool? cuadro = null;
+                decimal? diferencia = null;
+                decimal? totalEsperado = null;
+                decimal? totalDeclarado = null;
+
+                if (!string.IsNullOrWhiteSpace(c.Observacion))
+                {
+                    try
+                    {
+                        using var doc = JsonDocument.Parse(c.Observacion);
+                        var root = doc.RootElement;
+                        if (root.TryGetProperty("cuadro", out var cuadroEl) && cuadroEl.ValueKind is JsonValueKind.True or JsonValueKind.False)
+                            cuadro = cuadroEl.GetBoolean();
+                        if (root.TryGetProperty("diferencia", out var difEl) && difEl.ValueKind == JsonValueKind.Number)
+                            diferencia = difEl.GetDecimal();
+                        if (root.TryGetProperty("esperado", out var espEl) &&
+                            espEl.TryGetProperty("TotalEsperado", out var teEl) &&
+                            teEl.ValueKind == JsonValueKind.Number)
+                            totalEsperado = teEl.GetDecimal();
+                        if (root.TryGetProperty("declarado", out var decEl) &&
+                            decEl.TryGetProperty("total", out var tdEl) &&
+                            tdEl.ValueKind == JsonValueKind.Number)
+                            totalDeclarado = tdEl.GetDecimal();
+                    }
+                    catch
+                    {
+                    }
+                }
+
+                return new
+                {
+                    c.Id_Caja,
+                    c.Id_Sucursal,
+                    c.Fecha_Apertura,
+                    c.Fecha_Cierre,
+                    c.Monto_Inicial,
+                    c.Monto_Cierre,
+                    cuadro,
+                    diferencia,
+                    totalEsperado,
+                    totalDeclarado
+                };
+            });
+
+            return Ok(data);
+        }
+
+        [HttpPost("abrir")]
+        public async Task<ActionResult> AbrirCaja([FromBody] Caja model)
+        {
+            var idUsuario = UserHelper.GetUserId(User);
+            var idSucursal = UserHelper.GetSucursalId(User);
+
+            if (!idUsuario.HasValue)
+                return Unauthorized(new { message = "Usuario no valido en el token" });
+
+            if (!idSucursal.HasValue)
+                return BadRequest(new { message = "El usuario no tiene sucursal asignada" });
+
+            var cajaAbierta = await _context.Cajas.AnyAsync(x =>
+                x.Id_Sucursal == idSucursal.Value && x.Estado == "ABIERTA");
+
+            if (cajaAbierta)
+                return BadRequest(new { message = "Ya existe una caja abierta en esta sucursal" });
+
+            model.Id_Sucursal = idSucursal.Value;
+            model.Id_Usuario_Apertura = idUsuario.Value;
+            model.Fecha_Apertura = FechaHelper.AhoraHonduras();
+            model.Estado = "ABIERTA";
+
+            _context.Cajas.Add(model);
+            await _context.SaveChangesAsync();
+
+            await BitacoraHelper.RegistrarAsync(_context, idUsuario.Value, "CAJA", "ABRIR", $"Caja #{model.Id_Caja} abierta");
+
+            return Ok(new { message = "Caja abierta correctamente", data = model });
+        }
+
+        [HttpGet("cuadre-previo/{idCaja}")]
+        public async Task<ActionResult> GetCuadrePrevio(int idCaja)
+        {
+            var cajaResult = await GetCajaValidadaAsync(idCaja);
+            if (cajaResult.Result != null) return cajaResult.Result;
+            var caja = cajaResult.Value!;
+
+            var fechaCorte = FechaHelper.AhoraHonduras();
+            var resumen = await ConstruirResumenCuadreAsync(caja, fechaCorte);
+
+            return Ok(new
+            {
+                caja = new
+                {
+                    caja.Id_Caja,
+                    caja.Id_Sucursal,
+                    caja.Fecha_Apertura,
+                    caja.Monto_Inicial,
+                    caja.Estado
+                },
+                resumen,
+                fechaCorte
+            });
+        }
+
+        [HttpGet("estado-cuenta/{idCaja}")]
+        public async Task<ActionResult> GetEstadoCuenta(int idCaja)
+        {
+            var cajaResult = await GetCajaValidadaAsync(idCaja);
+            if (cajaResult.Result != null) return cajaResult.Result;
+            var caja = cajaResult.Value!;
+
+            var fechaFinal = caja.Fecha_Cierre ?? FechaHelper.AhoraHonduras();
+            var resumen = await ConstruirResumenCuadreAsync(caja, fechaFinal);
+
+            var movimientos = await _context.MovimientosCaja
+                .Where(x => x.Id_Caja == idCaja)
+                .OrderBy(x => x.Fecha)
+                .ToListAsync();
+
+            var ventas = await _context.Ventas
+                .Where(x => x.Id_Caja == idCaja)
+                .OrderBy(x => x.Fecha)
+                .ToListAsync();
+
+            object? cierreData = null;
+            if (!string.IsNullOrWhiteSpace(caja.Observacion))
+            {
+                try
+                {
+                    cierreData = JsonSerializer.Deserialize<object>(caja.Observacion);
+                }
+                catch
+                {
+                    cierreData = new { observacion = caja.Observacion };
+                }
+            }
+
+            return Ok(new
+            {
+                caja,
+                resumen,
+                cierre = cierreData,
+                movimientos,
+                ventas
+            });
+        }
+
+        [HttpPost("cerrar/{idCaja}")]
+        public async Task<ActionResult> CerrarCaja(int idCaja, [FromBody] CierreCajaRequestDto request)
+        {
+            var idUsuario = UserHelper.GetUserId(User);
+            var idSucursal = UserHelper.GetSucursalId(User);
+
+            if (!idUsuario.HasValue)
+                return Unauthorized(new { message = "Usuario no valido en el token" });
+
+            if (!idSucursal.HasValue)
+                return BadRequest(new { message = "El usuario no tiene sucursal asignada" });
+
+            var caja = await _context.Cajas.FirstOrDefaultAsync(x =>
+                x.Id_Caja == idCaja &&
+                x.Id_Sucursal == idSucursal.Value);
+
+            if (caja == null)
+                return NotFound(new { message = "Caja no encontrada" });
+
+            if (caja.Estado == "CERRADA")
+                return BadRequest(new { message = "La caja ya esta cerrada" });
+
+            if (request.Monto_Cierre < 0)
+                return BadRequest(new { message = "El efectivo final no puede ser negativo" });
+
+            if ((request.Pos?.Any(x => x.Monto < 0) ?? false) || (request.Delivery?.Any(x => x.Monto < 0) ?? false))
+                return BadRequest(new { message = "No se permiten montos negativos en POS o delivery" });
+
+            if ((request.Pos?.Any(x => string.IsNullOrWhiteSpace(x.Canal)) ?? false) ||
+                (request.Delivery?.Any(x => string.IsNullOrWhiteSpace(x.Canal)) ?? false))
+            {
+                return BadRequest(new { message = "Cada linea de POS o delivery debe tener nombre de canal" });
+            }
+
+            var fechaCierre = FechaHelper.AhoraHonduras();
+            var resumen = await ConstruirResumenCuadreAsync(caja, fechaCierre);
+
+            var totalPosDeclarado = (request.Pos ?? new List<CanalMontoDto>()).Sum(x => x.Monto);
+            var totalDeliveryDeclarado = (request.Delivery ?? new List<CanalMontoDto>()).Sum(x => x.Monto);
+            var totalDeclarado = request.Monto_Cierre + totalPosDeclarado + totalDeliveryDeclarado;
+            var diferencia = totalDeclarado - resumen.TotalEsperado;
+            var cuadro = Math.Abs(diferencia) <= 0.01m;
+
+            var cierreDetalle = new
+            {
+                tipo = "CIERRE_CAJA_V2",
+                fechaCierre,
+                observacionUsuario = request.Observacion,
+                esperado = new
+                {
+                    resumen.EfectivoEsperado,
+                    resumen.VentasPos,
+                    resumen.VentasDelivery,
+                    resumen.TotalEsperado
+                },
+                declarado = new
+                {
+                    efectivo = request.Monto_Cierre,
+                    totalPos = totalPosDeclarado,
+                    totalDelivery = totalDeliveryDeclarado,
+                    total = totalDeclarado,
+                    pos = request.Pos ?? new List<CanalMontoDto>(),
+                    delivery = request.Delivery ?? new List<CanalMontoDto>()
+                },
+                diferencia,
+                cuadro
+            };
+
+            caja.Estado = "CERRADA";
+            caja.Id_Usuario_Cierre = idUsuario.Value;
+            caja.Fecha_Cierre = fechaCierre;
+            caja.Monto_Cierre = request.Monto_Cierre;
+            caja.Observacion = JsonSerializer.Serialize(cierreDetalle);
+
+            await _context.SaveChangesAsync();
+
+            await BitacoraHelper.RegistrarAsync(_context, idUsuario.Value, "CAJA", "CERRAR", $"Caja #{caja.Id_Caja} cerrada");
+
+            return Ok(new
+            {
+                message = cuadro ? "Caja cerrada correctamente. El cuadre coincide." : "Caja cerrada, pero el cuadre NO coincide.",
+                data = caja,
+                cuadre = new
+                {
+                    cuadro,
+                    diferencia,
+                    esperado = resumen.TotalEsperado,
+                    declarado = totalDeclarado
+                }
+            });
+        }
+    }
+}

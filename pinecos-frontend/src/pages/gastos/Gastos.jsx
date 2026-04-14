@@ -1,0 +1,144 @@
+import { useEffect, useState } from 'react';
+import api from '../../services/api';
+
+function Gastos() {
+  const [gastos, setGastos] = useState([]);
+  const [form, setForm] = useState({
+    categoria_Gasto: '',
+    descripcion: '',
+    monto: ''
+  });
+  const [error, setError] = useState('');
+  const [mensaje, setMensaje] = useState('');
+
+  const cargarGastos = async () => {
+    try {
+      const response = await api.get('/Gastos');
+      setGastos(response.data);
+    } catch (err) {
+      setError(err?.response?.data?.message || 'Error al cargar gastos');
+    }
+  };
+
+  const handleChange = (e) => {
+    setForm({
+      ...form,
+      [e.target.name]: e.target.value
+    });
+  };
+
+  const crearGasto = async (e) => {
+    e.preventDefault();
+    setError('');
+    setMensaje('');
+
+    try {
+      await api.post('/Gastos', {
+        categoria_Gasto: form.categoria_Gasto,
+        descripcion: form.descripcion,
+        monto: Number(form.monto)
+      });
+
+      setForm({
+        categoria_Gasto: '',
+        descripcion: '',
+        monto: ''
+      });
+
+      setMensaje('Gasto registrado correctamente');
+      cargarGastos();
+    } catch (err) {
+      setError(err?.response?.data?.message || 'Error al registrar gasto');
+    }
+  };
+
+  useEffect(() => {
+    cargarGastos();
+  }, []);
+
+  return (
+    <div>
+      <h2 className="mb-4">Gastos</h2>
+
+      <div className="card shadow-sm mb-4">
+        <div className="card-body">
+          <form onSubmit={crearGasto} className="row g-3">
+            <div className="col-md-3">
+              <label className="form-label">Categoría</label>
+              <input
+                type="text"
+                className="form-control"
+                name="categoria_Gasto"
+                value={form.categoria_Gasto}
+                onChange={handleChange}
+                placeholder="Ej: Insumos"
+                required
+              />
+            </div>
+
+            <div className="col-md-5">
+              <label className="form-label">Descripción</label>
+              <input
+                type="text"
+                className="form-control"
+                name="descripcion"
+                value={form.descripcion}
+                onChange={handleChange}
+                required
+              />
+            </div>
+
+            <div className="col-md-2">
+              <label className="form-label">Monto</label>
+              <input
+                type="number"
+                step="0.01"
+                className="form-control"
+                name="monto"
+                value={form.monto}
+                onChange={handleChange}
+                required
+              />
+            </div>
+
+            <div className="col-md-2 d-flex align-items-end">
+              <button className="btn btn-dark w-100">Guardar</button>
+            </div>
+          </form>
+
+          {mensaje && <div className="alert alert-success mt-3 mb-0">{mensaje}</div>}
+          {error && <div className="alert alert-danger mt-3 mb-0">{error}</div>}
+        </div>
+      </div>
+
+      <div className="card shadow-sm">
+        <div className="card-body">
+          <table className="table table-bordered align-middle">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Fecha</th>
+                <th>Categoría</th>
+                <th>Descripción</th>
+                <th>Monto</th>
+              </tr>
+            </thead>
+            <tbody>
+              {gastos.map((item) => (
+                <tr key={item.id_Gasto}>
+                  <td>{item.id_Gasto}</td>
+                  <td>{new Date(item.fecha).toLocaleString()}</td>
+                  <td>{item.categoria_Gasto}</td>
+                  <td>{item.descripcion}</td>
+                  <td>L {Number(item.monto || 0).toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default Gastos;
