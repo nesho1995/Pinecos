@@ -85,7 +85,7 @@ function MovimientosCaja() {
         <>
           <div className="card shadow-sm mb-4">
             <div className="card-body">
-              <h5>Caja actual #{cajaActual.id_Caja}</h5>
+              <h5>Caja #{cajaActual.id_Caja}</h5>
               <form onSubmit={guardarMovimiento} className="row g-3 mt-1">
                 <div className="col-md-3">
                   <label className="form-label">Tipo</label>
@@ -133,7 +133,7 @@ function MovimientosCaja() {
               <table className="table table-bordered align-middle">
                 <thead>
                   <tr>
-                    <th>ID</th>
+                    <th>Codigo</th>
                     <th>Fecha</th>
                     <th>Tipo</th>
                     <th>Descripción</th>

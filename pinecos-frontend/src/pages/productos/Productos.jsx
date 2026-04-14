@@ -210,7 +210,7 @@ function Productos() {
           <table className="table table-bordered align-middle">
             <thead>
               <tr>
-                <th>ID</th>
+                <th>Codigo</th>
                 <th>Nombre</th>
                 <th>Categoria</th>
                 <th>Costo</th>
@@ -262,3 +262,4 @@ function Productos() {
 }
 
 export default Productos;
+

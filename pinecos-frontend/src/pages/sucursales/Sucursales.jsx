@@ -201,7 +201,7 @@ function Sucursales() {
           <table className="table table-bordered align-middle">
             <thead>
               <tr>
-                <th>ID</th>
+                <th>Codigo</th>
                 <th>Nombre</th>
                 <th>Direccion</th>
                 <th>Telefono</th>
@@ -253,3 +253,4 @@ function Sucursales() {
 }
 
 export default Sucursales;
+

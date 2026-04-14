@@ -159,7 +159,7 @@ function Presentaciones() {
           <table className="table table-bordered align-middle">
             <thead>
               <tr>
-                <th>ID</th>
+                <th>Codigo</th>
                 <th>Nombre</th>
                 <th>Onzas</th>
                 <th style={{ width: '180px' }}>Acciones</th>

@@ -215,7 +215,7 @@ function Usuarios() {
           <table className="table table-bordered align-middle">
             <thead>
               <tr>
-                <th>ID</th>
+                <th>Codigo</th>
                 <th>Nombre</th>
                 <th>Usuario</th>
                 <th>Rol</th>
@@ -266,3 +266,4 @@ function Usuarios() {
 }
 
 export default Usuarios;
+

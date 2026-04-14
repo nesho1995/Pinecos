@@ -208,7 +208,7 @@ function EstadoCuenta() {
       {detalle && (
         <div className="card shadow-sm">
           <div className="card-body">
-            <h5 className="mb-3">Detalle caja #{detalle?.caja?.id_Caja}</h5>
+            <h5 className="mb-3">Detalle de caja #{detalle?.caja?.id_Caja}</h5>
             <div className="row g-3">
               <div className="col-md-3"><strong>Inicial:</strong> L {Number(detalle?.caja?.monto_Inicial || 0).toFixed(2)}</div>
               <div className="col-md-3"><strong>Cierre:</strong> L {Number(detalle?.caja?.monto_Cierre || 0).toFixed(2)}</div>
@@ -223,3 +223,4 @@ function EstadoCuenta() {
 }
 
 export default EstadoCuenta;
+

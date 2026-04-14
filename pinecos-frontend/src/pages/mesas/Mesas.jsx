@@ -524,7 +524,7 @@ function Mesas() {
               <table className="table table-bordered align-middle">
                 <thead>
                   <tr>
-                    <th>ID</th><th>Nombre</th><th>Cap.</th><th>Forma</th><th>Posicion</th><th>Tamano</th><th>Estado</th><th>Acciones</th>
+                    <th>Codigo</th><th>Nombre</th><th>Cap.</th><th>Forma</th><th>Posicion</th><th>Tamano</th><th>Estado</th><th>Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -747,5 +747,6 @@ function Mesas() {
 }
 
 export default Mesas;
+
 
 

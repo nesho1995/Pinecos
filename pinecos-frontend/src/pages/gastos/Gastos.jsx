@@ -127,7 +127,7 @@ function Gastos() {
           <table className="table table-bordered align-middle">
             <thead>
               <tr>
-                <th>ID</th>
+                <th>Codigo</th>
                 <th>Fecha</th>
                 <th>Categoria</th>
                 <th>Descripcion</th>
@@ -162,3 +162,4 @@ function Gastos() {
 }
 
 export default Gastos;
+

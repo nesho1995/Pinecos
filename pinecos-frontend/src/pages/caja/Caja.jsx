@@ -191,7 +191,7 @@ function Caja() {
             <div className="card shadow-sm">
               <div className="card-body">
                 <h5>Caja abierta</h5>
-                <p><strong>ID Caja:</strong> {cajaActual.id_Caja}</p>
+                <p><strong>Caja:</strong> {cajaActual.id_Caja}</p>
                 <p><strong>Sucursal:</strong> {cajaActual.id_Sucursal}</p>
                 <p><strong>Fecha apertura:</strong> {new Date(cajaActual.fecha_Apertura).toLocaleString('es-HN')}</p>
                 <p><strong>Monto inicial:</strong> L {Number(cajaActual.monto_Inicial || 0).toFixed(2)}</p>
@@ -265,3 +265,4 @@ function Caja() {
 }
 
 export default Caja;
+
