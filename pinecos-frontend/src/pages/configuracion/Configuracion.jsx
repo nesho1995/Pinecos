@@ -37,6 +37,10 @@ function Configuracion() {
     delivery: ['PEDIDOS_YA'],
     requiereMontoEnTodos: true
   });
+  const [ajustesVentaForm, setAjustesVentaForm] = useState({
+    descuentos: [],
+    impuestos: []
+  });
 
   const cargarSucursales = async () => {
     try {
@@ -82,6 +86,16 @@ function Configuracion() {
       pos: data.pos || ['POS 1'],
       delivery: data.delivery || ['PEDIDOS_YA'],
       requiereMontoEnTodos: data.requiereMontoEnTodos ?? true
+    });
+  };
+
+  const cargarAjustesVentaSucursal = async (idSucursal) => {
+    if (!idSucursal) return;
+    const res = await api.get('/AjustesVenta', { params: { idSucursal: Number(idSucursal) } });
+    const data = res.data || {};
+    setAjustesVentaForm({
+      descuentos: data.descuentos || [],
+      impuestos: data.impuestos || []
     });
   };
 
@@ -200,6 +214,72 @@ function Configuracion() {
     }
   };
 
+  const updateAjuste = (tipo, index, field, value) => {
+    setAjustesVentaForm((prev) => {
+      const list = [...(prev[tipo] || [])];
+      list[index] = { ...list[index], [field]: value };
+      return { ...prev, [tipo]: list };
+    });
+  };
+
+  const addAjuste = (tipo) => {
+    const prefijo = tipo === 'descuentos' ? 'DESC' : 'IMP';
+    setAjustesVentaForm((prev) => ({
+      ...prev,
+      [tipo]: [
+        ...(prev[tipo] || []),
+        {
+          codigo: `${prefijo}_${Date.now()}`,
+          nombre: '',
+          tipoCalculo: 'PORCENTAJE',
+          valor: 0,
+          permiteEditarMonto: false,
+          activo: true
+        }
+      ]
+    }));
+  };
+
+  const removeAjuste = (tipo, index) => {
+    setAjustesVentaForm((prev) => ({
+      ...prev,
+      [tipo]: (prev[tipo] || []).filter((_, i) => i !== index)
+    }));
+  };
+
+  const guardarAjustesVenta = async (e) => {
+    e.preventDefault();
+    setMensaje('');
+    setError('');
+    if (!sucursalSar) return setError('Selecciona una sucursal');
+
+    const normalizar = (list) => (list || []).map((x) => ({
+      codigo: String(x.codigo || '').trim().toUpperCase(),
+      nombre: String(x.nombre || '').trim(),
+      tipoCalculo: String(x.tipoCalculo || 'NINGUNO').trim().toUpperCase(),
+      valor: Number(x.valor || 0),
+      permiteEditarMonto: !!x.permiteEditarMonto,
+      activo: !!x.activo
+    }));
+
+    const payload = {
+      idSucursal: Number(sucursalSar),
+      descuentos: normalizar(ajustesVentaForm.descuentos).filter((x) => x.codigo && x.nombre),
+      impuestos: normalizar(ajustesVentaForm.impuestos).filter((x) => x.codigo && x.nombre)
+    };
+
+    if (payload.descuentos.length === 0) return setError('Debes configurar al menos un descuento');
+    if (payload.impuestos.length === 0) return setError('Debes configurar al menos un impuesto');
+
+    try {
+      await api.put('/AjustesVenta', payload, { params: { idSucursal: Number(sucursalSar) } });
+      setMensaje('Ajustes de descuentos/impuestos guardados correctamente');
+      await cargarAjustesVentaSucursal(sucursalSar);
+    } catch (err) {
+      setError(err?.response?.data?.message || 'Error al guardar ajustes de venta');
+    }
+  };
+
   useEffect(() => {
     cargarConfiguracion();
   }, []);
@@ -211,6 +291,9 @@ function Configuracion() {
     });
     cargarCanalesSucursal(sucursalSar).catch((err) => {
       setError(err?.response?.data?.message || 'Error al cargar canales de cuadre');
+    });
+    cargarAjustesVentaSucursal(sucursalSar).catch((err) => {
+      setError(err?.response?.data?.message || 'Error al cargar ajustes de venta');
     });
   }, [sucursalSar]);
 
@@ -380,6 +463,92 @@ function Configuracion() {
               </tbody>
             </table>
           </div>
+        </div>
+      </div>
+
+      <div className="card shadow-sm mt-4">
+        <div className="card-body">
+          <h5 className="mb-3">Descuentos e Impuestos por Sucursal</h5>
+          <form onSubmit={guardarAjustesVenta} className="row g-3">
+            <div className="col-12">
+              <small className="text-muted">Define que opciones aparecen en POS/Mesas. Puedes agregar, activar/desactivar y eliminar.</small>
+            </div>
+
+            <div className="col-md-6">
+              <div className="d-flex justify-content-between align-items-center mb-2">
+                <label className="form-label mb-0">Descuentos</label>
+                <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => addAjuste('descuentos')}>Agregar</button>
+              </div>
+              {(ajustesVentaForm.descuentos || []).map((x, i) => (
+                <div className="border rounded p-2 mb-2" key={`desc-${i}`}>
+                  <div className="row g-2">
+                    <div className="col-md-4"><input className="form-control" placeholder="Codigo" value={x.codigo || ''} onChange={(e) => updateAjuste('descuentos', i, 'codigo', e.target.value)} /></div>
+                    <div className="col-md-8"><input className="form-control" placeholder="Nombre" value={x.nombre || ''} onChange={(e) => updateAjuste('descuentos', i, 'nombre', e.target.value)} /></div>
+                    <div className="col-md-4">
+                      <select className="form-select" value={x.tipoCalculo || 'NINGUNO'} onChange={(e) => updateAjuste('descuentos', i, 'tipoCalculo', e.target.value)}>
+                        <option value="NINGUNO">Sin descuento</option>
+                        <option value="PORCENTAJE">Porcentaje</option>
+                        <option value="MONTO">Monto</option>
+                      </select>
+                    </div>
+                    <div className="col-md-3"><input type="number" step="0.01" min="0" className="form-control" placeholder="Valor" value={x.valor ?? 0} onChange={(e) => updateAjuste('descuentos', i, 'valor', e.target.value)} /></div>
+                    <div className="col-md-3 d-flex align-items-center">
+                      <div className="form-check">
+                        <input className="form-check-input" type="checkbox" checked={!!x.permiteEditarMonto} onChange={(e) => updateAjuste('descuentos', i, 'permiteEditarMonto', e.target.checked)} />
+                        <label className="form-check-label">Manual</label>
+                      </div>
+                    </div>
+                    <div className="col-md-2 d-flex align-items-center justify-content-between">
+                      <div className="form-check form-switch">
+                        <input className="form-check-input" type="checkbox" checked={!!x.activo} onChange={(e) => updateAjuste('descuentos', i, 'activo', e.target.checked)} />
+                      </div>
+                      <button type="button" className="btn btn-sm btn-outline-danger" onClick={() => removeAjuste('descuentos', i)}>Quitar</button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="col-md-6">
+              <div className="d-flex justify-content-between align-items-center mb-2">
+                <label className="form-label mb-0">Impuestos</label>
+                <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => addAjuste('impuestos')}>Agregar</button>
+              </div>
+              {(ajustesVentaForm.impuestos || []).map((x, i) => (
+                <div className="border rounded p-2 mb-2" key={`imp-${i}`}>
+                  <div className="row g-2">
+                    <div className="col-md-4"><input className="form-control" placeholder="Codigo" value={x.codigo || ''} onChange={(e) => updateAjuste('impuestos', i, 'codigo', e.target.value)} /></div>
+                    <div className="col-md-8"><input className="form-control" placeholder="Nombre" value={x.nombre || ''} onChange={(e) => updateAjuste('impuestos', i, 'nombre', e.target.value)} /></div>
+                    <div className="col-md-4">
+                      <select className="form-select" value={x.tipoCalculo || 'NINGUNO'} onChange={(e) => updateAjuste('impuestos', i, 'tipoCalculo', e.target.value)}>
+                        <option value="NINGUNO">Exento</option>
+                        <option value="PORCENTAJE">Porcentaje</option>
+                        <option value="MONTO">Monto</option>
+                        <option value="INCLUIDO_PORCENTAJE">Incluido en precio (%)</option>
+                      </select>
+                    </div>
+                    <div className="col-md-3"><input type="number" step="0.01" min="0" className="form-control" placeholder="Valor" value={x.valor ?? 0} onChange={(e) => updateAjuste('impuestos', i, 'valor', e.target.value)} /></div>
+                    <div className="col-md-3 d-flex align-items-center">
+                      <div className="form-check">
+                        <input className="form-check-input" type="checkbox" checked={!!x.permiteEditarMonto} onChange={(e) => updateAjuste('impuestos', i, 'permiteEditarMonto', e.target.checked)} />
+                        <label className="form-check-label">Manual</label>
+                      </div>
+                    </div>
+                    <div className="col-md-2 d-flex align-items-center justify-content-between">
+                      <div className="form-check form-switch">
+                        <input className="form-check-input" type="checkbox" checked={!!x.activo} onChange={(e) => updateAjuste('impuestos', i, 'activo', e.target.checked)} />
+                      </div>
+                      <button type="button" className="btn btn-sm btn-outline-danger" onClick={() => removeAjuste('impuestos', i)}>Quitar</button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="col-12">
+              <button className="btn btn-dark" type="submit">Guardar descuentos/impuestos</button>
+            </div>
+          </form>
         </div>
       </div>
 

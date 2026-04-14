@@ -3,21 +3,6 @@ import api from '../../services/api';
 import { imprimirTicketHtml } from '../../utils/printTicket';
 import { getUsuario } from '../../utils/auth';
 
-const descuentoOpciones = [
-  { value: 'NINGUNO', label: 'Sin descuento' },
-  { value: 'PORC_5', label: '5% descuento' },
-  { value: 'PORC_10', label: '10% descuento' },
-  { value: 'PORC_15', label: '15% descuento' },
-  { value: 'MANUAL', label: 'Manual (L)' }
-];
-
-const impuestoOpciones = [
-  { value: 'INCLUIDO_15', label: 'Incluido en precio (15%)' },
-  { value: 'EXENTO', label: 'Exento (0%)' },
-  { value: 'AGREGAR_15', label: 'Agregar 15%' },
-  { value: 'MANUAL', label: 'Manual (L)' }
-];
-
 function VentasPOS() {
   const usuario = getUsuario();
   const idSucursalUsuario = usuario?.id_Sucursal ?? usuario?.id_sucursal ?? null;
@@ -32,6 +17,7 @@ function VentasPOS() {
   const [descuentoManual, setDescuentoManual] = useState('0');
   const [modoImpuesto, setModoImpuesto] = useState('INCLUIDO_15');
   const [impuestoManual, setImpuestoManual] = useState('0');
+  const [ajustesVenta, setAjustesVenta] = useState({ descuentos: [], impuestos: [] });
   const [facturacionSar, setFacturacionSar] = useState({ habilitadoCai: false });
   const [emitirFactura, setEmitirFactura] = useState(false);
   const [mensaje, setMensaje] = useState('');
@@ -51,6 +37,15 @@ function VentasPOS() {
     } catch {
       setFacturacionSar({ habilitadoCai: false });
     }
+  };
+
+  const cargarAjustesVenta = async () => {
+    if (!idSucursalUsuario) return;
+    const response = await api.get('/AjustesVenta', { params: { idSucursal: Number(idSucursalUsuario) } });
+    setAjustesVenta({
+      descuentos: response.data?.descuentos || [],
+      impuestos: response.data?.impuestos || []
+    });
   };
 
   const cargarMenuSucursal = async () => {
@@ -84,7 +79,7 @@ function VentasPOS() {
   useEffect(() => {
     const init = async () => {
       try {
-        await Promise.all([cargarCajaActual(), cargarMenuSucursal(), cargarFacturacionSar()]);
+        await Promise.all([cargarCajaActual(), cargarMenuSucursal(), cargarFacturacionSar(), cargarAjustesVenta()]);
       } catch (err) {
         setError(err?.response?.data?.message || 'Error al cargar POS');
       }
@@ -96,6 +91,30 @@ function VentasPOS() {
     const unique = [...new Set(productos.map((p) => p.categoria).filter(Boolean))];
     return unique.sort((a, b) => a.localeCompare(b));
   }, [productos]);
+
+  const descuentosActivos = useMemo(
+    () => (ajustesVenta.descuentos || []).filter((x) => x.activo),
+    [ajustesVenta.descuentos]
+  );
+
+  const impuestosActivos = useMemo(
+    () => (ajustesVenta.impuestos || []).filter((x) => x.activo),
+    [ajustesVenta.impuestos]
+  );
+
+  useEffect(() => {
+    if (!descuentosActivos.some((x) => x.codigo === modoDescuento)) {
+      setModoDescuento(descuentosActivos[0]?.codigo || 'NINGUNO');
+      setDescuentoManual('0');
+    }
+  }, [descuentosActivos, modoDescuento]);
+
+  useEffect(() => {
+    if (!impuestosActivos.some((x) => x.codigo === modoImpuesto)) {
+      setModoImpuesto(impuestosActivos[0]?.codigo || 'INCLUIDO_15');
+      setImpuestoManual('0');
+    }
+  }, [impuestosActivos, modoImpuesto]);
 
   const limpiarMensajes = () => {
     setMensaje('');
@@ -169,33 +188,38 @@ function VentasPOS() {
 
   const subtotal = carrito.reduce((acc, item) => acc + Number(item.subtotal || 0), 0);
 
+  const descuentoSeleccionado = descuentosActivos.find((x) => x.codigo === modoDescuento) || null;
+  const impuestoSeleccionado = impuestosActivos.find((x) => x.codigo === modoImpuesto) || null;
+
   const descuentoCalculado = useMemo(() => {
-    switch (modoDescuento) {
-      case 'PORC_5': return subtotal * 0.05;
-      case 'PORC_10': return subtotal * 0.10;
-      case 'PORC_15': return subtotal * 0.15;
-      case 'MANUAL': return Number(descuentoManual || 0);
-      default: return 0;
-    }
-  }, [modoDescuento, descuentoManual, subtotal]);
+    if (!descuentoSeleccionado) return 0;
+    const tipo = String(descuentoSeleccionado.tipoCalculo || '').toUpperCase();
+    const valor = Number(descuentoSeleccionado.valor || 0);
+    if (tipo === 'PORCENTAJE') return subtotal * (valor / 100);
+    if (tipo === 'MONTO') return descuentoSeleccionado.permiteEditarMonto ? Number(descuentoManual || 0) : valor;
+    return 0;
+  }, [descuentoSeleccionado, descuentoManual, subtotal]);
 
-  const impuestoCalculado = useMemo(() => {
-    switch (modoImpuesto) {
-      case 'AGREGAR_15':
-        return subtotal * 0.15;
-      case 'MANUAL':
-        return Number(impuestoManual || 0);
-      case 'INCLUIDO_15':
-        return subtotal > 0 ? subtotal * (15 / 115) : 0;
-      case 'EXENTO':
-      default:
-        return 0;
+  const { impuestoCalculado, impuestoIncluidoEnSubtotal } = useMemo(() => {
+    if (!impuestoSeleccionado) return { impuestoCalculado: 0, impuestoIncluidoEnSubtotal: false };
+    const tipo = String(impuestoSeleccionado.tipoCalculo || '').toUpperCase();
+    const valor = Number(impuestoSeleccionado.valor || 0);
+    if (tipo === 'PORCENTAJE') return { impuestoCalculado: subtotal * (valor / 100), impuestoIncluidoEnSubtotal: false };
+    if (tipo === 'MONTO') {
+      return {
+        impuestoCalculado: impuestoSeleccionado.permiteEditarMonto ? Number(impuestoManual || 0) : valor,
+        impuestoIncluidoEnSubtotal: false
+      };
     }
-  }, [modoImpuesto, impuestoManual, subtotal]);
+    if (tipo === 'INCLUIDO_PORCENTAJE') {
+      const imp = subtotal > 0 ? subtotal * (valor / (100 + valor)) : 0;
+      return { impuestoCalculado: imp, impuestoIncluidoEnSubtotal: true };
+    }
+    return { impuestoCalculado: 0, impuestoIncluidoEnSubtotal: false };
+  }, [impuestoSeleccionado, impuestoManual, subtotal]);
 
-  const impuestoIncluidoEnSubtotal = modoImpuesto === 'INCLUIDO_15';
-  const impuestoASumar = impuestoIncluidoEnSubtotal ? 0 : impuestoCalculado;
-  const total = subtotal - descuentoCalculado + impuestoASumar;
+  const subtotalBase = subtotal - (impuestoIncluidoEnSubtotal ? impuestoCalculado : 0);
+  const total = subtotalBase - descuentoCalculado + impuestoCalculado;
   const costoTotal = carrito.reduce((acc, item) => acc + Number(item.costo_Unitario || 0) * Number(item.cantidad || 0), 0);
   const utilidadBruta = total - costoTotal;
 
@@ -204,6 +228,7 @@ function VentasPOS() {
     if (!cajaActual?.abierta) return setError('No hay caja abierta');
     if (carrito.length === 0) return setError('Agrega productos al carrito');
     if (descuentoCalculado < 0 || impuestoCalculado < 0) return setError('Descuento e impuesto no pueden ser negativos');
+    if (subtotalBase < 0) return setError('El subtotal base no puede ser negativo');
     if (total < 0) return setError('El total no puede ser negativo');
 
     try {
@@ -358,7 +383,7 @@ function VentasPOS() {
                   </select>
                 </div>
 
-                {facturacionSar?.habilitadoCai && (
+                  {facturacionSar?.habilitadoCai && (
                   <div className="form-check mb-2">
                     <input
                       className="form-check-input"
@@ -377,10 +402,10 @@ function VentasPOS() {
                   <div className="col-12">
                     <label className="form-label mb-1">Descuento</label>
                     <select className="form-select" value={modoDescuento} onChange={(e) => setModoDescuento(e.target.value)}>
-                      {descuentoOpciones.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                      {descuentosActivos.map((opt) => <option key={opt.codigo} value={opt.codigo}>{opt.nombre}</option>)}
                     </select>
                   </div>
-                  {modoDescuento === 'MANUAL' && (
+                  {descuentoSeleccionado?.permiteEditarMonto && (
                     <div className="col-12">
                       <input type="number" min="0" step="0.01" className="form-control" value={descuentoManual} onChange={(e) => setDescuentoManual(e.target.value)} placeholder="Monto descuento" />
                     </div>
@@ -391,10 +416,10 @@ function VentasPOS() {
                   <div className="col-12">
                     <label className="form-label mb-1">Impuesto</label>
                     <select className="form-select" value={modoImpuesto} onChange={(e) => setModoImpuesto(e.target.value)}>
-                      {impuestoOpciones.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                      {impuestosActivos.map((opt) => <option key={opt.codigo} value={opt.codigo}>{opt.nombre}</option>)}
                     </select>
                   </div>
-                  {modoImpuesto === 'MANUAL' && (
+                  {impuestoSeleccionado?.permiteEditarMonto && (
                     <div className="col-12">
                       <input type="number" min="0" step="0.01" className="form-control" value={impuestoManual} onChange={(e) => setImpuestoManual(e.target.value)} placeholder="Monto impuesto" />
                     </div>
@@ -402,7 +427,7 @@ function VentasPOS() {
                 </div>
 
                 <div className="bg-dark text-white rounded p-3 mb-3">
-                  <div className="d-flex justify-content-between"><span>Subtotal</span><strong>L {subtotal.toFixed(2)}</strong></div>
+                  <div className="d-flex justify-content-between"><span>Subtotal base</span><strong>L {subtotalBase.toFixed(2)}</strong></div>
                   <div className="d-flex justify-content-between"><span>Descuento</span><strong>L {descuentoCalculado.toFixed(2)}</strong></div>
                   <div className="d-flex justify-content-between"><span>Impuesto</span><strong>L {impuestoCalculado.toFixed(2)}</strong></div>
                   {impuestoIncluidoEnSubtotal && <div className="small text-warning">Impuesto incluido en precios (no se suma al total)</div>}

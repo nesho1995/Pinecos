@@ -98,8 +98,13 @@ namespace Pinecos.Controllers
             if (request.Descuento < 0 || request.Impuesto < 0)
                 return BadRequest(new { message = "Descuento e impuesto no pueden ser negativos" });
 
-            var impuestoAplicado = request.ImpuestoIncluidoEnSubtotal ? 0 : request.Impuesto;
-            var total = subtotal - request.Descuento + impuestoAplicado;
+            var subtotalBase = request.ImpuestoIncluidoEnSubtotal ? subtotal - request.Impuesto : subtotal;
+            if (subtotalBase < 0)
+                return BadRequest(new { message = "El impuesto no puede ser mayor al subtotal" });
+
+            var total = subtotalBase - request.Descuento + request.Impuesto;
+            if (total < 0)
+                return BadRequest(new { message = "El total no puede ser negativo" });
 
             using var transaction = await _context.Database.BeginTransactionAsync();
 
@@ -138,7 +143,7 @@ namespace Pinecos.Controllers
                     Id_Sucursal = idSucursal.Value,
                     Id_Usuario = idUsuario.Value,
                     Fecha = FechaHelper.AhoraHonduras(),
-                    Subtotal = subtotal,
+                    Subtotal = subtotalBase,
                     Descuento = request.Descuento,
                     Impuesto = request.Impuesto,
                     Total = total,

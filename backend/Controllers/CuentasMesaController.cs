@@ -271,9 +271,14 @@ namespace Pinecos.Controllers
 
             try
             {
-                var subtotal = detallesCuenta.Sum(x => x.Subtotal);
-                var impuestoAplicado = request.ImpuestoIncluidoEnSubtotal ? 0 : request.Impuesto;
-                var total = subtotal - request.Descuento + impuestoAplicado;
+                var subtotalBruto = detallesCuenta.Sum(x => x.Subtotal);
+                var subtotalBase = request.ImpuestoIncluidoEnSubtotal ? subtotalBruto - request.Impuesto : subtotalBruto;
+                if (subtotalBase < 0)
+                    return BadRequest(new { message = "El impuesto no puede ser mayor al subtotal" });
+
+                var total = subtotalBase - request.Descuento + request.Impuesto;
+                if (total < 0)
+                    return BadRequest(new { message = "El total no puede ser negativo" });
 
                 FacturaEmitidaDto? factura = null;
                 if (request.EmitirFactura)
@@ -308,7 +313,7 @@ namespace Pinecos.Controllers
                     Id_Sucursal = idSucursal.Value,
                     Id_Usuario = idUsuario.Value,
                     Fecha = FechaHelper.AhoraHonduras(),
-                    Subtotal = subtotal,
+                    Subtotal = subtotalBase,
                     Descuento = request.Descuento,
                     Impuesto = request.Impuesto,
                     Total = total,
