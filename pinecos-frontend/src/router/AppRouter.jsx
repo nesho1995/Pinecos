@@ -18,6 +18,7 @@ import Bitacora from '../pages/bitacora/Bitacora';
 import EstadoCuenta from '../pages/estadocuenta/EstadoCuenta';
 import Layout from '../components/layout/Layout';
 import ProtectedRoute from '../components/ProtectedRoute';
+import RoleRoute from '../components/RoleRoute';
 
 function AppRouter() {
   return (
@@ -35,21 +36,21 @@ function AppRouter() {
         >
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />
-          <Route path="categorias" element={<Categorias />} />
-          <Route path="productos" element={<Productos />} />
-          <Route path="presentaciones" element={<Presentaciones />} />
-          <Route path="menu-sucursal" element={<MenuSucursal />} />
-          <Route path="sucursales" element={<Sucursales />} />
-          <Route path="usuarios" element={<Usuarios />} />
-          <Route path="configuracion" element={<Configuracion />} />
+          <Route path="categorias" element={<RoleRoute allowedRoles={['ADMIN']}><Categorias /></RoleRoute>} />
+          <Route path="productos" element={<RoleRoute allowedRoles={['ADMIN']}><Productos /></RoleRoute>} />
+          <Route path="presentaciones" element={<RoleRoute allowedRoles={['ADMIN']}><Presentaciones /></RoleRoute>} />
+          <Route path="menu-sucursal" element={<RoleRoute allowedRoles={['ADMIN']}><MenuSucursal /></RoleRoute>} />
+          <Route path="sucursales" element={<RoleRoute allowedRoles={['ADMIN']}><Sucursales /></RoleRoute>} />
+          <Route path="usuarios" element={<RoleRoute allowedRoles={['ADMIN']}><Usuarios /></RoleRoute>} />
+          <Route path="configuracion" element={<RoleRoute allowedRoles={['ADMIN']}><Configuracion /></RoleRoute>} />
           <Route path="caja" element={<Caja />} />
           <Route path="movimientos-caja" element={<MovimientosCaja />} />
           <Route path="gastos" element={<Gastos />} />
           <Route path="ventas" element={<VentasPOS />} />
           <Route path="mesas" element={<Mesas />} />
-          <Route path="reportes" element={<Reportes />} />
-          <Route path="estado-cuenta" element={<EstadoCuenta />} />
-          <Route path="bitacora" element={<Bitacora />} />
+          <Route path="reportes" element={<RoleRoute allowedRoles={['ADMIN']}><Reportes /></RoleRoute>} />
+          <Route path="estado-cuenta" element={<RoleRoute allowedRoles={['ADMIN']}><EstadoCuenta /></RoleRoute>} />
+          <Route path="bitacora" element={<RoleRoute allowedRoles={['ADMIN']}><Bitacora /></RoleRoute>} />
         </Route>
 
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

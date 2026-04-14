@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom';
+import { isAdmin } from '../../utils/auth';
 
 const sections = [
   {
@@ -30,6 +31,19 @@ const sections = [
 ];
 
 function Sidebar() {
+  const admin = isAdmin();
+  const visibleSections = sections
+    .map((section) => ({
+      ...section,
+      items: section.items.filter((item) => {
+        if (admin) return true;
+        if (item.to === '/reportes' || item.to === '/estado-cuenta') return false;
+        if (section.title === 'Administracion') return false;
+        return true;
+      })
+    }))
+    .filter((section) => section.items.length > 0);
+
   return (
     <aside className="app-sidebar p-3">
       <div className="brand-block mb-3">
@@ -37,7 +51,7 @@ function Sidebar() {
         <div className="brand-subtitle">Sistema de cafeteria</div>
       </div>
 
-      {sections.map((section) => (
+      {visibleSections.map((section) => (
         <div key={section.title} className="sidebar-section mb-3">
           <div className="sidebar-section-title">{section.title}</div>
           <nav className="nav flex-column gap-1">

@@ -1,14 +1,16 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.IdentityModel.Tokens;
 using Pinecos.Data;
 using Pinecos.DTOs;
+using Pinecos.Helpers;
 using Pinecos.Models;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using Microsoft.AspNetCore.Authorization;
-using Pinecos.Helpers;
 
 namespace Pinecos.Controllers
 {
@@ -18,42 +20,90 @@ namespace Pinecos.Controllers
     {
         private readonly PinecosDbContext _context;
         private readonly IConfiguration _config;
+        private readonly IMemoryCache _cache;
 
-        public AuthController(PinecosDbContext context, IConfiguration config)
+        private sealed class LoginFailState
+        {
+            public int IntentosFallidos { get; set; }
+            public DateTime PrimerIntentoUtc { get; set; }
+            public DateTime? BloqueadoHastaUtc { get; set; }
+        }
+
+        public AuthController(PinecosDbContext context, IConfiguration config, IMemoryCache cache)
         {
             _context = context;
             _config = config;
+            _cache = cache;
         }
 
         [HttpPost("login")]
+        [EnableRateLimiting("auth-login")]
         public async Task<IActionResult> Login(
             [FromBody] LoginRequestDto? body,
             [FromQuery] string? usuario,
             [FromQuery] string? clave)
         {
-            var usuarioValue = body?.Usuario ?? usuario;
+            var usuarioValue = (body?.Usuario ?? usuario)?.Trim();
             var claveValue = body?.Clave ?? clave;
 
             if (string.IsNullOrWhiteSpace(usuarioValue) || string.IsNullOrWhiteSpace(claveValue))
                 return BadRequest(new { message = "Usuario y clave son requeridos" });
 
+            var userKey = usuarioValue.ToLowerInvariant();
+            var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            var lockKey = $"auth:login:{ip}:{userKey}";
+            var nowUtc = DateTime.UtcNow;
+
+            if (_cache.TryGetValue<LoginFailState>(lockKey, out var estadoActual) &&
+                estadoActual?.BloqueadoHastaUtc.HasValue == true &&
+                estadoActual.BloqueadoHastaUtc.Value > nowUtc)
+            {
+                return StatusCode(StatusCodes.Status429TooManyRequests, new
+                {
+                    message = "Demasiados intentos fallidos. Espera unos minutos antes de reintentar."
+                });
+            }
+
             var user = await _context.Usuarios
                 .FirstOrDefaultAsync(u => u.UsuarioLogin == usuarioValue && u.Activo);
 
-            if (user == null)
-                return Unauthorized(new { message = "Usuario no encontrado" });
+            var credencialesValidas = user != null && BCrypt.Net.BCrypt.Verify(claveValue, user.Clave);
 
-            if (!BCrypt.Net.BCrypt.Verify(claveValue, user.Clave))
-                return Unauthorized(new { message = "Clave incorrecta" });
+            if (!credencialesValidas)
+            {
+                var estado = estadoActual ?? new LoginFailState
+                {
+                    IntentosFallidos = 0,
+                    PrimerIntentoUtc = nowUtc
+                };
 
-            var token = GenerateToken(user);
+                // Reinicia ventana de intentos cada 15 minutos.
+                if (nowUtc - estado.PrimerIntentoUtc > TimeSpan.FromMinutes(15))
+                {
+                    estado.IntentosFallidos = 0;
+                    estado.PrimerIntentoUtc = nowUtc;
+                    estado.BloqueadoHastaUtc = null;
+                }
+
+                estado.IntentosFallidos++;
+                if (estado.IntentosFallidos >= 5)
+                    estado.BloqueadoHastaUtc = nowUtc.AddMinutes(15);
+
+                _cache.Set(lockKey, estado, TimeSpan.FromMinutes(30));
+
+                return Unauthorized(new { message = "Credenciales invalidas" });
+            }
+
+            _cache.Remove(lockKey);
+
+            var token = GenerateToken(user!);
 
             return Ok(new
             {
                 token,
                 usuario = new
                 {
-                    user.Id_Usuario,
+                    user!.Id_Usuario,
                     user.Nombre,
                     user.UsuarioLogin,
                     user.Rol,
@@ -61,6 +111,7 @@ namespace Pinecos.Controllers
                 }
             });
         }
+
         [HttpGet("me")]
         [Authorize]
         public IActionResult Me()
@@ -78,24 +129,25 @@ namespace Pinecos.Controllers
                 idSucursal
             });
         }
+
         private string GenerateToken(Usuario user)
         {
-            var jwtKey = _config["Jwt:Key"] ?? throw new Exception("Jwt:Key no está configurado");
-            var issuer = _config["Jwt:Issuer"] ?? throw new Exception("Jwt:Issuer no está configurado");
-            var audience = _config["Jwt:Audience"] ?? throw new Exception("Jwt:Audience no está configurado");
+            var jwtKey = _config["Jwt:Key"] ?? throw new Exception("Jwt:Key no esta configurado");
+            var issuer = _config["Jwt:Issuer"] ?? throw new Exception("Jwt:Issuer no esta configurado");
+            var audience = _config["Jwt:Audience"] ?? throw new Exception("Jwt:Audience no esta configurado");
 
             var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
             var creds = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
 
             var claims = new[]
-  {
-    new Claim("id_usuario", user.Id_Usuario.ToString()),
-    new Claim("usuario", user.UsuarioLogin),
-    new Claim("rol", user.Rol),
-    new Claim("id_sucursal", user.Id_Sucursal?.ToString() ?? ""),
-    new Claim(ClaimTypes.Name, user.UsuarioLogin),
-    new Claim(ClaimTypes.Role, user.Rol)
-};
+            {
+                new Claim("id_usuario", user.Id_Usuario.ToString()),
+                new Claim("usuario", user.UsuarioLogin),
+                new Claim("rol", user.Rol),
+                new Claim("id_sucursal", user.Id_Sucursal?.ToString() ?? ""),
+                new Claim(ClaimTypes.Name, user.UsuarioLogin),
+                new Claim(ClaimTypes.Role, user.Rol)
+            };
 
             var token = new JwtSecurityToken(
                 issuer: issuer,

@@ -16,3 +16,10 @@ export const getUsuario = () => {
 };
 
 export const isAuthenticated = () => !!getToken();
+
+export const getUserRole = () => {
+  const usuario = getUsuario();
+  return String(usuario?.rol || usuario?.Rol || '').toUpperCase();
+};
+
+export const isAdmin = () => getUserRole() === 'ADMIN';

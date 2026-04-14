@@ -1,6 +1,7 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import api from '../../services/api';
 import { imprimirTicketHtml } from '../../utils/printTicket';
+import { getUsuario } from '../../utils/auth';
 
 const mesaFormInicial = {
   nombre: '',
@@ -29,6 +30,9 @@ const impuestoOpciones = [
 ];
 
 function Mesas() {
+  const usuario = getUsuario();
+  const esAdmin = String(usuario?.rol || usuario?.Rol || '').toUpperCase() === 'ADMIN';
+  const idSucursalUsuario = usuario?.id_Sucursal ?? usuario?.id_sucursal ?? null;
   const [sucursales, setSucursales] = useState([]);
   const [sucursalSeleccionada, setSucursalSeleccionada] = useState('');
   const [mesas, setMesas] = useState([]);
@@ -65,8 +69,23 @@ function Mesas() {
   };
 
   const cargarSucursales = async () => {
-    const response = await api.get('/Sucursales', { params: { incluirInactivas: true } });
-    setSucursales(response.data || []);
+    if (esAdmin) {
+      const response = await api.get('/Sucursales', { params: { incluirInactivas: true } });
+      setSucursales(response.data || []);
+      return;
+    }
+
+    if (!idSucursalUsuario) {
+      setSucursales([]);
+      return;
+    }
+
+    setSucursales([
+      {
+        id_Sucursal: Number(idSucursalUsuario),
+        nombre: `Sucursal #${idSucursalUsuario}`
+      }
+    ]);
   };
 
   const cargarCajaActual = async () => {
@@ -129,12 +148,15 @@ function Mesas() {
     const init = async () => {
       try {
         await Promise.all([cargarSucursales(), cargarCajaActual(), cargarCuentasAbiertas(), cargarFacturacionSar()]);
+        if (!esAdmin && idSucursalUsuario) {
+          setSucursalSeleccionada(String(idSucursalUsuario));
+        }
       } catch (err) {
         setError(err?.response?.data?.message || 'Error al cargar mesas');
       }
     };
     init();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!sucursalSeleccionada) return;
@@ -428,7 +450,7 @@ function Mesas() {
           <div className="row g-3 align-items-end">
             <div className="col-md-4">
               <label className="form-label">Sucursal</label>
-              <select className="form-select" value={sucursalSeleccionada} onChange={(e) => setSucursalSeleccionada(e.target.value)}>
+              <select className="form-select" value={sucursalSeleccionada} onChange={(e) => setSucursalSeleccionada(e.target.value)} disabled={!esAdmin}>
                 <option value="">Seleccione</option>
                 {sucursales.map((s) => <option key={s.id_Sucursal} value={s.id_Sucursal}>{s.nombre}</option>)}
               </select>
@@ -437,7 +459,7 @@ function Mesas() {
         </div>
       </div>
 
-      {sucursalSeleccionada && (
+      {sucursalSeleccionada && esAdmin && (
         <div className="card shadow-sm mb-4">
           <div className="card-body">
             <h5 className="mb-3">{mesaEditandoId ? `Editar mesa #${mesaEditandoId}` : 'Agregar mesa a sucursal'}</h5>
@@ -701,4 +723,5 @@ function Mesas() {
 }
 
 export default Mesas;
+
 

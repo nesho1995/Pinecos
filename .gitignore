@@ -17,6 +17,9 @@ pinecos-frontend/dist/
 .env
 .env.*
 
+# Local runtime data
+backend/App_Data/
+
 # OS
 Thumbs.db
 .DS_Store

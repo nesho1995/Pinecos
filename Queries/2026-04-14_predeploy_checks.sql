@@ -28,3 +28,10 @@ FROM productos
 WHERE activo = 1
 GROUP BY LOWER(TRIM(nombre))
 HAVING COUNT(*) > 1;
+
+-- 5) Verificar tipo de columna observacion en cajas (recomendado: longtext)
+SELECT table_name, column_name, column_type, is_nullable
+FROM information_schema.columns
+WHERE table_schema = DATABASE()
+  AND table_name = 'cajas'
+  AND column_name = 'observacion';

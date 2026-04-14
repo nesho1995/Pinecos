@@ -405,6 +405,9 @@ namespace Pinecos.Controllers
         [HttpPost("cerrar/{idCaja}")]
         public async Task<ActionResult> CerrarCaja(int idCaja, [FromBody] CierreCajaRequestDto request)
         {
+            if (request == null)
+                return BadRequest(new { message = "Debes enviar los datos de cierre de caja" });
+
             var idUsuario = UserHelper.GetUserId(User);
             var idSucursal = UserHelper.GetSucursalId(User);
 
@@ -510,7 +513,19 @@ namespace Pinecos.Controllers
                 Id_Usuario = idUsuario.Value
             });
 
-            await _context.SaveChangesAsync();
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex) when (
+                ex.ToString().Contains("Data too long for column", StringComparison.OrdinalIgnoreCase) ||
+                ex.ToString().Contains("String or binary data would be truncated", StringComparison.OrdinalIgnoreCase))
+            {
+                return BadRequest(new
+                {
+                    message = "No se pudo guardar el detalle del cierre por limite de columna. Ejecuta ALTER TABLE cajas MODIFY observacion LONGTEXT NULL;"
+                });
+            }
 
             await BitacoraHelper.RegistrarAsync(_context, idUsuario.Value, "CAJA", "CERRAR", $"Caja #{caja.Id_Caja} cerrada");
 
