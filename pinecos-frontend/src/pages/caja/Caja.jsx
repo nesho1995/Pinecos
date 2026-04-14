@@ -1,7 +1,26 @@
 import { useEffect, useMemo, useState } from 'react';
 import api from '../../services/api';
 
-const lineaCanal = (canal = '') => ({ canal, monto: '' });
+const lineaCanal = (canal = '', monto = '') => ({ canal, monto });
+
+const buildCierreFromCanales = (canalesConfig, previous = null) => {
+  const pos = (canalesConfig?.pos || ['POS 1']).map((c) => {
+    const previo = previous?.pos?.find((x) => String(x.canal).toUpperCase() === String(c).toUpperCase());
+    return lineaCanal(c, previo?.monto ?? '');
+  });
+
+  const delivery = (canalesConfig?.delivery || ['PEDIDOS_YA']).map((c) => {
+    const previo = previous?.delivery?.find((x) => String(x.canal).toUpperCase() === String(c).toUpperCase());
+    return lineaCanal(c, previo?.monto ?? '');
+  });
+
+  return {
+    monto_Cierre: previous?.monto_Cierre ?? '',
+    pos,
+    delivery,
+    observacion: previous?.observacion ?? ''
+  };
+};
 
 function Caja() {
   const [cajaActual, setCajaActual] = useState(null);
@@ -35,6 +54,7 @@ function Caja() {
     }
     const response = await api.get(`/Cajas/cuadre-previo/${idCaja}`);
     setCuadrePrevio(response.data);
+    setCierre((prev) => buildCierreFromCanales(response.data?.canalesConfig, prev));
   };
 
   const refrescarPantalla = async () => {
@@ -64,22 +84,11 @@ function Caja() {
     }));
   };
 
-  const updateLinea = (tipo, index, campo, value) => {
+  const updateLineaMonto = (tipo, index, value) => {
     setCierre((prev) => {
       const lista = [...prev[tipo]];
-      lista[index] = { ...lista[index], [campo]: value };
+      lista[index] = { ...lista[index], monto: value };
       return { ...prev, [tipo]: lista };
-    });
-  };
-
-  const addLinea = (tipo, nombreInicial) => {
-    setCierre((prev) => ({ ...prev, [tipo]: [...prev[tipo], lineaCanal(nombreInicial)] }));
-  };
-
-  const removeLinea = (tipo, index) => {
-    setCierre((prev) => {
-      const lista = prev[tipo].filter((_, i) => i !== index);
-      return { ...prev, [tipo]: lista.length ? lista : [lineaCanal()] };
     });
   };
 
@@ -107,26 +116,22 @@ function Caja() {
     setMensaje('');
     setError('');
 
+    if (cierre.monto_Cierre === '') return setError('Debes ingresar el efectivo final');
+    if ((cierre.pos || []).some((x) => x.monto === '')) return setError('Debes ingresar monto en todos los POS');
+    if ((cierre.delivery || []).some((x) => x.monto === '')) return setError('Debes ingresar monto en todas las empresas de pedidos');
+
     try {
       const payload = {
-        monto_Cierre: Number(cierre.monto_Cierre || 0),
-        pos: (cierre.pos || []).map((x) => ({ canal: String(x.canal || '').trim(), monto: Number(x.monto || 0) })),
-        delivery: (cierre.delivery || []).map((x) => ({ canal: String(x.canal || '').trim(), monto: Number(x.monto || 0) })),
+        monto_Cierre: Number(cierre.monto_Cierre),
+        pos: (cierre.pos || []).map((x) => ({ canal: String(x.canal || '').trim(), monto: Number(x.monto) })),
+        delivery: (cierre.delivery || []).map((x) => ({ canal: String(x.canal || '').trim(), monto: Number(x.monto) })),
         observacion: cierre.observacion
       };
 
       const response = await api.post(`/Cajas/cerrar/${cajaActual.id_Caja}`, payload);
-
       const cuadro = response?.data?.cuadre?.cuadro;
       const dif = Number(response?.data?.cuadre?.diferencia || 0);
       setMensaje(cuadro ? 'Caja cerrada y cuadra correctamente.' : `Caja cerrada pero NO cuadra. Diferencia: L ${dif.toFixed(2)}`);
-
-      setCierre({
-        monto_Cierre: '',
-        pos: [lineaCanal('POS 1')],
-        delivery: [lineaCanal('PEDIDOS_YA')],
-        observacion: ''
-      });
 
       await refrescarPantalla();
     } catch (err) {
@@ -158,7 +163,6 @@ function Caja() {
   return (
     <div>
       <h2 className="mb-4">Caja</h2>
-
       {mensaje && <div className="alert alert-success">{mensaje}</div>}
       {error && <div className="alert alert-danger">{error}</div>}
 
@@ -191,18 +195,6 @@ function Caja() {
                 <p><strong>Sucursal:</strong> {cajaActual.id_Sucursal}</p>
                 <p><strong>Fecha apertura:</strong> {new Date(cajaActual.fecha_Apertura).toLocaleString('es-HN')}</p>
                 <p><strong>Monto inicial:</strong> L {Number(cajaActual.monto_Inicial || 0).toFixed(2)}</p>
-                <p><strong>Estado:</strong> {cajaActual.estado}</p>
-              </div>
-            </div>
-
-            <div className="card shadow-sm mt-3">
-              <div className="card-body">
-                <h6 className="mb-3">Esperado del dia</h6>
-                <div className="d-flex justify-content-between"><span>Efectivo esperado</span><strong>L {Number(cuadrePrevio?.resumen?.efectivoEsperado || 0).toFixed(2)}</strong></div>
-                <div className="d-flex justify-content-between"><span>POS esperado</span><strong>L {Number(cuadrePrevio?.resumen?.ventasPos || 0).toFixed(2)}</strong></div>
-                <div className="d-flex justify-content-between"><span>Delivery esperado</span><strong>L {Number(cuadrePrevio?.resumen?.ventasDelivery || 0).toFixed(2)}</strong></div>
-                <hr />
-                <div className="d-flex justify-content-between"><span>Total esperado</span><strong>L {totalEsperado.toFixed(2)}</strong></div>
               </div>
             </div>
           </div>
@@ -218,40 +210,28 @@ function Caja() {
                   </div>
 
                   <div className="col-12">
-                    <div className="d-flex justify-content-between align-items-center mb-1">
-                      <label className="form-label mb-0">Dinero en POS</label>
-                      <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => addLinea('pos', `POS ${cierre.pos.length + 1}`)}>Agregar POS</button>
-                    </div>
-                    {cierre.pos.map((item, index) => (
+                    <label className="form-label mb-1">Dinero en POS (definido por admin)</label>
+                    {(cierre.pos || []).map((item, index) => (
                       <div className="row g-2 mb-2" key={`pos-${index}`}>
                         <div className="col-7">
-                          <input type="text" className="form-control" placeholder="Nombre POS" value={item.canal} onChange={(e) => updateLinea('pos', index, 'canal', e.target.value)} />
+                          <input type="text" className="form-control" value={item.canal} readOnly />
                         </div>
-                        <div className="col-4">
-                          <input type="number" step="0.01" className="form-control" placeholder="Monto" value={item.monto} onChange={(e) => updateLinea('pos', index, 'monto', e.target.value)} />
-                        </div>
-                        <div className="col-1">
-                          <button type="button" className="btn btn-outline-danger btn-sm w-100" onClick={() => removeLinea('pos', index)}>X</button>
+                        <div className="col-5">
+                          <input type="number" step="0.01" className="form-control" value={item.monto} onChange={(e) => updateLineaMonto('pos', index, e.target.value)} required />
                         </div>
                       </div>
                     ))}
                   </div>
 
                   <div className="col-12">
-                    <div className="d-flex justify-content-between align-items-center mb-1">
-                      <label className="form-label mb-0">Empresas de pedidos</label>
-                      <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => addLinea('delivery', 'NUEVA_APP')}>Agregar empresa</button>
-                    </div>
-                    {cierre.delivery.map((item, index) => (
+                    <label className="form-label mb-1">Empresas de pedidos (definido por admin)</label>
+                    {(cierre.delivery || []).map((item, index) => (
                       <div className="row g-2 mb-2" key={`delivery-${index}`}>
                         <div className="col-7">
-                          <input type="text" className="form-control" placeholder="Empresa (ej. PEDIDOS_YA)" value={item.canal} onChange={(e) => updateLinea('delivery', index, 'canal', e.target.value)} />
+                          <input type="text" className="form-control" value={item.canal} readOnly />
                         </div>
-                        <div className="col-4">
-                          <input type="number" step="0.01" className="form-control" placeholder="Monto" value={item.monto} onChange={(e) => updateLinea('delivery', index, 'monto', e.target.value)} />
-                        </div>
-                        <div className="col-1">
-                          <button type="button" className="btn btn-outline-danger btn-sm w-100" onClick={() => removeLinea('delivery', index)}>X</button>
+                        <div className="col-5">
+                          <input type="number" step="0.01" className="form-control" value={item.monto} onChange={(e) => updateLineaMonto('delivery', index, e.target.value)} required />
                         </div>
                       </div>
                     ))}

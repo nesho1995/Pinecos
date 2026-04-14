@@ -15,10 +15,12 @@ namespace Pinecos.Controllers
     public class CajasController : ControllerBase
     {
         private readonly PinecosDbContext _context;
+        private readonly IWebHostEnvironment _env;
 
-        public CajasController(PinecosDbContext context)
+        public CajasController(PinecosDbContext context, IWebHostEnvironment env)
         {
             _context = context;
+            _env = env;
         }
 
         private class CuadreResumenDto
@@ -77,6 +79,11 @@ namespace Pinecos.Controllers
         {
             var t = (tipo ?? string.Empty).Trim().ToUpper();
             return t.Contains("EGRESO") || t == "SALIDA";
+        }
+
+        private static string NormalizeCanal(string? canal)
+        {
+            return (canal ?? string.Empty).Trim().ToUpper();
         }
 
         private async Task<CuadreResumenDto> ConstruirResumenCuadreAsync(Caja caja, DateTime fechaCorte)
@@ -150,6 +157,44 @@ namespace Pinecos.Controllers
                 .ToListAsync();
 
             return Ok(cajas);
+        }
+
+        [HttpGet("canales-config")]
+        public ActionResult GetCanalesConfig([FromQuery] int? idSucursal = null)
+        {
+            var rol = UserHelper.GetUserRole(User);
+            var idSucursalToken = UserHelper.GetSucursalId(User);
+
+            int sucursalObjetivo;
+            if (rol == "ADMIN")
+            {
+                if (!idSucursal.HasValue || idSucursal.Value <= 0)
+                    return BadRequest(new { message = "Para ADMIN debes indicar idSucursal" });
+                sucursalObjetivo = idSucursal.Value;
+            }
+            else
+            {
+                if (!idSucursalToken.HasValue)
+                    return BadRequest(new { message = "El usuario no tiene sucursal asignada" });
+                sucursalObjetivo = idSucursalToken.Value;
+            }
+
+            var config = CuadreCanalesStore.GetConfig(_env.ContentRootPath, sucursalObjetivo);
+            return Ok(config);
+        }
+
+        [HttpPut("canales-config")]
+        [AuthorizeRoles("ADMIN")]
+        public ActionResult PutCanalesConfig([FromQuery] int idSucursal, [FromBody] CuadreCanalesConfigDto model)
+        {
+            if (idSucursal <= 0)
+                return BadRequest(new { message = "idSucursal invalido" });
+
+            var config = CuadreCanalesStore.Sanitize(model);
+            config.IdSucursal = idSucursal;
+            CuadreCanalesStore.SaveConfig(_env.ContentRootPath, idSucursal, config);
+
+            return Ok(new { message = "Canales de cuadre guardados", data = config });
         }
 
         [HttpGet("cierres")]
@@ -277,6 +322,7 @@ namespace Pinecos.Controllers
 
             var fechaCorte = FechaHelper.AhoraHonduras();
             var resumen = await ConstruirResumenCuadreAsync(caja, fechaCorte);
+            var canalesConfig = CuadreCanalesStore.GetConfig(_env.ContentRootPath, caja.Id_Sucursal);
 
             return Ok(new
             {
@@ -288,6 +334,7 @@ namespace Pinecos.Controllers
                     caja.Monto_Inicial,
                     caja.Estado
                 },
+                canalesConfig,
                 resumen,
                 fechaCorte
             });
@@ -369,6 +416,24 @@ namespace Pinecos.Controllers
             {
                 return BadRequest(new { message = "Cada linea de POS o delivery debe tener nombre de canal" });
             }
+
+            var canalesConfig = CuadreCanalesStore.GetConfig(_env.ContentRootPath, caja.Id_Sucursal);
+            var expectedPos = canalesConfig.Pos.Select(NormalizeCanal).ToHashSet(StringComparer.Ordinal);
+            var expectedDelivery = canalesConfig.Delivery.Select(NormalizeCanal).ToHashSet(StringComparer.Ordinal);
+
+            var posDeclarado = (request.Pos ?? new List<CanalMontoDto>())
+                .Select(x => NormalizeCanal(x.Canal))
+                .ToHashSet(StringComparer.Ordinal);
+
+            var deliveryDeclarado = (request.Delivery ?? new List<CanalMontoDto>())
+                .Select(x => NormalizeCanal(x.Canal))
+                .ToHashSet(StringComparer.Ordinal);
+
+            if (!expectedPos.SetEquals(posDeclarado))
+                return BadRequest(new { message = "Los canales POS del cierre no coinciden con la configuracion de admin" });
+
+            if (!expectedDelivery.SetEquals(deliveryDeclarado))
+                return BadRequest(new { message = "Los canales Delivery del cierre no coinciden con la configuracion de admin" });
 
             var fechaCierre = FechaHelper.AhoraHonduras();
             var resumen = await ConstruirResumenCuadreAsync(caja, fechaCierre);

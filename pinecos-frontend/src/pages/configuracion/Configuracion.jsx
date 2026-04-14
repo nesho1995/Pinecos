@@ -32,6 +32,11 @@ function Configuracion() {
   const [sucursales, setSucursales] = useState([]);
   const [sucursalSar, setSucursalSar] = useState('');
   const [listaSar, setListaSar] = useState([]);
+  const [canalesForm, setCanalesForm] = useState({
+    pos: ['POS 1'],
+    delivery: ['PEDIDOS_YA'],
+    requiereMontoEnTodos: true
+  });
 
   const cargarSucursales = async () => {
     try {
@@ -66,6 +71,17 @@ function Configuracion() {
       fechaLimiteEmision: data.fechaLimiteEmision ? String(data.fechaLimiteEmision).slice(0, 10) : '',
       leyendaSar: data.leyendaSar || '',
       permitirVentaSinFactura: data.permitirVentaSinFactura ?? true
+    });
+  };
+
+  const cargarCanalesSucursal = async (idSucursal) => {
+    if (!idSucursal) return;
+    const res = await api.get('/Cajas/canales-config', { params: { idSucursal: Number(idSucursal) } });
+    const data = res.data || {};
+    setCanalesForm({
+      pos: data.pos || ['POS 1'],
+      delivery: data.delivery || ['PEDIDOS_YA'],
+      requiereMontoEnTodos: data.requiereMontoEnTodos ?? true
     });
   };
 
@@ -137,6 +153,53 @@ function Configuracion() {
     }
   };
 
+  const updateCanalNombre = (tipo, index, value) => {
+    setCanalesForm((prev) => {
+      const list = [...prev[tipo]];
+      list[index] = value;
+      return { ...prev, [tipo]: list };
+    });
+  };
+
+  const addCanal = (tipo, prefijo) => {
+    setCanalesForm((prev) => ({
+      ...prev,
+      [tipo]: [...prev[tipo], `${prefijo} ${prev[tipo].length + 1}`]
+    }));
+  };
+
+  const removeCanal = (tipo, index) => {
+    setCanalesForm((prev) => {
+      const list = prev[tipo].filter((_, i) => i !== index);
+      return { ...prev, [tipo]: list.length ? list : [tipo === 'pos' ? 'POS 1' : 'PEDIDOS_YA'] };
+    });
+  };
+
+  const guardarCanalesCuadre = async (e) => {
+    e.preventDefault();
+    setMensaje('');
+    setError('');
+    if (!sucursalSar) return setError('Selecciona una sucursal');
+
+    const payload = {
+      pos: (canalesForm.pos || []).map((x) => String(x || '').trim()).filter(Boolean),
+      delivery: (canalesForm.delivery || []).map((x) => String(x || '').trim()).filter(Boolean),
+      requiereMontoEnTodos: true
+    };
+
+    if (payload.pos.length === 0) return setError('Debes configurar al menos un POS');
+    if (payload.delivery.length === 0) return setError('Debes configurar al menos una empresa de pedidos');
+
+    try {
+      await api.put('/Cajas/canales-config', payload, {
+        params: { idSucursal: Number(sucursalSar) }
+      });
+      setMensaje('Canales de cuadre guardados correctamente');
+    } catch (err) {
+      setError(err?.response?.data?.message || 'Error al guardar canales de cuadre');
+    }
+  };
+
   useEffect(() => {
     cargarConfiguracion();
   }, []);
@@ -145,6 +208,9 @@ function Configuracion() {
     if (!sucursalSar) return;
     cargarSarSucursal(sucursalSar).catch((err) => {
       setError(err?.response?.data?.message || 'Error al cargar SAR de la sucursal');
+    });
+    cargarCanalesSucursal(sucursalSar).catch((err) => {
+      setError(err?.response?.data?.message || 'Error al cargar canales de cuadre');
     });
   }, [sucursalSar]);
 
@@ -314,6 +380,47 @@ function Configuracion() {
               </tbody>
             </table>
           </div>
+        </div>
+      </div>
+
+      <div className="card shadow-sm mt-4">
+        <div className="card-body">
+          <h5 className="mb-3">Canales de Cuadre por Sucursal</h5>
+          <form onSubmit={guardarCanalesCuadre} className="row g-3">
+            <div className="col-12">
+              <small className="text-muted">Solo admin define estos canales. El cajero solo captura montos en caja.</small>
+            </div>
+
+            <div className="col-md-6">
+              <div className="d-flex justify-content-between align-items-center mb-2">
+                <label className="form-label mb-0">POS habilitados</label>
+                <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => addCanal('pos', 'POS')}>Agregar POS</button>
+              </div>
+              {canalesForm.pos.map((x, i) => (
+                <div className="input-group mb-2" key={`pos-${i}`}>
+                  <input className="form-control" value={x} onChange={(e) => updateCanalNombre('pos', i, e.target.value)} />
+                  <button type="button" className="btn btn-outline-danger" onClick={() => removeCanal('pos', i)}>Quitar</button>
+                </div>
+              ))}
+            </div>
+
+            <div className="col-md-6">
+              <div className="d-flex justify-content-between align-items-center mb-2">
+                <label className="form-label mb-0">Empresas de pedidos</label>
+                <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => addCanal('delivery', 'APP')}>Agregar Empresa</button>
+              </div>
+              {canalesForm.delivery.map((x, i) => (
+                <div className="input-group mb-2" key={`delivery-${i}`}>
+                  <input className="form-control" value={x} onChange={(e) => updateCanalNombre('delivery', i, e.target.value)} />
+                  <button type="button" className="btn btn-outline-danger" onClick={() => removeCanal('delivery', i)}>Quitar</button>
+                </div>
+              ))}
+            </div>
+
+            <div className="col-12">
+              <button className="btn btn-dark" type="submit">Guardar canales de cuadre</button>
+            </div>
+          </form>
         </div>
       </div>
 
