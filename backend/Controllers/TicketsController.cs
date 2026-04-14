@@ -16,10 +16,12 @@ namespace Pinecos.Controllers
     public class TicketsController : ControllerBase
     {
         private readonly PinecosDbContext _context;
+        private readonly IWebHostEnvironment _env;
 
-        public TicketsController(PinecosDbContext context)
+        public TicketsController(PinecosDbContext context, IWebHostEnvironment env)
         {
             _context = context;
+            _env = env;
         }
 
         [HttpGet("venta/{idVenta}")]
@@ -178,10 +180,12 @@ namespace Pinecos.Controllers
 
             var sucursal = await _context.Sucursales.FirstOrDefaultAsync(x => x.Id_Sucursal == venta.Id_Sucursal);
             var usuario = await _context.Usuarios.FirstOrDefaultAsync(x => x.Id_Usuario == venta.Id_Usuario);
-            var config = await _context.ConfiguracionNegocio.FirstOrDefaultAsync(x => x.Activo);
+            var baseConfig = await _context.ConfiguracionNegocio.FirstOrDefaultAsync(x => x.Activo);
 
-            if (config == null)
-                return BadRequest(new { message = "No existe configuración del negocio" });
+            if (baseConfig == null)
+                return BadRequest(new { message = "No existe configuracion del negocio" });
+
+            var config = ConfiguracionSucursalStore.GetMergedConfig(_env.ContentRootPath, venta.Id_Sucursal, baseConfig);
 
             var detalles = await (
                 from d in _context.DetalleVenta

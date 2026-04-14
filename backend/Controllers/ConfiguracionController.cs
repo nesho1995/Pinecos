@@ -1,7 +1,8 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Pinecos.Attributes;
 using Pinecos.Data;
+using Pinecos.DTOs;
 using Pinecos.Helpers;
 using Pinecos.Models;
 
@@ -13,52 +14,88 @@ namespace Pinecos.Controllers
     public class ConfiguracionController : ControllerBase
     {
         private readonly PinecosDbContext _context;
+        private readonly IWebHostEnvironment _env;
 
-        public ConfiguracionController(PinecosDbContext context)
+        public ConfiguracionController(PinecosDbContext context, IWebHostEnvironment env)
         {
             _context = context;
+            _env = env;
         }
 
         [HttpGet]
-        public async Task<ActionResult> GetConfiguracion()
+        public async Task<ActionResult> GetConfiguracion([FromQuery] int? idSucursal = null)
         {
-            var config = await _context.ConfiguracionNegocio
+            var baseConfig = await _context.ConfiguracionNegocio
                 .FirstOrDefaultAsync(x => x.Activo);
 
-            if (config == null)
-                return NotFound(new { message = "No existe configuración activa" });
+            if (baseConfig == null)
+                return NotFound(new { message = "No existe configuracion activa" });
 
-            return Ok(config);
+            if (idSucursal.HasValue && idSucursal.Value > 0)
+            {
+                var merged = ConfiguracionSucursalStore.GetMergedConfig(_env.ContentRootPath, idSucursal.Value, baseConfig);
+                return Ok(merged);
+            }
+
+            return Ok(baseConfig);
         }
 
         [HttpPut]
-        public async Task<ActionResult> ActualizarConfiguracion([FromBody] ConfiguracionNegocio model)
+        public async Task<ActionResult> ActualizarConfiguracion([FromQuery] int? idSucursal, [FromBody] ConfiguracionNegocio model)
         {
             var idUsuario = UserHelper.GetUserId(User);
 
-            var config = await _context.ConfiguracionNegocio
+            var baseConfig = await _context.ConfiguracionNegocio
                 .FirstOrDefaultAsync(x => x.Activo);
 
-            if (config == null)
-                return NotFound(new { message = "No existe configuración activa" });
+            if (baseConfig == null)
+                return NotFound(new { message = "No existe configuracion activa" });
 
-            config.Nombre_Negocio = model.Nombre_Negocio;
-            config.Direccion = model.Direccion;
-            config.Telefono = model.Telefono;
-            config.Rtn = model.Rtn;
-            config.Mensaje_Ticket = model.Mensaje_Ticket;
-            config.Ancho_Ticket = model.Ancho_Ticket;
-            config.Logo_Url = model.Logo_Url;
-            config.Moneda = model.Moneda;
+            if (idSucursal.HasValue && idSucursal.Value > 0)
+            {
+                var cfg = new ConfiguracionSucursalDto
+                {
+                    IdSucursal = idSucursal.Value,
+                    Nombre_Negocio = model.Nombre_Negocio,
+                    Direccion = model.Direccion,
+                    Telefono = model.Telefono,
+                    Rtn = model.Rtn,
+                    Mensaje_Ticket = model.Mensaje_Ticket,
+                    Ancho_Ticket = model.Ancho_Ticket,
+                    Logo_Url = model.Logo_Url,
+                    Moneda = model.Moneda,
+                    Activo = model.Activo
+                };
+
+                ConfiguracionSucursalStore.SaveOverride(_env.ContentRootPath, idSucursal.Value, cfg);
+
+                await BitacoraHelper.RegistrarAsync(_context, idUsuario, "CONFIGURACION", "EDITAR", $"Configuracion sucursal #{idSucursal.Value} actualizada");
+
+                var merged = ConfiguracionSucursalStore.GetMergedConfig(_env.ContentRootPath, idSucursal.Value, baseConfig);
+                return Ok(new
+                {
+                    message = "Configuracion por sucursal actualizada correctamente",
+                    data = merged
+                });
+            }
+
+            baseConfig.Nombre_Negocio = model.Nombre_Negocio;
+            baseConfig.Direccion = model.Direccion;
+            baseConfig.Telefono = model.Telefono;
+            baseConfig.Rtn = model.Rtn;
+            baseConfig.Mensaje_Ticket = model.Mensaje_Ticket;
+            baseConfig.Ancho_Ticket = model.Ancho_Ticket;
+            baseConfig.Logo_Url = model.Logo_Url;
+            baseConfig.Moneda = model.Moneda;
 
             await _context.SaveChangesAsync();
 
-            await BitacoraHelper.RegistrarAsync(_context, idUsuario, "CONFIGURACION", "EDITAR", "Configuración del negocio actualizada");
+            await BitacoraHelper.RegistrarAsync(_context, idUsuario, "CONFIGURACION", "EDITAR", "Configuracion global actualizada");
 
             return Ok(new
             {
-                message = "Configuración actualizada correctamente",
-                data = config
+                message = "Configuracion global actualizada correctamente",
+                data = baseConfig
             });
         }
     }

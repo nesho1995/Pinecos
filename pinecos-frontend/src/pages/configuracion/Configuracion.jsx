@@ -48,9 +48,17 @@ function Configuracion() {
       const data = res.data || [];
       setSucursales(data);
       if (!sucursalSar && data.length > 0) setSucursalSar(String(data[0].id_Sucursal));
+      return data;
     } catch {
       setSucursales([]);
+      return [];
     }
+  };
+
+  const cargarConfiguracionSucursal = async (idSucursal) => {
+    if (!idSucursal) return;
+    const configRes = await api.get('/Configuracion', { params: { idSucursal: Number(idSucursal) } });
+    setForm(configRes.data);
   };
 
   const cargarSarLista = async () => {
@@ -101,10 +109,9 @@ function Configuracion() {
 
   const cargarConfiguracion = async () => {
     try {
-      await cargarSucursales();
-      const configRes = await api.get('/Configuracion');
-
-      setForm(configRes.data);
+      const sucursalesData = await cargarSucursales();
+      const sucursalInicial = sucursalSar || (sucursalesData[0] ? String(sucursalesData[0].id_Sucursal) : '');
+      if (sucursalInicial) await cargarConfiguracionSucursal(sucursalInicial);
       await cargarSarLista();
     } catch (err) {
       setError(err?.response?.data?.message || 'Error al cargar configuracion');
@@ -135,7 +142,8 @@ function Configuracion() {
     setError('');
 
     try {
-      const response = await api.put('/Configuracion', form);
+      const params = sucursalSar ? { idSucursal: Number(sucursalSar) } : {};
+      const response = await api.put('/Configuracion', form, { params });
       setForm(response.data.data);
       setMensaje('Configuracion guardada correctamente');
     } catch (err) {
@@ -286,6 +294,9 @@ function Configuracion() {
 
   useEffect(() => {
     if (!sucursalSar) return;
+    cargarConfiguracionSucursal(sucursalSar).catch((err) => {
+      setError(err?.response?.data?.message || 'Error al cargar configuracion de la sucursal');
+    });
     cargarSarSucursal(sucursalSar).catch((err) => {
       setError(err?.response?.data?.message || 'Error al cargar SAR de la sucursal');
     });
