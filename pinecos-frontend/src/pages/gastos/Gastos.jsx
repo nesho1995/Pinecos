@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react';
 import api from '../../services/api';
+import { getUsuario } from '../../utils/auth';
 
 function Gastos() {
+  const usuario = getUsuario();
+  const esAdmin = String(usuario?.rol || usuario?.Rol || '').toUpperCase() === 'ADMIN';
+
   const [gastos, setGastos] = useState([]);
   const [form, setForm] = useState({
     categoria_Gasto: '',
@@ -14,17 +18,17 @@ function Gastos() {
   const cargarGastos = async () => {
     try {
       const response = await api.get('/Gastos');
-      setGastos(response.data);
+      setGastos(response.data || []);
     } catch (err) {
       setError(err?.response?.data?.message || 'Error al cargar gastos');
     }
   };
 
   const handleChange = (e) => {
-    setForm({
-      ...form,
+    setForm((prev) => ({
+      ...prev,
       [e.target.name]: e.target.value
-    });
+    }));
   };
 
   const crearGasto = async (e) => {
@@ -46,7 +50,7 @@ function Gastos() {
       });
 
       setMensaje('Gasto registrado correctamente');
-      cargarGastos();
+      await cargarGastos();
     } catch (err) {
       setError(err?.response?.data?.message || 'Error al registrar gasto');
     }
@@ -60,11 +64,17 @@ function Gastos() {
     <div>
       <h2 className="mb-4">Gastos</h2>
 
+      {!esAdmin && (
+        <div className="alert alert-info">
+          Vista de cajero: solo se muestran tus propios gastos.
+        </div>
+      )}
+
       <div className="card shadow-sm mb-4">
         <div className="card-body">
           <form onSubmit={crearGasto} className="row g-3">
             <div className="col-md-3">
-              <label className="form-label">Categoría</label>
+              <label className="form-label">Categoria</label>
               <input
                 type="text"
                 className="form-control"
@@ -77,7 +87,7 @@ function Gastos() {
             </div>
 
             <div className="col-md-5">
-              <label className="form-label">Descripción</label>
+              <label className="form-label">Descripcion</label>
               <input
                 type="text"
                 className="form-control"
@@ -93,6 +103,7 @@ function Gastos() {
               <input
                 type="number"
                 step="0.01"
+                min="0.01"
                 className="form-control"
                 name="monto"
                 value={form.monto}
@@ -118,21 +129,30 @@ function Gastos() {
               <tr>
                 <th>ID</th>
                 <th>Fecha</th>
-                <th>Categoría</th>
-                <th>Descripción</th>
+                <th>Categoria</th>
+                <th>Descripcion</th>
                 <th>Monto</th>
+                {esAdmin && <th>Usuario</th>}
               </tr>
             </thead>
             <tbody>
               {gastos.map((item) => (
                 <tr key={item.id_Gasto}>
                   <td>{item.id_Gasto}</td>
-                  <td>{new Date(item.fecha).toLocaleString()}</td>
+                  <td>{new Date(item.fecha).toLocaleString('es-HN')}</td>
                   <td>{item.categoria_Gasto}</td>
                   <td>{item.descripcion}</td>
                   <td>L {Number(item.monto || 0).toFixed(2)}</td>
+                  {esAdmin && <td>{item.usuario || item.id_Usuario}</td>}
                 </tr>
               ))}
+              {gastos.length === 0 && (
+                <tr>
+                  <td colSpan={esAdmin ? 6 : 5} className="text-center">
+                    No hay gastos para mostrar
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
