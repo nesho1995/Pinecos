@@ -154,9 +154,10 @@ function Configuracion() {
     setError('');
 
     try {
-      if (!sucursalSar) return setError('Selecciona una sucursal');
-      const response = await api.put('/Configuracion', form, { params: { idSucursal: Number(sucursalSar) } });
-      setForm(response.data.data);
+      const idSucursal = Number(sucursalSar || 0);
+      if (!idSucursal) return setError('Selecciona una sucursal');
+      await api.put('/Configuracion', form, { params: { idSucursal } });
+      await cargarConfiguracionSucursal(idSucursal);
       setMensaje('Configuracion por sucursal guardada correctamente');
     } catch (err) {
       setError(err?.response?.data?.message || 'Error al guardar configuracion de sucursal');
@@ -175,12 +176,14 @@ function Configuracion() {
         fechaLimiteEmision: sarForm.fechaLimiteEmision || null
       };
 
-      if (!sucursalSar) return setError('Selecciona una sucursal para configurar SAR');
+      const idSucursal = Number(sucursalSar || 0);
+      if (!idSucursal) return setError('Selecciona una sucursal para configurar SAR');
 
       await api.put('/FacturacionSar', payload, {
-        params: { idSucursal: Number(sucursalSar) }
+        params: { idSucursal }
       });
       await cargarSarLista();
+      await cargarSarSucursal(idSucursal);
       setMensaje('Configuracion SAR guardada correctamente');
     } catch (err) {
       setError(err?.response?.data?.message || 'Error al guardar configuracion SAR');
@@ -213,7 +216,8 @@ function Configuracion() {
     e.preventDefault();
     setMensaje('');
     setError('');
-    if (!sucursalSar) return setError('Selecciona una sucursal');
+    const idSucursal = Number(sucursalSar || 0);
+    if (!idSucursal) return setError('Selecciona una sucursal');
 
     const dedupe = (list) => {
       const seen = new Set();
@@ -242,7 +246,7 @@ function Configuracion() {
 
     try {
       const res = await api.put('/Cajas/canales-config', payload, {
-        params: { idSucursal: Number(sucursalSar) }
+        params: { idSucursal }
       });
       const data = res?.data?.data || {};
       setCanalesForm({
@@ -250,7 +254,7 @@ function Configuracion() {
         delivery: data.delivery || payload.delivery,
         requiereMontoEnTodos: data.requiereMontoEnTodos ?? true
       });
-      await cargarCanalesSucursal(sucursalSar);
+      await cargarCanalesSucursal(idSucursal);
       setMensaje('Canales de cuadre guardados correctamente');
     } catch (err) {
       setError(err?.response?.data?.message || 'Error al guardar canales de cuadre');
@@ -294,7 +298,8 @@ function Configuracion() {
     e.preventDefault();
     setMensaje('');
     setError('');
-    if (!sucursalSar) return setError('Selecciona una sucursal');
+    const idSucursal = Number(sucursalSar || 0);
+    if (!idSucursal) return setError('Selecciona una sucursal');
 
     const normalizar = (list) => (list || []).map((x) => ({
       codigo: String(x.codigo || '').trim().toUpperCase(),
@@ -306,7 +311,7 @@ function Configuracion() {
     }));
 
     const payload = {
-      idSucursal: Number(sucursalSar),
+      idSucursal,
       descuentos: normalizar(ajustesVentaForm.descuentos).filter((x) => x.codigo && x.nombre),
       impuestos: normalizar(ajustesVentaForm.impuestos).filter((x) => x.codigo && x.nombre)
     };
@@ -315,9 +320,9 @@ function Configuracion() {
     if (payload.impuestos.length === 0) return setError('Debes configurar al menos un impuesto');
 
     try {
-      await api.put('/AjustesVenta', payload, { params: { idSucursal: Number(sucursalSar) } });
+      await api.put('/AjustesVenta', payload, { params: { idSucursal } });
       setMensaje('Ajustes de descuentos/impuestos guardados correctamente');
-      await cargarAjustesVentaSucursal(sucursalSar);
+      await cargarAjustesVentaSucursal(idSucursal);
     } catch (err) {
       setError(err?.response?.data?.message || 'Error al guardar ajustes de venta');
     }
