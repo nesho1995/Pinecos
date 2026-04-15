@@ -78,6 +78,7 @@ namespace Pinecos.Helpers
                 if (data.ConfiguracionesPorSucursal.TryGetValue(idSucursal, out var config))
                 {
                     config.IdSucursal = idSucursal;
+                    AplicarMetricas(config);
                     return config;
                 }
 
@@ -86,15 +87,18 @@ namespace Pinecos.Helpers
                 {
                     var fallback = Clone(legacy);
                     fallback.IdSucursal = idSucursal;
+                    AplicarMetricas(fallback);
                     return fallback;
                 }
 
-                return new FacturacionSarConfigDto
+                var nuevo = new FacturacionSarConfigDto
                 {
                     IdSucursal = idSucursal,
                     HabilitadoCai = false,
                     PermitirVentaSinFactura = true
                 };
+                AplicarMetricas(nuevo);
+                return nuevo;
             }
         }
 
@@ -111,7 +115,9 @@ namespace Pinecos.Helpers
                         HabilitadoCai = kv.Value.HabilitadoCai,
                         Cai = kv.Value.Cai,
                         SiguienteCorrelativo = kv.Value.SiguienteCorrelativo,
-                        FechaLimiteEmision = kv.Value.FechaLimiteEmision
+                        FechaLimiteEmision = kv.Value.FechaLimiteEmision,
+                        FacturasRestantes = CalcularFacturasRestantes(kv.Value),
+                        CaiVencido = kv.Value.FechaLimiteEmision.HasValue && kv.Value.FechaLimiteEmision.Value.Date < DateTime.Now.Date
                     })
                     .OrderBy(x => x.IdSucursal)
                     .ToList();
@@ -204,6 +210,28 @@ namespace Pinecos.Helpers
             }
         }
 
+        public static int CalcularFacturasRestantes(FacturacionSarConfigDto config)
+        {
+            if (!config.HabilitadoCai)
+                return 0;
+
+            try
+            {
+                var (_, correlativoInicio) = ParseRango(config.RangoInicio);
+                var (_, correlativoFin) = ParseRango(config.RangoFin);
+                var siguiente = config.SiguienteCorrelativo ?? correlativoInicio;
+                if (siguiente < correlativoInicio)
+                    siguiente = correlativoInicio;
+
+                var restantes = correlativoFin - siguiente + 1;
+                return restantes < 0 ? 0 : restantes;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
         private static FacturacionSarConfigDto Clone(FacturacionSarConfigDto source)
         {
             return new FacturacionSarConfigDto
@@ -218,6 +246,42 @@ namespace Pinecos.Helpers
                 LeyendaSar = source.LeyendaSar,
                 PermitirVentaSinFactura = source.PermitirVentaSinFactura
             };
+        }
+
+        private static void AplicarMetricas(FacturacionSarConfigDto config)
+        {
+            if (!config.HabilitadoCai)
+            {
+                config.CorrelativoInicio = null;
+                config.CorrelativoFin = null;
+                config.CorrelativoActual = null;
+                config.FacturasRestantes = 0;
+                config.CaiVencido = false;
+                return;
+            }
+
+            config.CaiVencido = config.FechaLimiteEmision.HasValue && config.FechaLimiteEmision.Value.Date < DateTime.Now.Date;
+
+            try
+            {
+                var (_, correlativoInicio) = ParseRango(config.RangoInicio);
+                var (_, correlativoFin) = ParseRango(config.RangoFin);
+                var siguiente = config.SiguienteCorrelativo ?? correlativoInicio;
+                if (siguiente < correlativoInicio)
+                    siguiente = correlativoInicio;
+
+                config.CorrelativoInicio = correlativoInicio;
+                config.CorrelativoFin = correlativoFin;
+                config.CorrelativoActual = siguiente;
+                config.FacturasRestantes = CalcularFacturasRestantes(config);
+            }
+            catch
+            {
+                config.CorrelativoInicio = null;
+                config.CorrelativoFin = null;
+                config.CorrelativoActual = null;
+                config.FacturasRestantes = 0;
+            }
         }
 
         private static (string Prefix, int Correlativo) ParseRango(string rango)

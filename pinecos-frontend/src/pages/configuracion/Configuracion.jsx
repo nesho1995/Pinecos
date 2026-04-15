@@ -23,7 +23,9 @@ function Configuracion() {
     siguienteCorrelativo: '',
     fechaLimiteEmision: '',
     leyendaSar: '',
-    permitirVentaSinFactura: true
+    permitirVentaSinFactura: true,
+    facturasRestantes: 0,
+    caiVencido: false
   });
 
   const [loading, setLoading] = useState(true);
@@ -35,6 +37,11 @@ function Configuracion() {
   const [canalesForm, setCanalesForm] = useState({
     pos: ['POS 1'],
     delivery: ['PEDIDOS_YA'],
+    metodosPago: [
+      { codigo: 'EFECTIVO', nombre: 'Efectivo', categoria: 'EFECTIVO', activo: true },
+      { codigo: 'POS_1', nombre: 'POS 1', categoria: 'POS', activo: true },
+      { codigo: 'PEDIDOS_YA', nombre: 'Pedidos Ya', categoria: 'DELIVERY', activo: true }
+    ],
     requiereMontoEnTodos: true
   });
   const [ajustesVentaForm, setAjustesVentaForm] = useState({
@@ -94,7 +101,9 @@ function Configuracion() {
       siguienteCorrelativo: data.siguienteCorrelativo ?? '',
       fechaLimiteEmision: data.fechaLimiteEmision ? String(data.fechaLimiteEmision).slice(0, 10) : '',
       leyendaSar: data.leyendaSar || '',
-      permitirVentaSinFactura: data.permitirVentaSinFactura ?? true
+      permitirVentaSinFactura: data.permitirVentaSinFactura ?? true,
+      facturasRestantes: Number(data.facturasRestantes || 0),
+      caiVencido: !!data.caiVencido
     });
   };
 
@@ -105,6 +114,11 @@ function Configuracion() {
     setCanalesForm({
       pos: data.pos || ['POS 1'],
       delivery: data.delivery || ['PEDIDOS_YA'],
+      metodosPago: data.metodosPago || [
+        { codigo: 'EFECTIVO', nombre: 'Efectivo', categoria: 'EFECTIVO', activo: true },
+        { codigo: 'POS_1', nombre: 'POS 1', categoria: 'POS', activo: true },
+        { codigo: 'PEDIDOS_YA', nombre: 'Pedidos Ya', categoria: 'DELIVERY', activo: true }
+      ],
       requiereMontoEnTodos: data.requiereMontoEnTodos ?? true
     });
   };
@@ -198,6 +212,31 @@ function Configuracion() {
     });
   };
 
+  const updateMetodoPago = (index, field, value) => {
+    setCanalesForm((prev) => {
+      const list = [...(prev.metodosPago || [])];
+      list[index] = { ...list[index], [field]: value };
+      return { ...prev, metodosPago: list };
+    });
+  };
+
+  const addMetodoPago = () => {
+    setCanalesForm((prev) => ({
+      ...prev,
+      metodosPago: [
+        ...(prev.metodosPago || []),
+        { codigo: `METODO_${Date.now()}`, nombre: '', categoria: 'OTRO', activo: true }
+      ]
+    }));
+  };
+
+  const removeMetodoPago = (index) => {
+    setCanalesForm((prev) => {
+      const list = (prev.metodosPago || []).filter((_, i) => i !== index);
+      return { ...prev, metodosPago: list.length ? list : [{ codigo: 'EFECTIVO', nombre: 'Efectivo', categoria: 'EFECTIVO', activo: true }] };
+    });
+  };
+
   const addCanal = (tipo, prefijo) => {
     setCanalesForm((prev) => ({
       ...prev,
@@ -235,14 +274,20 @@ function Configuracion() {
     const payload = {
       pos: (canalesForm.pos || []).map((x) => String(x || '').trim()).filter(Boolean),
       delivery: (canalesForm.delivery || []).map((x) => String(x || '').trim()).filter(Boolean),
+      metodosPago: (canalesForm.metodosPago || []).map((x) => ({
+        codigo: String(x.codigo || '').trim().toUpperCase(),
+        nombre: String(x.nombre || '').trim(),
+        categoria: String(x.categoria || 'OTRO').trim().toUpperCase(),
+        activo: !!x.activo
+      })).filter((x) => x.codigo && x.nombre),
       requiereMontoEnTodos: true
     };
 
     payload.pos = dedupe(payload.pos);
     payload.delivery = dedupe(payload.delivery);
 
-    if (payload.pos.length === 0) return setError('Debes configurar al menos un POS');
-    if (payload.delivery.length === 0) return setError('Debes configurar al menos una empresa de pedidos');
+    if (!payload.metodosPago.some((x) => x.categoria === 'EFECTIVO' && x.activo))
+      return setError('Debes tener al menos un metodo de pago activo de tipo EFECTIVO');
 
     try {
       const res = await api.put('/Cajas/canales-config', payload, {
@@ -252,6 +297,7 @@ function Configuracion() {
       setCanalesForm({
         pos: data.pos || payload.pos,
         delivery: data.delivery || payload.delivery,
+        metodosPago: data.metodosPago || payload.metodosPago,
         requiereMontoEnTodos: data.requiereMontoEnTodos ?? true
       });
       await cargarCanalesSucursal(idSucursal);
@@ -452,6 +498,15 @@ function Configuracion() {
               </div>
             </div>
 
+            {sarForm.habilitadoCai && (
+              <div className="col-12">
+                <div className={`alert py-2 mb-0 ${sarForm.facturasRestantes > 0 && !sarForm.caiVencido ? 'alert-info' : 'alert-danger'}`}>
+                  Facturas CAI restantes: <strong>{sarForm.facturasRestantes}</strong>
+                  {sarForm.caiVencido && <span className="ms-2">| CAI vencido</span>}
+                </div>
+              </div>
+            )}
+
             <div className="col-md-6">
               <label className="form-label">CAI</label>
               <input type="text" className="form-control" name="cai" value={sarForm.cai} onChange={handleSarChange} />
@@ -513,6 +568,7 @@ function Configuracion() {
                   <th>CAI habilitado</th>
                   <th>CAI</th>
                   <th>Siguiente</th>
+                  <th>Restantes</th>
                   <th>Fecha limite</th>
                 </tr>
               </thead>
@@ -523,11 +579,16 @@ function Configuracion() {
                     <td>{x.habilitadoCai ? 'SI' : 'NO'}</td>
                     <td>{x.cai || '-'}</td>
                     <td>{x.siguienteCorrelativo ?? '-'}</td>
+                    <td>
+                      <span className={`status-pill ${Number(x.facturasRestantes || 0) > 0 ? 'active' : 'inactive'}`}>
+                        {Number(x.facturasRestantes || 0)}
+                      </span>
+                    </td>
                     <td>{x.fechaLimiteEmision ? String(x.fechaLimiteEmision).slice(0, 10) : '-'}</td>
                   </tr>
                 ))}
                 {listaSar.length === 0 && (
-                  <tr><td colSpan="5" className="text-center">Sin configuraciones SAR guardadas</td></tr>
+                  <tr><td colSpan="6" className="text-center">Sin configuraciones SAR guardadas</td></tr>
                 )}
               </tbody>
             </table>
@@ -623,40 +684,62 @@ function Configuracion() {
 
       <div className="card shadow-sm mt-4">
         <div className="card-body">
-          <h5 className="mb-3">Canales de Cuadre por Sucursal</h5>
+          <h5 className="mb-3">Metodos de Pago y Cuadre por Sucursal</h5>
           <form onSubmit={guardarCanalesCuadre} className="row g-3">
             <div className="col-12">
-              <small className="text-muted">Solo admin define estos canales. El cajero solo captura montos en caja.</small>
-            </div>
-
-            <div className="col-md-6">
-              <div className="d-flex justify-content-between align-items-center mb-2">
-                <label className="form-label mb-0">POS habilitados</label>
-                <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => addCanal('pos', 'POS')}>Agregar POS</button>
-              </div>
-              {canalesForm.pos.map((x, i) => (
-                <div className="input-group mb-2" key={`pos-${i}`}>
-                  <input className="form-control" value={x} onChange={(e) => updateCanalNombre('pos', i, e.target.value)} />
-                  <button type="button" className="btn btn-outline-danger" onClick={() => removeCanal('pos', i)}>Quitar</button>
-                </div>
-              ))}
-            </div>
-
-            <div className="col-md-6">
-              <div className="d-flex justify-content-between align-items-center mb-2">
-                <label className="form-label mb-0">Empresas de pedidos</label>
-                <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => addCanal('delivery', 'APP')}>Agregar Empresa</button>
-              </div>
-              {canalesForm.delivery.map((x, i) => (
-                <div className="input-group mb-2" key={`delivery-${i}`}>
-                  <input className="form-control" value={x} onChange={(e) => updateCanalNombre('delivery', i, e.target.value)} />
-                  <button type="button" className="btn btn-outline-danger" onClick={() => removeCanal('delivery', i)}>Quitar</button>
-                </div>
-              ))}
+              <small className="text-muted">Solo admin define metodos. POS/Mesas y cierre de caja usaran esta misma configuracion.</small>
             </div>
 
             <div className="col-12">
-              <button className="btn btn-dark" type="submit">Guardar canales de cuadre</button>
+              <div className="d-flex justify-content-between align-items-center mb-2">
+                <label className="form-label mb-0">Metodos de pago</label>
+                <button type="button" className="btn btn-sm btn-outline-secondary" onClick={addMetodoPago}>Agregar metodo</button>
+              </div>
+              {(canalesForm.metodosPago || []).map((x, i) => (
+                <div className="row g-2 mb-2 align-items-center" key={`mp-${i}`}>
+                  <div className="col-md-2">
+                    <input className="form-control" placeholder="Codigo" value={x.codigo || ''} onChange={(e) => updateMetodoPago(i, 'codigo', e.target.value)} />
+                  </div>
+                  <div className="col-md-4">
+                    <input className="form-control" placeholder="Nombre" value={x.nombre || ''} onChange={(e) => updateMetodoPago(i, 'nombre', e.target.value)} />
+                  </div>
+                  <div className="col-md-3">
+                    <select className="form-select" value={x.categoria || 'OTRO'} onChange={(e) => updateMetodoPago(i, 'categoria', e.target.value)}>
+                      <option value="EFECTIVO">EFECTIVO</option>
+                      <option value="POS">POS</option>
+                      <option value="DELIVERY">DELIVERY</option>
+                      <option value="OTRO">OTRO</option>
+                    </select>
+                  </div>
+                  <div className="col-md-2">
+                    <div className="form-check form-switch">
+                      <input className="form-check-input" type="checkbox" checked={!!x.activo} onChange={(e) => updateMetodoPago(i, 'activo', e.target.checked)} />
+                      <label className="form-check-label">Activo</label>
+                    </div>
+                  </div>
+                  <div className="col-md-1">
+                    <button type="button" className="btn btn-outline-danger w-100" onClick={() => removeMetodoPago(i)}>Quitar</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="col-md-6">
+              <label className="form-label mb-1">Canales POS que pedira cierre</label>
+              <div className="form-control bg-light" style={{ minHeight: 84 }}>
+                {(canalesForm.pos || []).join(', ')}
+              </div>
+            </div>
+
+            <div className="col-md-6">
+              <label className="form-label mb-1">Canales Delivery que pedira cierre</label>
+              <div className="form-control bg-light" style={{ minHeight: 84 }}>
+                {(canalesForm.delivery || []).join(', ')}
+              </div>
+            </div>
+
+            <div className="col-12">
+              <button className="btn btn-dark" type="submit">Guardar metodos y canales de cuadre</button>
             </div>
           </form>
         </div>

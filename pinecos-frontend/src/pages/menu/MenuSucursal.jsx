@@ -151,7 +151,10 @@ function MenuSucursal() {
 
   return (
     <div>
-      <h2 className="mb-4">Menu por sucursal</h2>
+      <h2 className="mb-2">Precios por sucursal</h2>
+      <p className="text-muted mb-4">
+        Aqui defines el precio de venta por sucursal. El costo se maneja en Productos.
+      </p>
 
       <div className="card shadow-sm mb-4">
         <div className="card-body">
@@ -168,6 +171,9 @@ function MenuSucursal() {
               </option>
             ))}
           </select>
+          {!sucursalSeleccionada && (
+            <small className="text-muted d-block mt-2">Primero selecciona sucursal para guardar precios.</small>
+          )}
         </div>
       </div>
 
@@ -178,7 +184,7 @@ function MenuSucursal() {
         <div className="col-md-4">
           <div className="card shadow-sm">
             <div className="card-body">
-              <h5>Precio producto normal</h5>
+              <h5>Paso 1: Precio de producto normal</h5>
               <form onSubmit={handleAsignarProductoSucursal} className="row g-3">
                 <div className="col-12">
                   <select
@@ -225,7 +231,10 @@ function MenuSucursal() {
         <div className="col-md-4">
           <div className="card shadow-sm">
             <div className="card-body">
-              <h5>Relacion producto-presentacion</h5>
+              <h5>Paso 2: Relacion producto-presentacion</h5>
+              <small className="text-muted d-block mb-2">
+                Este paso es de catalogo global (se reutiliza en todas las sucursales).
+              </small>
               <form onSubmit={handleAsignarProductoPresentacion} className="row g-3">
                 <div className="col-12">
                   <select
@@ -277,7 +286,7 @@ function MenuSucursal() {
         <div className="col-md-4">
           <div className="card shadow-sm">
             <div className="card-body">
-              <h5>Precio por presentacion</h5>
+              <h5>Paso 3: Precio por presentacion</h5>
               <form onSubmit={handleAsignarPrecioPresentacion} className="row g-3">
                 <div className="col-12">
                   <select

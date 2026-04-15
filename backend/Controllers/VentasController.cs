@@ -22,6 +22,17 @@ namespace Pinecos.Controllers
             _env = env;
         }
 
+        private static string NormalizarTipoServicio(string? tipoServicio)
+        {
+            var t = (tipoServicio ?? string.Empty).Trim().ToUpperInvariant();
+            return t switch
+            {
+                "COMER_AQUI" => "COMER_AQUI",
+                "LLEVAR" => "LLEVAR",
+                _ => "COMER_AQUI"
+            };
+        }
+
         [HttpPost]
         public async Task<ActionResult> RegistrarVenta([FromBody] VentaRequestDto request)
         {
@@ -38,11 +49,27 @@ namespace Pinecos.Controllers
                 return BadRequest(new { message = "La venta debe tener al menos un detalle" });
 
             var sarConfig = FacturacionSarStore.GetConfig(_env.ContentRootPath, idSucursal.Value);
+            if (sarConfig.HabilitadoCai)
+            {
+                try
+                {
+                    FacturacionSarStore.ValidarConfiguracion(sarConfig);
+                }
+                catch (InvalidOperationException ex)
+                {
+                    return BadRequest(new { message = $"Configuracion CAI invalida: {ex.Message}" });
+                }
+            }
+
+            var facturasRestantes = FacturacionSarStore.CalcularFacturasRestantes(sarConfig);
             if (sarConfig.HabilitadoCai && !request.EmitirFactura && !sarConfig.PermitirVentaSinFactura)
-                return BadRequest(new { message = "En esta sucursal se requiere emitir factura CAI en cada venta" });
+                return BadRequest(new { message = $"En esta sucursal se requiere emitir factura CAI en cada venta. Facturas restantes: {facturasRestantes}" });
 
             if (!sarConfig.HabilitadoCai && request.EmitirFactura)
                 return BadRequest(new { message = "La facturacion CAI esta desactivada para esta sucursal" });
+
+            if (request.EmitirFactura && facturasRestantes <= 0)
+                return BadRequest(new { message = "No quedan facturas CAI disponibles en el rango configurado" });
 
             var caja = await _context.Cajas.FirstOrDefaultAsync(x =>
                 x.Id_Caja == request.Id_Caja &&
@@ -124,7 +151,10 @@ namespace Pinecos.Controllers
                     }
                 }
 
-                var observacionFinal = request.Observacion;
+                var tipoServicio = NormalizarTipoServicio(request.Tipo_Servicio);
+                var observacionFinal = string.IsNullOrWhiteSpace(request.Observacion)
+                    ? $"SERVICIO:{tipoServicio}"
+                    : $"SERVICIO:{tipoServicio} | {request.Observacion}";
                 if (factura != null)
                 {
                     var fechaLimite = factura.FechaLimiteEmision?.ToString("yyyy-MM-dd") ?? "";

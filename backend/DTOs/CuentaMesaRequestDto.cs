@@ -23,6 +23,7 @@
         public bool ImpuestoIncluidoEnSubtotal { get; set; }
         public bool EmitirFactura { get; set; }
         public string Metodo_Pago { get; set; } = string.Empty;
+        public string Tipo_Servicio { get; set; } = "COMER_AQUI";
         public string Observacion { get; set; } = string.Empty;
     }
 }

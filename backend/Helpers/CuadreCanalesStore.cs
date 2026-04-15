@@ -66,6 +66,12 @@ namespace Pinecos.Helpers
                     IdSucursal = idSucursal,
                     Pos = new List<string> { "POS 1" },
                     Delivery = new List<string> { "PEDIDOS_YA" },
+                    MetodosPago = new List<MetodoPagoConfigDto>
+                    {
+                        new() { Codigo = "EFECTIVO", Nombre = "Efectivo", Categoria = "EFECTIVO", Activo = true },
+                        new() { Codigo = "POS_1", Nombre = "POS 1", Categoria = "POS", Activo = true },
+                        new() { Codigo = "PEDIDOS_YA", Nombre = "Pedidos Ya", Categoria = "DELIVERY", Activo = true }
+                    },
                     RequiereMontoEnTodos = true
                 };
             }
@@ -84,6 +90,26 @@ namespace Pinecos.Helpers
 
         public static CuadreCanalesConfigDto Sanitize(CuadreCanalesConfigDto config)
         {
+            var normalizarCategoria = (string? categoria) =>
+            {
+                var c = (categoria ?? string.Empty).Trim().ToUpperInvariant();
+                return c switch
+                {
+                    "EFECTIVO" => "EFECTIVO",
+                    "POS" => "POS",
+                    "DELIVERY" => "DELIVERY",
+                    _ => "OTRO"
+                };
+            };
+
+            var normalizarCodigo = (string? codigo) =>
+            {
+                var raw = (codigo ?? string.Empty).Trim().ToUpperInvariant();
+                if (string.IsNullOrWhiteSpace(raw))
+                    return string.Empty;
+                return new string(raw.Where(char.IsLetterOrDigit).ToArray());
+            };
+
             var pos = (config.Pos ?? new List<string>())
                 .Where(x => !string.IsNullOrWhiteSpace(x))
                 .Select(x => x.Trim())
@@ -99,11 +125,73 @@ namespace Pinecos.Helpers
             if (pos.Count == 0) pos.Add("POS 1");
             if (delivery.Count == 0) delivery.Add("PEDIDOS_YA");
 
+            var metodos = (config.MetodosPago ?? new List<MetodoPagoConfigDto>())
+                .Where(x => !string.IsNullOrWhiteSpace(x.Codigo) || !string.IsNullOrWhiteSpace(x.Nombre))
+                .Select(x =>
+                {
+                    var nombre = string.IsNullOrWhiteSpace(x.Nombre) ? x.Codigo : x.Nombre;
+                    var codigo = normalizarCodigo(x.Codigo);
+                    if (string.IsNullOrWhiteSpace(codigo))
+                        codigo = normalizarCodigo(nombre);
+
+                    return new MetodoPagoConfigDto
+                    {
+                        Codigo = codigo,
+                        Nombre = (nombre ?? string.Empty).Trim(),
+                        Categoria = normalizarCategoria(x.Categoria),
+                        Activo = x.Activo
+                    };
+                })
+                .Where(x => !string.IsNullOrWhiteSpace(x.Codigo) && !string.IsNullOrWhiteSpace(x.Nombre))
+                .GroupBy(x => x.Codigo, StringComparer.OrdinalIgnoreCase)
+                .Select(g => g.First())
+                .ToList();
+
+            if (!metodos.Any())
+            {
+                metodos.Add(new MetodoPagoConfigDto { Codigo = "EFECTIVO", Nombre = "Efectivo", Categoria = "EFECTIVO", Activo = true });
+                metodos.AddRange(pos.Select(p => new MetodoPagoConfigDto
+                {
+                    Codigo = normalizarCodigo(p),
+                    Nombre = p,
+                    Categoria = "POS",
+                    Activo = true
+                }));
+                metodos.AddRange(delivery.Select(d => new MetodoPagoConfigDto
+                {
+                    Codigo = normalizarCodigo(d),
+                    Nombre = d,
+                    Categoria = "DELIVERY",
+                    Activo = true
+                }));
+            }
+
+            if (!metodos.Any(x => x.Categoria == "EFECTIVO"))
+                metodos.Insert(0, new MetodoPagoConfigDto { Codigo = "EFECTIVO", Nombre = "Efectivo", Categoria = "EFECTIVO", Activo = true });
+
+            pos = metodos
+                .Where(x => x.Activo && x.Categoria == "POS")
+                .Select(x => x.Nombre.Trim())
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            delivery = metodos
+                .Where(x => x.Activo && x.Categoria == "DELIVERY")
+                .Select(x => x.Nombre.Trim())
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (pos.Count == 0) pos.Add("POS 1");
+            if (delivery.Count == 0) delivery.Add("PEDIDOS_YA");
+
             return new CuadreCanalesConfigDto
             {
                 IdSucursal = config.IdSucursal,
                 Pos = pos,
                 Delivery = delivery,
+                MetodosPago = metodos,
                 RequiereMontoEnTodos = config.RequiereMontoEnTodos
             };
         }

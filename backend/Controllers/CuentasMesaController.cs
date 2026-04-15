@@ -22,6 +22,17 @@ namespace Pinecos.Controllers
             _env = env;
         }
 
+        private static string NormalizarTipoServicio(string? tipoServicio)
+        {
+            var t = (tipoServicio ?? string.Empty).Trim().ToUpperInvariant();
+            return t switch
+            {
+                "COMER_AQUI" => "COMER_AQUI",
+                "LLEVAR" => "LLEVAR",
+                _ => "COMER_AQUI"
+            };
+        }
+
         [HttpPost("abrir")]
         public async Task<ActionResult> AbrirCuenta([FromBody] AbrirCuentaMesaRequestDto request)
         {
@@ -258,11 +269,27 @@ namespace Pinecos.Controllers
                 return BadRequest(new { message = "La cuenta no tiene productos" });
 
             var sarConfig = FacturacionSarStore.GetConfig(_env.ContentRootPath, idSucursal.Value);
+            if (sarConfig.HabilitadoCai)
+            {
+                try
+                {
+                    FacturacionSarStore.ValidarConfiguracion(sarConfig);
+                }
+                catch (InvalidOperationException ex)
+                {
+                    return BadRequest(new { message = $"Configuracion CAI invalida: {ex.Message}" });
+                }
+            }
+
+            var facturasRestantes = FacturacionSarStore.CalcularFacturasRestantes(sarConfig);
             if (sarConfig.HabilitadoCai && !request.EmitirFactura && !sarConfig.PermitirVentaSinFactura)
-                return BadRequest(new { message = "En esta sucursal se requiere emitir factura CAI en cada venta" });
+                return BadRequest(new { message = $"En esta sucursal se requiere emitir factura CAI en cada venta. Facturas restantes: {facturasRestantes}" });
 
             if (!sarConfig.HabilitadoCai && request.EmitirFactura)
                 return BadRequest(new { message = "La facturacion CAI esta desactivada para esta sucursal" });
+
+            if (request.EmitirFactura && facturasRestantes <= 0)
+                return BadRequest(new { message = "No quedan facturas CAI disponibles en el rango configurado" });
 
             if (request.Descuento < 0 || request.Impuesto < 0)
                 return BadRequest(new { message = "Descuento e impuesto no pueden ser negativos" });
@@ -294,7 +321,10 @@ namespace Pinecos.Controllers
                     }
                 }
 
-                var observacionFinal = request.Observacion;
+                var tipoServicio = NormalizarTipoServicio(request.Tipo_Servicio);
+                var observacionFinal = string.IsNullOrWhiteSpace(request.Observacion)
+                    ? $"SERVICIO:{tipoServicio}"
+                    : $"SERVICIO:{tipoServicio} | {request.Observacion}";
                 if (factura != null)
                 {
                     var fechaLimite = factura.FechaLimiteEmision?.ToString("yyyy-MM-dd") ?? "";
@@ -368,6 +398,62 @@ namespace Pinecos.Controllers
                         factura
                     }
                 });
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
+        [HttpPost("{idCuenta}/cancelar")]
+        public async Task<ActionResult> CancelarCuenta(int idCuenta)
+        {
+            var idUsuario = UserHelper.GetUserId(User);
+            var idSucursal = UserHelper.GetSucursalId(User);
+
+            if (!idUsuario.HasValue)
+                return Unauthorized(new { message = "Usuario no válido en el token" });
+
+            if (!idSucursal.HasValue)
+                return BadRequest(new { message = "El usuario no tiene sucursal asignada" });
+
+            var cuenta = await _context.CuentasMesa.FirstOrDefaultAsync(x =>
+                x.Id_Cuenta_Mesa == idCuenta &&
+                x.Id_Sucursal == idSucursal.Value &&
+                x.Estado == "ABIERTA");
+
+            if (cuenta == null)
+                return NotFound(new { message = "Cuenta abierta no encontrada" });
+
+            using var transaction = await _context.Database.BeginTransactionAsync();
+
+            try
+            {
+                var detalles = await _context.DetalleCuentaMesa
+                    .Where(x => x.Id_Cuenta_Mesa == idCuenta)
+                    .ToListAsync();
+
+                if (detalles.Count > 0)
+                    _context.DetalleCuentaMesa.RemoveRange(detalles);
+
+                cuenta.Estado = "CANCELADA";
+                cuenta.Fecha_Cierre = FechaHelper.AhoraHonduras();
+                cuenta.Observacion = string.IsNullOrWhiteSpace(cuenta.Observacion)
+                    ? "Cuenta cancelada por usuario"
+                    : $"{cuenta.Observacion} | Cuenta cancelada por usuario";
+
+                var mesa = await _context.Mesas.FindAsync(cuenta.Id_Mesa);
+                if (mesa != null)
+                    mesa.Estado = "LIBRE";
+
+                await _context.SaveChangesAsync();
+
+                await BitacoraHelper.RegistrarAsync(_context, idUsuario.Value, "CUENTAS_MESA", "CANCELAR", $"Cuenta mesa #{idCuenta} cancelada");
+
+                await transaction.CommitAsync();
+
+                return Ok(new { message = "Cuenta cancelada correctamente" });
             }
             catch
             {

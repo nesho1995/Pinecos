@@ -20,7 +20,10 @@ function Mesas() {
     id_Presentacion: '',
     cantidad: 1
   });
+  const [filtroProducto, setFiltroProducto] = useState('');
   const [metodoPago, setMetodoPago] = useState('EFECTIVO');
+  const [tipoServicio, setTipoServicio] = useState('COMER_AQUI');
+  const [metodosPago, setMetodosPago] = useState([]);
   const [modoDescuento, setModoDescuento] = useState('NINGUNO');
   const [descuentoManual, setDescuentoManual] = useState('0');
   const [modoImpuesto, setModoImpuesto] = useState('INCLUIDO_15');
@@ -123,6 +126,18 @@ function Mesas() {
     setCuentas(response.data || []);
   };
 
+  const cargarCanalesConfig = async () => {
+    try {
+      const response = await api.get('/Cajas/canales-config');
+      setMetodosPago((response.data?.metodosPago || []).filter((x) => x.activo));
+    } catch {
+      setMetodosPago([
+        { codigo: 'EFECTIVO', nombre: 'Efectivo', categoria: 'EFECTIVO', activo: true },
+        { codigo: 'TARJETA', nombre: 'Tarjeta', categoria: 'POS', activo: true }
+      ]);
+    }
+  };
+
   const cargarCuentaDetalle = async (idCuenta) => {
     const response = await api.get(`/CuentasMesa/${idCuenta}`);
     setDetalleCuenta(response.data);
@@ -132,6 +147,7 @@ function Mesas() {
     const init = async () => {
       try {
         await Promise.all([cargarSucursales(), cargarCajaActual(), cargarCuentasAbiertas(), cargarFacturacionSar()]);
+        await cargarCanalesConfig();
         if (!esAdmin && idSucursalUsuario) {
           setSucursalSeleccionada(String(idSucursalUsuario));
         }
@@ -153,6 +169,11 @@ function Mesas() {
     () => [...menuItems].sort((a, b) => a.nombre.localeCompare(b.nombre)),
     [menuItems]
   );
+  const menuItemsFiltrados = useMemo(() => {
+    const filtro = filtroProducto.trim().toLowerCase();
+    if (!filtro) return menuItemsOrdenados;
+    return menuItemsOrdenados.filter((item) => item.nombre.toLowerCase().includes(filtro));
+  }, [menuItemsOrdenados, filtroProducto]);
 
   const menuSeleccionado = useMemo(() => {
     if (!formAgregar.id_Producto) return null;
@@ -172,6 +193,12 @@ function Mesas() {
     () => (ajustesVenta.impuestos || []).filter((x) => x.activo),
     [ajustesVenta.impuestos]
   );
+
+  useEffect(() => {
+    if (!metodosPago.some((x) => x.codigo === metodoPago)) {
+      setMetodoPago(metodosPago[0]?.codigo || 'EFECTIVO');
+    }
+  }, [metodosPago, metodoPago]);
 
   useEffect(() => {
     if (!descuentosActivos.some((x) => x.codigo === modoDescuento)) {
@@ -220,12 +247,6 @@ function Mesas() {
 
   const subtotalBaseCuenta = subtotalCuenta - (impuestoIncluidoEnSubtotal ? impuestoNum : 0);
   const totalCuenta = subtotalBaseCuenta - descuentoNum + impuestoNum;
-  const costoTotalCuenta = (detalleCuenta?.detalles || []).reduce(
-    (acc, item) => acc + Number(item.costo_Unitario || 0) * Number(item.cantidad || 0),
-    0
-  );
-  const utilidadCuenta = totalCuenta - costoTotalCuenta;
-
   const getCuentaMesa = (idMesa) => cuentas.find((c) => c.id_Mesa === idMesa);
   const mesasActivas = mesas.filter((m) => m.activo);
 
@@ -313,6 +334,7 @@ function Mesas() {
         impuestoIncluidoEnSubtotal,
         emitirFactura: emitirFactura && !!facturacionSar?.habilitadoCai,
         metodo_Pago: metodoPago,
+        tipo_Servicio: tipoServicio,
         observacion: `Cobro de mesa | Desc:${modoDescuento} | Imp:${modoImpuesto}`
       });
 
@@ -327,9 +349,31 @@ function Mesas() {
       setImpuestoManual('0');
       setEmitirFactura(false);
       setMetodoPago('EFECTIVO');
+      setTipoServicio('COMER_AQUI');
       await imprimirTicketHtml(idVenta);
     } catch (err) {
       setError(err?.response?.data?.message || 'Error al cobrar cuenta');
+    } finally {
+      setProcesando(false);
+    }
+  };
+
+  const cancelarCuenta = async () => {
+    limpiarMensajes();
+    if (!detalleCuenta?.cuenta?.id_Cuenta_Mesa) return setError('No hay cuenta abierta');
+    if (!window.confirm('Se cancelara esta cuenta y se eliminaran sus productos. Continuar?')) return;
+
+    try {
+      setProcesando(true);
+      await api.post(`/CuentasMesa/${detalleCuenta.cuenta.id_Cuenta_Mesa}/cancelar`);
+      setMensaje('Cuenta cancelada y mesa liberada correctamente');
+      setDetalleCuenta(null);
+      setFormAgregar({ id_Producto: '', id_Presentacion: '', cantidad: 1 });
+      setFiltroProducto('');
+      await cargarCuentasAbiertas();
+      await cargarMesas(sucursalSeleccionada);
+    } catch (err) {
+      setError(err?.response?.data?.message || 'Error al cancelar cuenta');
     } finally {
       setProcesando(false);
     }
@@ -345,6 +389,8 @@ function Mesas() {
     setImpuestoManual('0');
     setEmitirFactura(false);
     setMetodoPago('EFECTIVO');
+    setTipoServicio('COMER_AQUI');
+    setFiltroProducto('');
     const cuenta = getCuentaMesa(mesa.id_Mesa);
     if (cuenta) await cargarCuentaDetalle(cuenta.id_Cuenta_Mesa);
   };
@@ -436,6 +482,24 @@ function Mesas() {
                   ) : (
                     <>
                       <h6>Cuenta #{detalleCuenta.cuenta.id_Cuenta_Mesa}</h6>
+
+                      <div className="position-sticky top-0 bg-white border rounded p-2 mb-3" style={{ zIndex: 10 }}>
+                        <div className="d-flex justify-content-between align-items-center mb-2">
+                          <strong>Total actual: L {totalCuenta.toFixed(2)}</strong>
+                          <span className={`badge ${cajaActual?.abierta ? 'bg-success' : 'bg-warning text-dark'}`}>
+                            {cajaActual?.abierta ? `Caja #${cajaActual.id_Caja} abierta` : 'Caja cerrada'}
+                          </span>
+                        </div>
+                        <div className="d-grid gap-2">
+                          <button className="btn btn-success" onClick={cobrarCuenta} disabled={!cajaActual?.abierta || procesando}>
+                            {procesando ? 'Procesando...' : 'Cobrar mesa'}
+                          </button>
+                          <button className="btn btn-outline-danger" onClick={cancelarCuenta} disabled={procesando}>
+                            Cancelar cuenta
+                          </button>
+                        </div>
+                      </div>
+
                       <ul className="list-group mb-3">
                         {detalleCuenta.detalles.length === 0 ? (
                           <li className="list-group-item text-center">Sin productos</li>
@@ -446,7 +510,6 @@ function Mesas() {
                                 <strong>{d.producto}</strong>
                                 <div className="small">Cant: {d.cantidad}</div>
                                 <div className="small">Precio: L {Number(d.precio_Unitario || 0).toFixed(2)}</div>
-                                <div className="small">Costo: L {Number(d.costo_Unitario || 0).toFixed(2)}</div>
                                 <div className="small">Subt: L {Number(d.subtotal || 0).toFixed(2)}</div>
                               </div>
                               <button className="btn btn-sm btn-danger" onClick={() => eliminarDetalle(d.id_Detalle_Cuenta_Mesa)} disabled={procesando}>X</button>
@@ -457,24 +520,42 @@ function Mesas() {
 
                       <hr />
                       <h6>Agregar producto</h6>
-                      <select
-                        className="form-select mb-2"
-                        value={`${formAgregar.id_Producto}|${formAgregar.id_Presentacion}`}
-                        onChange={(e) => {
-                          const [idProducto, idPresentacion] = e.target.value.split('|');
-                          setFormAgregar({ ...formAgregar, id_Producto: idProducto || '', id_Presentacion: idPresentacion || '' });
-                        }}
-                      >
-                        <option value="|">Producto</option>
-                        {menuItemsOrdenados.map((item) => (
-                          <option key={`${item.id_Producto}-${item.id_Presentacion ?? 'n'}`} value={`${item.id_Producto}|${item.id_Presentacion ?? ''}`}>
-                            {item.nombre} - L {Number(item.precio).toFixed(2)}
-                          </option>
-                        ))}
-                      </select>
+                      <input
+                        type="text"
+                        className="form-control mb-2"
+                        placeholder="Buscar producto..."
+                        value={filtroProducto}
+                        onChange={(e) => setFiltroProducto(e.target.value)}
+                      />
+                      <div className="border rounded mb-2" style={{ maxHeight: 190, overflowY: 'auto' }}>
+                        {menuItemsFiltrados.length === 0 ? (
+                          <div className="p-2 small text-muted">No hay productos para ese filtro.</div>
+                        ) : (
+                          menuItemsFiltrados.slice(0, 50).map((item) => {
+                            const seleccionado =
+                              String(formAgregar.id_Producto) === String(item.id_Producto) &&
+                              String(formAgregar.id_Presentacion ?? '') === String(item.id_Presentacion ?? '');
+                            return (
+                              <button
+                                type="button"
+                                key={`${item.id_Producto}-${item.id_Presentacion ?? 'n'}`}
+                                className={`list-group-item list-group-item-action d-flex justify-content-between align-items-center ${seleccionado ? 'active' : ''}`}
+                                onClick={() => setFormAgregar({
+                                  ...formAgregar,
+                                  id_Producto: String(item.id_Producto),
+                                  id_Presentacion: item.id_Presentacion ? String(item.id_Presentacion) : ''
+                                })}
+                              >
+                                <span className="text-start">{item.nombre}</span>
+                                <span className="small">L {Number(item.precio).toFixed(2)}</span>
+                              </button>
+                            );
+                          })
+                        )}
+                      </div>
                       <input type="number" className="form-control mb-2" placeholder="Cantidad" value={formAgregar.cantidad} min="1" onChange={(e) => setFormAgregar({ ...formAgregar, cantidad: e.target.value })} />
                       <div className="form-control mb-3 bg-light">
-                        Precio: L {Number(menuSeleccionado?.precio || 0).toFixed(2)} | Costo: L {Number(menuSeleccionado?.costo || 0).toFixed(2)}
+                        Precio: L {Number(menuSeleccionado?.precio || 0).toFixed(2)}
                       </div>
                       <button className="btn btn-dark w-100 mb-3" onClick={agregarProducto} disabled={procesando}>Agregar a cuenta</button>
 
@@ -482,13 +563,25 @@ function Mesas() {
                         <div className="col-12">
                           <label className="form-label mb-1">Metodo de pago</label>
                           <select className="form-select" value={metodoPago} onChange={(e) => setMetodoPago(e.target.value)}>
-                            <option value="EFECTIVO">EFECTIVO</option>
-                            <option value="TARJETA">TARJETA</option>
-                            <option value="TRANSFERENCIA">TRANSFERENCIA</option>
-                            <option value="PEDIDOS_YA">PEDIDOS_YA</option>
-                            <option value="DELIVERY_APP">DELIVERY_APP</option>
+                            {metodosPago.map((m) => (
+                              <option key={m.codigo} value={m.codigo}>{m.nombre}</option>
+                            ))}
                           </select>
                         </div>
+                        <div className="col-12">
+                          <label className="form-label mb-1">Tipo de servicio</label>
+                          <select className="form-select" value={tipoServicio} onChange={(e) => setTipoServicio(e.target.value)}>
+                            <option value="COMER_AQUI">Comer aqui</option>
+                            <option value="LLEVAR">Para llevar</option>
+                          </select>
+                        </div>
+                        {facturacionSar?.habilitadoCai && (
+                          <div className="col-12">
+                            <div className={`alert py-2 mb-0 ${facturacionSar.facturasRestantes > 0 ? 'alert-info' : 'alert-danger'}`}>
+                              Facturas CAI restantes: <strong>{Number(facturacionSar.facturasRestantes || 0)}</strong>
+                            </div>
+                          </div>
+                        )}
                         {facturacionSar?.habilitadoCai && (
                           <div className="col-12">
                             <div className="form-check">
@@ -552,13 +645,7 @@ function Mesas() {
                         {impuestoIncluidoEnSubtotal && <div className="small text-warning">Impuesto incluido en precios (no se suma al total)</div>}
                         <hr className="my-2" />
                         <div className="d-flex justify-content-between"><span>Total</span><strong>L {totalCuenta.toFixed(2)}</strong></div>
-                        <div className="d-flex justify-content-between small mt-2"><span>Costo total</span><strong>L {costoTotalCuenta.toFixed(2)}</strong></div>
-                        <div className="d-flex justify-content-between small"><span>Utilidad estimada</span><strong>L {utilidadCuenta.toFixed(2)}</strong></div>
                       </div>
-
-                      <button className="btn btn-success w-100" onClick={cobrarCuenta} disabled={!cajaActual?.abierta || procesando}>
-                        {procesando ? 'Procesando...' : 'Cobrar mesa'}
-                      </button>
                     </>
                   )}
                 </>

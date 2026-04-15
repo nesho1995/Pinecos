@@ -88,8 +88,41 @@ namespace Pinecos.Controllers
             return new string(raw.Where(char.IsLetterOrDigit).ToArray());
         }
 
+        private static Dictionary<string, HashSet<string>> ConstruirMapaMetodos(CuadreCanalesConfigDto config)
+        {
+            var mapa = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["EFECTIVO"] = new HashSet<string>(StringComparer.Ordinal),
+                ["POS"] = new HashSet<string>(StringComparer.Ordinal),
+                ["DELIVERY"] = new HashSet<string>(StringComparer.Ordinal)
+            };
+
+            foreach (var metodo in config.MetodosPago ?? new List<MetodoPagoConfigDto>())
+            {
+                if (!metodo.Activo) continue;
+                var categoria = (metodo.Categoria ?? string.Empty).Trim().ToUpperInvariant();
+                if (!mapa.ContainsKey(categoria)) continue;
+
+                var codigo = NormalizeCanal(metodo.Codigo);
+                var nombre = NormalizeCanal(metodo.Nombre);
+                if (!string.IsNullOrWhiteSpace(codigo)) mapa[categoria].Add(codigo);
+                if (!string.IsNullOrWhiteSpace(nombre)) mapa[categoria].Add(nombre);
+            }
+
+            if (mapa["EFECTIVO"].Count == 0)
+            {
+                mapa["EFECTIVO"].Add(NormalizeCanal("EFECTIVO"));
+                mapa["EFECTIVO"].Add(NormalizeCanal("CASH"));
+            }
+
+            return mapa;
+        }
+
         private async Task<CuadreResumenDto> ConstruirResumenCuadreAsync(Caja caja, DateTime fechaCorte)
         {
+            var canalesConfig = CuadreCanalesStore.GetConfig(_env.ContentRootPath, caja.Id_Sucursal);
+            var metodosPorCategoria = ConstruirMapaMetodos(canalesConfig);
+
             var ventas = await _context.Ventas
                 .Where(x =>
                     x.Id_Caja == caja.Id_Caja &&
@@ -133,6 +166,27 @@ namespace Pinecos.Controllers
                 .OrderByDescending(x => x.total)
                 .Cast<object>()
                 .ToList();
+
+            var ventasPorMetodoRaw = ventas
+                .GroupBy(x => NormalizeCanal(x.Metodo_Pago))
+                .ToDictionary(g => g.Key, g => g.Sum(x => x.Total));
+
+            ventasEfectivo = ventasPorMetodoRaw
+                .Where(x => metodosPorCategoria["EFECTIVO"].Contains(x.Key))
+                .Sum(x => x.Value);
+
+            ventasPos = ventasPorMetodoRaw
+                .Where(x => metodosPorCategoria["POS"].Contains(x.Key))
+                .Sum(x => x.Value);
+
+            ventasDelivery = ventasPorMetodoRaw
+                .Where(x => metodosPorCategoria["DELIVERY"].Contains(x.Key))
+                .Sum(x => x.Value);
+
+            // Si hay metodos no clasificados, van como POS por defecto para no perder cuadre.
+            var totalClasificado = ventasEfectivo + ventasPos + ventasDelivery;
+            if (ventasTotal > totalClasificado)
+                ventasPos += ventasTotal - totalClasificado;
 
             return new CuadreResumenDto
             {

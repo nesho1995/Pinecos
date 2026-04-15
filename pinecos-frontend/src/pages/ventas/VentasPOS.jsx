@@ -13,6 +13,8 @@ function VentasPOS() {
   const [busqueda, setBusqueda] = useState('');
   const [carrito, setCarrito] = useState([]);
   const [metodoPago, setMetodoPago] = useState('EFECTIVO');
+  const [tipoServicio, setTipoServicio] = useState('COMER_AQUI');
+  const [metodosPago, setMetodosPago] = useState([]);
   const [modoDescuento, setModoDescuento] = useState('NINGUNO');
   const [descuentoManual, setDescuentoManual] = useState('0');
   const [modoImpuesto, setModoImpuesto] = useState('INCLUIDO_15');
@@ -48,6 +50,19 @@ function VentasPOS() {
     });
   };
 
+  const cargarCanalesConfig = async () => {
+    try {
+      const response = await api.get('/Cajas/canales-config');
+      setMetodosPago((response.data?.metodosPago || []).filter((x) => x.activo));
+    } catch {
+      setMetodosPago([
+        { codigo: 'EFECTIVO', nombre: 'Efectivo', categoria: 'EFECTIVO', activo: true },
+        { codigo: 'TARJETA', nombre: 'Tarjeta', categoria: 'POS', activo: true },
+        { codigo: 'TRANSFERENCIA', nombre: 'Transferencia', categoria: 'OTRO', activo: true }
+      ]);
+    }
+  };
+
   const cargarMenuSucursal = async () => {
     if (!idSucursalUsuario) {
       setProductos([]);
@@ -60,8 +75,7 @@ function VentasPOS() {
       id_Presentacion: null,
       nombre: item.producto,
       categoria: item.categoria || 'Sin categoria',
-      precio: Number(item.precio || 0),
-      costo: Number(item.costo || 0)
+      precio: Number(item.precio || 0)
     }));
 
     const conPresentacion = (response.data?.conPresentacion || []).map((item) => ({
@@ -69,8 +83,7 @@ function VentasPOS() {
       id_Presentacion: item.id_Presentacion,
       nombre: `${item.producto} - ${item.presentacion || 'Presentacion'}`,
       categoria: item.categoria || 'Sin categoria',
-      precio: Number(item.precio || 0),
-      costo: Number(item.costo || 0)
+      precio: Number(item.precio || 0)
     }));
 
     setProductos([...normales, ...conPresentacion].filter((x) => x.precio > 0));
@@ -80,12 +93,19 @@ function VentasPOS() {
     const init = async () => {
       try {
         await Promise.all([cargarCajaActual(), cargarMenuSucursal(), cargarFacturacionSar(), cargarAjustesVenta()]);
+        await cargarCanalesConfig();
       } catch (err) {
         setError(err?.response?.data?.message || 'Error al cargar POS');
       }
     };
     init();
   }, []);
+
+  useEffect(() => {
+    if (!metodosPago.some((x) => x.codigo === metodoPago)) {
+      setMetodoPago(metodosPago[0]?.codigo || 'EFECTIVO');
+    }
+  }, [metodosPago, metodoPago]);
 
   const categorias = useMemo(() => {
     const unique = [...new Set(productos.map((p) => p.categoria).filter(Boolean))];
@@ -155,7 +175,6 @@ function VentasPOS() {
       nombre: producto.nombre,
       cantidad: 1,
       precio_Unitario: Number(producto.precio),
-      costo_Unitario: Number(producto.costo || 0),
       subtotal: Number(producto.precio)
     };
     setCarrito([...carrito, nuevoItem]);
@@ -184,6 +203,7 @@ function VentasPOS() {
     setModoImpuesto('INCLUIDO_15');
     setImpuestoManual('0');
     setEmitirFactura(false);
+    setTipoServicio('COMER_AQUI');
   };
 
   const subtotal = carrito.reduce((acc, item) => acc + Number(item.subtotal || 0), 0);
@@ -220,8 +240,6 @@ function VentasPOS() {
 
   const subtotalBase = subtotal - (impuestoIncluidoEnSubtotal ? impuestoCalculado : 0);
   const total = subtotalBase - descuentoCalculado + impuestoCalculado;
-  const costoTotal = carrito.reduce((acc, item) => acc + Number(item.costo_Unitario || 0) * Number(item.cantidad || 0), 0);
-  const utilidadBruta = total - costoTotal;
 
   const cobrarVenta = async () => {
     limpiarMensajes();
@@ -240,6 +258,7 @@ function VentasPOS() {
         impuestoIncluidoEnSubtotal,
         emitirFactura: emitirFactura && !!facturacionSar?.habilitadoCai,
         metodo_Pago: metodoPago,
+        tipo_Servicio: tipoServicio,
         observacion: `Venta POS | Desc:${modoDescuento} | Imp:${modoImpuesto}`,
         detalles: carrito.map((item) => ({
           id_Producto: item.id_Producto,
@@ -258,6 +277,7 @@ function VentasPOS() {
       setModoImpuesto('INCLUIDO_15');
       setImpuestoManual('0');
       setEmitirFactura(false);
+      setTipoServicio('COMER_AQUI');
     } catch (err) {
       setError(err?.response?.data?.message || 'Error al registrar venta');
     } finally {
@@ -295,9 +315,9 @@ function VentasPOS() {
       {!cajaActual?.abierta ? (
         <div className="alert alert-warning">Debes abrir caja antes de vender.</div>
       ) : (
-        <div className="row g-4">
-          <div className="col-lg-8">
-            <div className="card shadow-sm border-0 mb-4">
+        <div className="row g-4 pos-layout-row">
+          <div className="col-xl-7 col-lg-7">
+            <div className="card shadow-sm border-0 mb-4 pos-catalog-card">
               <div className="card-body">
                 <div className="row g-3">
                   <div className="col-md-4">
@@ -327,7 +347,6 @@ function VentasPOS() {
                           <h6 className="mb-2">{producto.nombre}</h6>
                           <div className="text-muted small">{producto.categoria}</div>
                           <div className="fw-semibold mt-2">Venta: L {Number(producto.precio).toFixed(2)}</div>
-                          <div className="small text-muted">Costo: L {Number(producto.costo).toFixed(2)}</div>
                         </div>
                         <div className="mt-3"><button className="btn btn-dark w-100" type="button">Agregar</button></div>
                       </div>
@@ -338,11 +357,31 @@ function VentasPOS() {
             </div>
           </div>
 
-          <div className="col-lg-4">
-            <div className="card shadow-sm border-0 carrito-sticky">
+          <div className="col-xl-5 col-lg-5">
+            <div className="card shadow-sm border-0 carrito-sticky pos-order-card">
               <div className="card-body">
                 <h5 className="mb-3">Cuenta actual</h5>
-                <div style={{ maxHeight: '360px', overflowY: 'auto' }}>
+                <div className="bg-white border rounded p-2 mb-3">
+                  <div className="d-flex justify-content-between align-items-center">
+                    <strong>Total: L {total.toFixed(2)}</strong>
+                    <span className="small text-muted">{carrito.length} item(s)</span>
+                  </div>
+                  <div className="d-flex justify-content-between align-items-center mt-1">
+                    <span className={`badge ${cajaActual?.abierta ? 'bg-success' : 'bg-warning text-dark'}`}>
+                      {cajaActual?.abierta ? `Caja #${cajaActual.id_Caja} abierta` : 'Caja cerrada'}
+                    </span>
+                  </div>
+                  <div className="d-grid gap-2 mt-2">
+                    <button className="btn btn-success" onClick={cobrarVenta} disabled={procesando || carrito.length === 0}>
+                      {procesando ? 'Procesando...' : 'Cobrar venta'}
+                    </button>
+                    <button className="btn btn-outline-secondary" onClick={limpiarCarrito} disabled={carrito.length === 0}>
+                      Limpiar cuenta
+                    </button>
+                  </div>
+                </div>
+
+                <div className="order-items-scroll">
                   {carrito.length === 0 ? (
                     <div className="text-muted">No hay productos agregados.</div>
                   ) : (
@@ -375,15 +414,27 @@ function VentasPOS() {
                 <div className="mb-2">
                   <label className="form-label">Metodo de pago</label>
                   <select className="form-select" value={metodoPago} onChange={(e) => setMetodoPago(e.target.value)}>
-                    <option value="EFECTIVO">EFECTIVO</option>
-                    <option value="TARJETA">TARJETA</option>
-                    <option value="TRANSFERENCIA">TRANSFERENCIA</option>
-                    <option value="PEDIDOS_YA">PEDIDOS_YA</option>
-                    <option value="DELIVERY_APP">DELIVERY_APP</option>
+                    {metodosPago.map((m) => (
+                      <option key={m.codigo} value={m.codigo}>{m.nombre}</option>
+                    ))}
                   </select>
                 </div>
 
-                  {facturacionSar?.habilitadoCai && (
+                <div className="mb-2">
+                  <label className="form-label">Tipo de servicio</label>
+                  <select className="form-select" value={tipoServicio} onChange={(e) => setTipoServicio(e.target.value)}>
+                    <option value="COMER_AQUI">Comer aqui</option>
+                    <option value="LLEVAR">Para llevar</option>
+                  </select>
+                </div>
+
+                {facturacionSar?.habilitadoCai && (
+                  <div className={`alert py-2 ${facturacionSar.facturasRestantes > 0 ? 'alert-info' : 'alert-danger'}`}>
+                    Facturas CAI restantes: <strong>{Number(facturacionSar.facturasRestantes || 0)}</strong>
+                  </div>
+                )}
+
+                {facturacionSar?.habilitadoCai && (
                   <div className="form-check mb-2">
                     <input
                       className="form-check-input"
@@ -433,18 +484,8 @@ function VentasPOS() {
                   {impuestoIncluidoEnSubtotal && <div className="small text-warning">Impuesto incluido en precios (no se suma al total)</div>}
                   <hr className="my-2" />
                   <div className="d-flex justify-content-between"><span>Total</span><strong>L {total.toFixed(2)}</strong></div>
-                  <div className="d-flex justify-content-between small mt-2"><span>Costo total</span><strong>L {costoTotal.toFixed(2)}</strong></div>
-                  <div className="d-flex justify-content-between small"><span>Utilidad estimada</span><strong>L {utilidadBruta.toFixed(2)}</strong></div>
                 </div>
 
-                <div className="d-grid gap-2">
-                  <button className="btn btn-success btn-lg" onClick={cobrarVenta} disabled={procesando || carrito.length === 0}>
-                    {procesando ? 'Procesando...' : 'Cobrar venta'}
-                  </button>
-                  <button className="btn btn-outline-secondary" onClick={limpiarCarrito} disabled={carrito.length === 0}>
-                    Limpiar cuenta
-                  </button>
-                </div>
               </div>
             </div>
           </div>

@@ -14,6 +14,7 @@ function Gastos() {
   });
   const [error, setError] = useState('');
   const [mensaje, setMensaje] = useState('');
+  const [cajaActual, setCajaActual] = useState(null);
 
   const cargarGastos = async () => {
     try {
@@ -29,6 +30,15 @@ function Gastos() {
       ...prev,
       [e.target.name]: e.target.value
     }));
+  };
+
+  const cargarCajaActual = async () => {
+    try {
+      const response = await api.get('/Dashboard/caja-actual');
+      setCajaActual(response.data || null);
+    } catch {
+      setCajaActual(null);
+    }
   };
 
   const crearGasto = async (e) => {
@@ -58,6 +68,7 @@ function Gastos() {
 
   useEffect(() => {
     cargarGastos();
+    cargarCajaActual();
   }, []);
 
   return (
@@ -69,6 +80,12 @@ function Gastos() {
           Vista de cajero: solo se muestran tus propios gastos.
         </div>
       )}
+
+      <div className={`alert ${cajaActual?.abierta ? 'alert-success' : 'alert-warning'}`}>
+        {cajaActual?.abierta
+          ? `Caja abierta #${cajaActual.id_Caja}. Ya puedes registrar gastos.`
+          : 'No hay caja abierta en tu sucursal. Abre caja para registrar gastos.'}
+      </div>
 
       <div className="card shadow-sm mb-4">
         <div className="card-body">
@@ -83,6 +100,7 @@ function Gastos() {
                 onChange={handleChange}
                 placeholder="Ej: Insumos"
                 required
+                disabled={!cajaActual?.abierta}
               />
             </div>
 
@@ -95,6 +113,7 @@ function Gastos() {
                 value={form.descripcion}
                 onChange={handleChange}
                 required
+                disabled={!cajaActual?.abierta}
               />
             </div>
 
@@ -109,11 +128,12 @@ function Gastos() {
                 value={form.monto}
                 onChange={handleChange}
                 required
+                disabled={!cajaActual?.abierta}
               />
             </div>
 
             <div className="col-md-2 d-flex align-items-end">
-              <button className="btn btn-dark w-100">Guardar</button>
+              <button className="btn btn-dark w-100" disabled={!cajaActual?.abierta}>Guardar</button>
             </div>
           </form>
 

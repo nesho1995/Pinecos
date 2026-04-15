@@ -203,6 +203,25 @@ body {
   top: 1rem;
 }
 
+.pos-layout-row {
+  align-items: flex-start;
+}
+
+.pos-catalog-card,
+.pos-order-card {
+  border-radius: 18px !important;
+}
+
+.pos-order-card .card-body {
+  min-height: 76vh;
+}
+
+.order-items-scroll {
+  max-height: 38vh;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
 @media (max-width: 991px) {
   .app-shell {
     position: relative;
@@ -244,5 +263,13 @@ body {
 
   .carrito-sticky {
     position: static;
+  }
+
+  .pos-order-card .card-body {
+    min-height: auto;
+  }
+
+  .order-items-scroll {
+    max-height: 42vh;
   }
 }

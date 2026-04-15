@@ -126,11 +126,7 @@ namespace Pinecos.Controllers
 
             if (duplicadosActivos.Count > 0)
             {
-                if (!producto.Activo)
-                    return BadRequest(new { message = "Ya existe otro producto activo con ese nombre" });
-
-                foreach (var duplicado in duplicadosActivos)
-                    duplicado.Activo = false;
+                return BadRequest(new { message = "Ya existe otro producto activo con ese nombre. Cambia el nombre o desactiva/elimina el duplicado." });
             }
 
             productoDb.Nombre = producto.Nombre;
@@ -142,9 +138,7 @@ namespace Pinecos.Controllers
 
             return Ok(new
             {
-                message = duplicadosActivos.Count > 0
-                    ? "Producto actualizado. Se inactivaron duplicados activos con el mismo nombre."
-                    : "Producto actualizado correctamente",
+                message = "Producto actualizado correctamente",
                 data = productoDb
             });
         }
@@ -182,8 +176,7 @@ namespace Pinecos.Controllers
 
             if (duplicadosActivos.Count > 0)
             {
-                foreach (var duplicado in duplicadosActivos)
-                    duplicado.Activo = false;
+                return BadRequest(new { message = "No se puede reactivar porque ya existe otro producto activo con ese nombre" });
             }
 
             productoDb.Activo = true;
@@ -191,11 +184,70 @@ namespace Pinecos.Controllers
 
             return Ok(new
             {
-                message = duplicadosActivos.Count > 0
-                    ? "Producto reactivado. Se inactivaron productos duplicados con el mismo nombre."
-                    : "Producto reactivado correctamente",
+                message = "Producto reactivado correctamente",
                 data = productoDb
             });
+        }
+
+        [HttpDelete("{id}/fisico")]
+        public async Task<ActionResult> EliminarProductoFisico(int id)
+        {
+            var productoDb = await _context.Productos.FindAsync(id);
+            if (productoDb == null)
+                return NotFound(new { message = "Producto no encontrado" });
+
+            var tieneMovimientos = await _context.DetalleVenta.AnyAsync(x => x.Id_Producto == id)
+                                  || await _context.DetalleCuentaMesa.AnyAsync(x => x.Id_Producto == id);
+
+            if (tieneMovimientos)
+                return BadRequest(new { message = "No se puede eliminar fisicamente un producto con historial de ventas o cuentas. Solo puedes inactivarlo." });
+
+            using var tx = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                var relacionesPresentacion = await _context.ProductoPresentaciones
+                    .Where(x => x.Id_Producto == id)
+                    .ToListAsync();
+
+                if (relacionesPresentacion.Count > 0)
+                {
+                    var idsRelaciones = relacionesPresentacion.Select(x => x.Id_Producto_Presentacion).ToList();
+                    var preciosPresentacion = await _context.ProductoPresentacionSucursales
+                        .Where(x => idsRelaciones.Contains(x.Id_Producto_Presentacion))
+                        .ToListAsync();
+
+                    if (preciosPresentacion.Count > 0)
+                        _context.ProductoPresentacionSucursales.RemoveRange(preciosPresentacion);
+
+                    _context.ProductoPresentaciones.RemoveRange(relacionesPresentacion);
+                }
+
+                var preciosSucursal = await _context.ProductosSucursal
+                    .Where(x => x.Id_Producto == id)
+                    .ToListAsync();
+
+                if (preciosSucursal.Count > 0)
+                    _context.ProductosSucursal.RemoveRange(preciosSucursal);
+
+                _context.Productos.Remove(productoDb);
+                await _context.SaveChangesAsync();
+                await tx.CommitAsync();
+
+                return Ok(new { message = "Producto eliminado fisicamente correctamente" });
+            }
+            catch (DbUpdateException)
+            {
+                await tx.RollbackAsync();
+                return BadRequest(new
+                {
+                    message = "No se puede eliminar fisicamente este producto porque tiene relaciones operativas. Inactivalo en su lugar."
+                });
+            }
+            catch
+            {
+                await tx.RollbackAsync();
+                throw;
+            }
         }
     }
 }

@@ -1,5 +1,13 @@
 namespace Pinecos.DTOs
 {
+    public class MetodoPagoConfigDto
+    {
+        public string Codigo { get; set; } = string.Empty;
+        public string Nombre { get; set; } = string.Empty;
+        public string Categoria { get; set; } = "OTRO";
+        public bool Activo { get; set; } = true;
+    }
+
     public class CanalMontoDto
     {
         public string Canal { get; set; } = string.Empty;
@@ -19,6 +27,7 @@ namespace Pinecos.DTOs
         public int? IdSucursal { get; set; }
         public List<string> Pos { get; set; } = new();
         public List<string> Delivery { get; set; } = new();
+        public List<MetodoPagoConfigDto> MetodosPago { get; set; } = new();
         public bool RequiereMontoEnTodos { get; set; } = true;
     }
 }

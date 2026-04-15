@@ -5,7 +5,7 @@ import api from '../../services/api';
 function Productos() {
   const [productos, setProductos] = useState([]);
   const [categorias, setCategorias] = useState([]);
-  const [mostrarInactivos, setMostrarInactivos] = useState(true);
+  const [mostrarInactivos, setMostrarInactivos] = useState(false);
   const [filtro, setFiltro] = useState('');
   const [editandoId, setEditandoId] = useState(null);
   const [form, setForm] = useState({
@@ -133,6 +133,23 @@ function Productos() {
     }
   };
 
+  const eliminarFisicoProducto = async (item) => {
+    const confirmar = window.confirm(
+      `Eliminar fisicamente "${item.nombre}"?\n\nEsta accion borra el producto y no se puede deshacer.`
+    );
+    if (!confirmar) return;
+
+    limpiarMensajes();
+    try {
+      await api.delete(`/Productos/${item.id_Producto}/fisico`);
+      setMensaje('Producto eliminado fisicamente');
+      if (editandoId === item.id_Producto) limpiarFormulario();
+      await cargarProductos();
+    } catch (err) {
+      setError(err?.response?.data?.message || 'Error al eliminar fisicamente');
+    }
+  };
+
   const dataFiltrada = useMemo(() => {
     const text = filtro.toLowerCase().trim();
     if (!text) return productos;
@@ -147,7 +164,7 @@ function Productos() {
 
       <div className="alert alert-info d-flex flex-wrap justify-content-between align-items-center gap-2">
         <span>
-          En esta pantalla defines el catalogo y costo. El precio de venta se configura por sucursal.
+          En esta pantalla defines catalogo y costo interno. El precio de venta final se configura por sucursal en "Precios por Sucursal".
         </span>
         <Link className="btn btn-sm btn-outline-primary" to="/menu-sucursal">
           Ir a Precios por Sucursal
@@ -225,7 +242,7 @@ function Productos() {
                 <th>Categoria</th>
                 <th>Costo</th>
                 <th>Estado</th>
-                <th style={{ width: 220 }}>Acciones</th>
+                <th style={{ width: 320 }}>Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -254,6 +271,9 @@ function Productos() {
                           Reactivar
                         </button>
                       )}
+                      <button className="btn btn-sm btn-outline-danger" onClick={() => eliminarFisicoProducto(item)}>
+                        Eliminar fisico
+                      </button>
                     </div>
                   </td>
                 </tr>
