@@ -13,7 +13,8 @@ namespace Pinecos.Helpers
             string mensajeTicket,
             string anchoTicket,
             string logoUrl,
-            string moneda)
+            string moneda,
+            string etiquetaCopia = "")
         {
             var sb = new StringBuilder();
 
@@ -107,6 +108,7 @@ namespace Pinecos.Helpers
         <div class='center small'>{direccion}</div>
         <div class='center small'>{telefono}</div>
         <div class='center small'>Ticket Venta #{ticket.IdVenta}</div>
+        {(string.IsNullOrWhiteSpace(etiquetaCopia) ? "" : $"<div class='center small bold'>COPIA: {etiquetaCopia}</div>")}
 
         <div class='line'></div>
 

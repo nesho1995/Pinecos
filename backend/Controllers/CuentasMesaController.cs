@@ -281,6 +281,27 @@ namespace Pinecos.Controllers
             if (detallesCuenta.Count == 0)
                 return BadRequest(new { message = "La cuenta no tiene productos" });
 
+            var idsProducto = detallesCuenta.Select(x => x.Id_Producto).Distinct().ToList();
+            var productosDict = await _context.Productos
+                .Where(x => idsProducto.Contains(x.Id_Producto))
+                .ToDictionaryAsync(x => x.Id_Producto, x => x);
+            if (productosDict.Count != idsProducto.Count)
+                return BadRequest(new { message = "Uno o mas productos de la cuenta no existen" });
+
+            var detalleInputsConsumo = detallesCuenta
+                .Select(x => new DetalleConsumoVentaInput
+                {
+                    Id_Producto = x.Id_Producto,
+                    Id_Presentacion = x.Id_Presentacion,
+                    Cantidad = x.Cantidad,
+                    CostoFallbackUnidad = productosDict[x.Id_Producto].Costo
+                })
+                .ToList();
+
+            var planConsumo = await InventarioConsumoHelper.ConstruirPlanConsumoAsync(_context, idSucursal.Value, detalleInputsConsumo);
+            if (!planConsumo.Ok)
+                return BadRequest(new { message = planConsumo.Error });
+
             var sarConfig = FacturacionSarStore.GetConfig(_env.ContentRootPath, idSucursal.Value);
             if (sarConfig.HabilitadoCai)
             {
@@ -394,9 +415,12 @@ namespace Pinecos.Controllers
                 _context.Ventas.Add(venta);
                 await _context.SaveChangesAsync();
 
-                foreach (var item in detallesCuenta)
+                for (var i = 0; i < detallesCuenta.Count; i++)
                 {
-                    var producto = await _context.Productos.FirstOrDefaultAsync(x => x.Id_Producto == item.Id_Producto);
+                    var item = detallesCuenta[i];
+                    var costoTotal = planConsumo.CostoTotalPorDetalleIndex.TryGetValue(i, out var ct)
+                        ? ct
+                        : item.Cantidad * productosDict[item.Id_Producto].Costo;
 
                     var detalleVenta = new DetalleVenta
                     {
@@ -405,12 +429,32 @@ namespace Pinecos.Controllers
                         Id_Presentacion = item.Id_Presentacion,
                         Cantidad = item.Cantidad,
                         Precio_Unitario = item.Precio_Unitario,
-                        Costo_Unitario = producto?.Costo ?? 0,
+                        Costo_Unitario = item.Cantidad > 0 ? Math.Round(costoTotal / item.Cantidad, 6) : 0m,
                         Subtotal = item.Subtotal,
                         Observacion = item.Observacion
                     };
 
                     _context.DetalleVenta.Add(detalleVenta);
+                }
+
+                if (planConsumo.ConsumoPorItem.Count > 0)
+                {
+                    foreach (var kv in planConsumo.ConsumoPorItem)
+                    {
+                        var costoPromedio = planConsumo.CostoPromedioPorItem.TryGetValue(kv.Key, out var cp) ? cp : 0m;
+                        _context.MovimientosInventario.Add(new MovimientoInventario
+                        {
+                            Id_Inventario_Item = kv.Key,
+                            Id_Sucursal = idSucursal.Value,
+                            Id_Usuario = idUsuario.Value,
+                            Fecha = FechaHelper.AhoraHonduras(),
+                            Tipo = "SALIDA",
+                            Cantidad = kv.Value,
+                            Costo_Unitario = costoPromedio,
+                            Referencia = $"VENTA#{venta.Id_Venta}",
+                            Observacion = "Consumo automatico por cobro de cuenta"
+                        });
+                    }
                 }
 
                 cuenta.Estado = "CERRADA";

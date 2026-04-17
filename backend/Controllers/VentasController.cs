@@ -81,6 +81,7 @@ namespace Pinecos.Controllers
 
             var subtotal = 0m;
             var detallesVenta = new List<DetalleVenta>();
+            var detalleInputsConsumo = new List<DetalleConsumoVentaInput>();
 
             foreach (var item in request.Detalles)
             {
@@ -120,6 +121,27 @@ namespace Pinecos.Controllers
                     Subtotal = lineaSubtotal,
                     Observacion = item.Observacion
                 });
+
+                detalleInputsConsumo.Add(new DetalleConsumoVentaInput
+                {
+                    Id_Producto = item.Id_Producto,
+                    Id_Presentacion = item.Id_Presentacion,
+                    Cantidad = item.Cantidad,
+                    CostoFallbackUnidad = producto.Costo
+                });
+            }
+
+            var planConsumo = await InventarioConsumoHelper.ConstruirPlanConsumoAsync(_context, idSucursal.Value, detalleInputsConsumo);
+            if (!planConsumo.Ok)
+                return BadRequest(new { message = planConsumo.Error });
+            for (var i = 0; i < detallesVenta.Count; i++)
+            {
+                var costoTotal = planConsumo.CostoTotalPorDetalleIndex.TryGetValue(i, out var ct)
+                    ? ct
+                    : detallesVenta[i].Cantidad * detallesVenta[i].Costo_Unitario;
+                detallesVenta[i].Costo_Unitario = detallesVenta[i].Cantidad > 0
+                    ? Math.Round(costoTotal / detallesVenta[i].Cantidad, 6)
+                    : detallesVenta[i].Costo_Unitario;
             }
 
             if (request.Descuento < 0 || request.Impuesto < 0)
@@ -205,6 +227,26 @@ namespace Pinecos.Controllers
                 {
                     detalle.Id_Venta = venta.Id_Venta;
                     _context.DetalleVenta.Add(detalle);
+                }
+
+                if (planConsumo.ConsumoPorItem.Count > 0)
+                {
+                    foreach (var kv in planConsumo.ConsumoPorItem)
+                    {
+                        var costoPromedio = planConsumo.CostoPromedioPorItem.TryGetValue(kv.Key, out var cp) ? cp : 0m;
+                        _context.MovimientosInventario.Add(new MovimientoInventario
+                        {
+                            Id_Inventario_Item = kv.Key,
+                            Id_Sucursal = idSucursal.Value,
+                            Id_Usuario = idUsuario.Value,
+                            Fecha = FechaHelper.AhoraHonduras(),
+                            Tipo = "SALIDA",
+                            Cantidad = kv.Value,
+                            Costo_Unitario = costoPromedio,
+                            Referencia = $"VENTA#{venta.Id_Venta}",
+                            Observacion = "Consumo automatico por venta"
+                        });
+                    }
                 }
 
                 await _context.SaveChangesAsync();

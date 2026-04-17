@@ -410,6 +410,11 @@ body {
   color: #991b1b;
 }
 
+.status-pill.warning {
+  background: #fef3c7;
+  color: #92400e;
+}
+
 .pos-page .product-card {
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
@@ -691,6 +696,81 @@ body {
   overflow: auto;
 }
 
+.inventory-bars,
+.panel-bars-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.inventory-bar-row,
+.panel-bar-row {
+  display: grid;
+  grid-template-columns: 170px 1fr 120px;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.inventory-bar-label,
+.panel-bar-label {
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: #0f172a;
+}
+
+.inventory-bar-track,
+.panel-bar-track {
+  height: 11px;
+  background: #e2e8f0;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.inventory-bar-fill,
+.panel-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+}
+
+.inventory-bar-fill {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+}
+
+.inventory-bar-fill.danger {
+  background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+}
+
+.panel-bar-fill {
+  background: linear-gradient(135deg, #0f766e 0%, #115e59 100%);
+}
+
+.inventory-bar-value,
+.panel-bar-value {
+  text-align: right;
+  font-weight: 700;
+  font-size: 0.83rem;
+  color: #0f172a;
+}
+
+.panel-kpi-card {
+  border: 1px solid #dbe3ee !important;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%) !important;
+}
+
+.panel-kpi-label {
+  color: #64748b;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+}
+
+.panel-kpi-value {
+  font-size: 1.35rem;
+  font-weight: 820;
+  color: #0f172a;
+}
+
 @media (max-width: 991px) {
   .app-shell {
     position: relative;
@@ -763,6 +843,16 @@ body {
 
   .mesas-mixto-line {
     grid-template-columns: 1fr;
+  }
+
+  .inventory-bar-row,
+  .panel-bar-row {
+    grid-template-columns: 1fr;
+  }
+
+  .inventory-bar-value,
+  .panel-bar-value {
+    text-align: left;
   }
 
   .mesa-nombre {

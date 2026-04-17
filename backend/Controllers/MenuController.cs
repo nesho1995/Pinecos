@@ -8,7 +8,6 @@ namespace Pinecos.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [AuthorizeRoles("ADMIN")]
     public class MenuController : ControllerBase
     {
         private readonly PinecosDbContext _context;
@@ -19,6 +18,7 @@ namespace Pinecos.Controllers
         }
 
         [HttpPost("producto-sucursal")]
+        [AuthorizeRoles("ADMIN")]
         public async Task<ActionResult> AsignarProductoSucursal([FromBody] ProductoSucursal model)
         {
             if (model.Precio <= 0)
@@ -53,6 +53,7 @@ namespace Pinecos.Controllers
         }
 
         [HttpPost("producto-presentacion")]
+        [AuthorizeRoles("ADMIN")]
         public async Task<ActionResult> AsignarPresentacionProducto([FromBody] ProductoPresentacion model)
         {
             var productoExiste = await _context.Productos.AnyAsync(x => x.Id_Producto == model.Id_Producto && x.Activo);
@@ -82,6 +83,7 @@ namespace Pinecos.Controllers
         }
 
         [HttpGet("producto-presentacion")]
+        [AuthorizeRoles("ADMIN")]
         public async Task<ActionResult> GetProductoPresentaciones()
         {
             var data = await (
@@ -105,6 +107,7 @@ namespace Pinecos.Controllers
         }
 
         [HttpPost("producto-presentacion-sucursal")]
+        [AuthorizeRoles("ADMIN")]
         public async Task<ActionResult> AsignarPrecioPresentacionSucursal([FromBody] ProductoPresentacionSucursal model)
         {
             if (model.Precio <= 0)
@@ -142,6 +145,7 @@ namespace Pinecos.Controllers
         }
 
         [HttpGet("sucursal/{idSucursal}")]
+        [AuthorizeRoles("ADMIN", "CAJERO")]
         public async Task<ActionResult> GetMenuSucursal(int idSucursal)
         {
             var productosNormales = await (
