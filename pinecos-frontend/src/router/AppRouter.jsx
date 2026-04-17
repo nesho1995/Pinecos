@@ -17,6 +17,8 @@ import MesasAdmin from '../pages/mesas/MesasAdmin';
 import Reportes from '../pages/reportes/Reportes';
 import Bitacora from '../pages/bitacora/Bitacora';
 import EstadoCuenta from '../pages/estadocuenta/EstadoCuenta';
+import Proveedores from '../pages/proveedores/Proveedores';
+import Inventario from '../pages/inventario/Inventario';
 import Layout from '../components/layout/Layout';
 import ProtectedRoute from '../components/ProtectedRoute';
 import RoleRoute from '../components/RoleRoute';
@@ -52,6 +54,8 @@ function AppRouter() {
           <Route path="mesas-admin" element={<RoleRoute allowedRoles={['ADMIN']}><MesasAdmin /></RoleRoute>} />
           <Route path="reportes" element={<RoleRoute allowedRoles={['ADMIN']}><Reportes /></RoleRoute>} />
           <Route path="estado-cuenta" element={<RoleRoute allowedRoles={['ADMIN']}><EstadoCuenta /></RoleRoute>} />
+          <Route path="proveedores" element={<RoleRoute allowedRoles={['ADMIN']}><Proveedores /></RoleRoute>} />
+          <Route path="inventario" element={<RoleRoute allowedRoles={['ADMIN']}><Inventario /></RoleRoute>} />
           <Route path="bitacora" element={<RoleRoute allowedRoles={['ADMIN']}><Bitacora /></RoleRoute>} />
         </Route>
 

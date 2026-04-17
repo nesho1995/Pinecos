@@ -20,6 +20,8 @@ const sections = [
     items: [
       { to: '/menu-sucursal', label: 'Precios por Sucursal' },
       { to: '/mesas-admin', label: 'Mesas' },
+      { to: '/proveedores', label: 'Proveedores' },
+      { to: '/inventario', label: 'Inventario' },
       { to: '/productos', label: 'Productos' },
       { to: '/categorias', label: 'Categorias' },
       { to: '/presentaciones', label: 'Presentaciones' },
