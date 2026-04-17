@@ -30,30 +30,38 @@ function VentasPOS() {
   const cargarCajaActual = async () => {
     const response = await api.get('/Dashboard/caja-actual');
     setCajaActual(response.data);
+    return response.data;
   };
 
-  const cargarFacturacionSar = async () => {
+  const cargarFacturacionSar = async (idSucursal) => {
     try {
-      const response = await api.get('/FacturacionSar');
+      const params = idSucursal ? { idSucursal: Number(idSucursal) } : undefined;
+      const response = await api.get('/FacturacionSar', { params });
       setFacturacionSar(response.data || { habilitadoCai: false });
     } catch {
       setFacturacionSar({ habilitadoCai: false });
     }
   };
 
-  const cargarAjustesVenta = async () => {
-    if (!idSucursalUsuario) return;
-    const response = await api.get('/AjustesVenta', { params: { idSucursal: Number(idSucursalUsuario) } });
+  const cargarAjustesVenta = async (idSucursal) => {
+    if (!idSucursal) return;
+    const response = await api.get('/AjustesVenta', { params: { idSucursal: Number(idSucursal) } });
     setAjustesVenta({
       descuentos: response.data?.descuentos || [],
       impuestos: response.data?.impuestos || []
     });
   };
 
-  const cargarCanalesConfig = async () => {
+  const cargarCanalesConfig = async (idSucursal) => {
     try {
-      const response = await api.get('/Cajas/canales-config');
-      setMetodosPago((response.data?.metodosPago || []).filter((x) => x.activo));
+      const params = idSucursal ? { idSucursal: Number(idSucursal) } : undefined;
+      const response = await api.get('/Cajas/canales-config', { params });
+      const activos = (response.data?.metodosPago || []).filter((x) => x.activo);
+      setMetodosPago(
+        activos.length
+          ? activos
+          : [{ codigo: 'EFECTIVO', nombre: 'Efectivo', categoria: 'EFECTIVO', activo: true }]
+      );
     } catch {
       setMetodosPago([
         { codigo: 'EFECTIVO', nombre: 'Efectivo', categoria: 'EFECTIVO', activo: true },
@@ -63,13 +71,13 @@ function VentasPOS() {
     }
   };
 
-  const cargarMenuSucursal = async () => {
-    if (!idSucursalUsuario) {
+  const cargarMenuSucursal = async (idSucursal) => {
+    if (!idSucursal) {
       setProductos([]);
       return;
     }
 
-    const response = await api.get(`/Menu/sucursal/${idSucursalUsuario}`);
+    const response = await api.get(`/Menu/sucursal/${idSucursal}`);
     const normales = (response.data?.normales || []).map((item) => ({
       id_Producto: item.id_Producto,
       id_Presentacion: null,
@@ -92,8 +100,14 @@ function VentasPOS() {
   useEffect(() => {
     const init = async () => {
       try {
-        await Promise.all([cargarCajaActual(), cargarMenuSucursal(), cargarFacturacionSar(), cargarAjustesVenta()]);
-        await cargarCanalesConfig();
+        const caja = await cargarCajaActual();
+        const sucursalObjetivo = Number(idSucursalUsuario || caja?.id_Sucursal || 0) || null;
+        await Promise.all([
+          cargarMenuSucursal(sucursalObjetivo),
+          cargarFacturacionSar(sucursalObjetivo),
+          cargarAjustesVenta(sucursalObjetivo),
+          cargarCanalesConfig(sucursalObjetivo)
+        ]);
       } catch (err) {
         setError(err?.response?.data?.message || 'Error al cargar POS');
       }
@@ -141,6 +155,26 @@ function VentasPOS() {
     setError('');
   };
 
+  const construirContextoAjuste = () =>
+    [
+      String(modoDescuento || 'NINGUNO').trim().toUpperCase(),
+      String(descuentoManual ?? '0').trim(),
+      String(modoImpuesto || 'INCLUIDO_15').trim().toUpperCase(),
+      String(impuestoManual ?? '0').trim()
+    ].join('|');
+
+  const construirClaveProductoBase = (item) => {
+    const idProducto = Number(item?.id_Producto || 0);
+    const idPresentacion = String(item?.id_Presentacion ?? '');
+    const precio = Number(item?.precio_Unitario ?? item?.precio ?? 0);
+    return `${idProducto}|${idPresentacion}|${precio.toFixed(2)}`;
+  };
+
+  const aplicaDescuentoLinea = (item) => item?.aplicaDescuento !== false;
+
+  const construirClaveCarrito = (item, contextoAjuste = null) =>
+    `${construirClaveProductoBase(item)}|${contextoAjuste ?? item?.contextoAjuste ?? ''}|${aplicaDescuentoLinea(item) ? 'D1' : 'D0'}`;
+
   const productosFiltrados = useMemo(() => {
     let lista = [...productos];
     if (categoriaSeleccionada) lista = lista.filter((p) => p.categoria === categoriaSeleccionada);
@@ -154,30 +188,62 @@ function VentasPOS() {
   const agregarProducto = (producto) => {
     limpiarMensajes();
     if (!cajaActual?.abierta) return setError('Debes abrir caja antes de vender');
+    const contextoAjuste = construirContextoAjuste();
+    setCarrito((prev) => {
+      const indexExistente = prev.findIndex(
+        (x) => construirClaveCarrito(x) === construirClaveCarrito(producto, contextoAjuste)
+      );
 
-    const indexExistente = carrito.findIndex(
-      (x) =>
-        x.id_Producto === producto.id_Producto &&
-        String(x.id_Presentacion ?? '') === String(producto.id_Presentacion ?? '')
-    );
+      if (indexExistente >= 0) {
+        const nuevo = [...prev];
+        nuevo[indexExistente].cantidad += 1;
+        nuevo[indexExistente].subtotal = nuevo[indexExistente].cantidad * nuevo[indexExistente].precio_Unitario;
+        return nuevo;
+      }
 
-    if (indexExistente >= 0) {
-      const nuevo = [...carrito];
-      nuevo[indexExistente].cantidad += 1;
+      const nuevoItem = {
+        id_Producto: producto.id_Producto,
+        id_Presentacion: producto.id_Presentacion,
+        nombre: producto.nombre,
+        cantidad: 1,
+        precio_Unitario: Number(producto.precio),
+        subtotal: Number(producto.precio),
+        contextoAjuste,
+        aplicaDescuento: true
+      };
+      return [...prev, nuevoItem];
+    });
+  };
+
+  const disminuirProducto = (producto) => {
+    limpiarMensajes();
+    const contextoAjuste = construirContextoAjuste();
+    setCarrito((prev) => {
+      let indexExistente = prev.findIndex(
+        (x) => construirClaveCarrito(x) === construirClaveCarrito(producto, contextoAjuste)
+      );
+
+      if (indexExistente < 0) {
+        const baseClave = construirClaveProductoBase(producto);
+        for (let i = prev.length - 1; i >= 0; i -= 1) {
+          if (construirClaveProductoBase(prev[i]) === baseClave) {
+            indexExistente = i;
+            break;
+          }
+        }
+      }
+
+      if (indexExistente < 0) return prev;
+      const itemActual = prev[indexExistente];
+      if (Number(itemActual.cantidad || 0) <= 1) {
+        return prev.filter((_, i) => i !== indexExistente);
+      }
+
+      const nuevo = [...prev];
+      nuevo[indexExistente].cantidad -= 1;
       nuevo[indexExistente].subtotal = nuevo[indexExistente].cantidad * nuevo[indexExistente].precio_Unitario;
-      setCarrito(nuevo);
-      return;
-    }
-
-    const nuevoItem = {
-      id_Producto: producto.id_Producto,
-      id_Presentacion: producto.id_Presentacion,
-      nombre: producto.nombre,
-      cantidad: 1,
-      precio_Unitario: Number(producto.precio),
-      subtotal: Number(producto.precio)
-    };
-    setCarrito([...carrito, nuevoItem]);
+      return nuevo;
+    });
   };
 
   const cambiarCantidad = (index, nuevaCantidad) => {
@@ -187,6 +253,15 @@ function VentasPOS() {
     nuevo[index].cantidad = cantidadNumero;
     nuevo[index].subtotal = nuevo[index].cantidad * nuevo[index].precio_Unitario;
     setCarrito(nuevo);
+  };
+
+  const cambiarAplicaDescuento = (index, aplica) => {
+    setCarrito((prev) => {
+      const nuevo = [...prev];
+      if (!nuevo[index]) return prev;
+      nuevo[index] = { ...nuevo[index], aplicaDescuento: !!aplica };
+      return nuevo;
+    });
   };
 
   const quitarItem = (index) => {
@@ -207,18 +282,25 @@ function VentasPOS() {
   };
 
   const subtotal = carrito.reduce((acc, item) => acc + Number(item.subtotal || 0), 0);
+  const baseDescuento = carrito
+    .filter((item) => aplicaDescuentoLinea(item))
+    .reduce((acc, item) => acc + Number(item.subtotal || 0), 0);
 
   const descuentoSeleccionado = descuentosActivos.find((x) => x.codigo === modoDescuento) || null;
   const impuestoSeleccionado = impuestosActivos.find((x) => x.codigo === modoImpuesto) || null;
 
   const descuentoCalculado = useMemo(() => {
     if (!descuentoSeleccionado) return 0;
+    if (baseDescuento <= 0) return 0;
     const tipo = String(descuentoSeleccionado.tipoCalculo || '').toUpperCase();
     const valor = Number(descuentoSeleccionado.valor || 0);
-    if (tipo === 'PORCENTAJE') return subtotal * (valor / 100);
-    if (tipo === 'MONTO') return descuentoSeleccionado.permiteEditarMonto ? Number(descuentoManual || 0) : valor;
+    if (tipo === 'PORCENTAJE') return Math.min(baseDescuento, baseDescuento * (valor / 100));
+    if (tipo === 'MONTO') {
+      const monto = descuentoSeleccionado.permiteEditarMonto ? Number(descuentoManual || 0) : valor;
+      return Math.min(baseDescuento, Math.max(0, monto));
+    }
     return 0;
-  }, [descuentoSeleccionado, descuentoManual, subtotal]);
+  }, [descuentoSeleccionado, descuentoManual, baseDescuento]);
 
   const { impuestoCalculado, impuestoIncluidoEnSubtotal } = useMemo(() => {
     if (!impuestoSeleccionado) return { impuestoCalculado: 0, impuestoIncluidoEnSubtotal: false };
@@ -240,6 +322,11 @@ function VentasPOS() {
 
   const subtotalBase = subtotal - (impuestoIncluidoEnSubtotal ? impuestoCalculado : 0);
   const total = subtotalBase - descuentoCalculado + impuestoCalculado;
+
+  const cantidadEnCarritoPorProducto = (producto) =>
+    carrito
+      .filter((item) => construirClaveProductoBase(item) === construirClaveProductoBase(producto))
+      .reduce((acc, item) => acc + Number(item.cantidad || 0), 0);
 
   const cobrarVenta = async () => {
     limpiarMensajes();
@@ -297,12 +384,12 @@ function VentasPOS() {
 
   return (
     <div className="pos-page">
-      <div className="d-flex justify-content-between align-items-center mb-4">
+      <div className="d-flex justify-content-between align-items-center mb-3">
         <div>
           <h2 className="mb-1">POS Ventas</h2>
           <div className="text-muted">{cajaActual?.abierta ? `Caja abierta #${cajaActual.id_Caja}` : 'No hay caja abierta'}</div>
         </div>
-        <div className="d-flex gap-2">
+        <div className="compact-toolbar">
           <button className="btn btn-outline-secondary" onClick={limpiarCarrito}>Limpiar</button>
           <button className="btn btn-outline-dark" onClick={imprimirTicket} disabled={!ultimaVentaId}>Ticket</button>
         </div>
@@ -315,9 +402,9 @@ function VentasPOS() {
       {!cajaActual?.abierta ? (
         <div className="alert alert-warning">Debes abrir caja antes de vender.</div>
       ) : (
-        <div className="row g-4 pos-layout-row">
+        <div className="row g-3 pos-layout-row">
           <div className="col-xl-7 col-lg-7">
-            <div className="card shadow-sm border-0 mb-4 pos-catalog-card">
+            <div className="card shadow-sm border-0 mb-3 pos-catalog-card pos-catalog-controls">
               <div className="card-body">
                 <div className="row g-3">
                   <div className="col-md-4">
@@ -335,25 +422,40 @@ function VentasPOS() {
               </div>
             </div>
 
-            <div className="row g-3">
-              {productosFiltrados.length === 0 ? (
-                <div className="col-12"><div className="alert alert-light border">No hay productos con precio configurado para esta sucursal.</div></div>
-              ) : (
-                productosFiltrados.map((producto) => (
-                  <div className="col-md-4 col-xl-3" key={`${producto.id_Producto}-${producto.id_Presentacion ?? 'n'}`}>
-                    <div className="card h-100 shadow-sm border-0 product-card" onClick={() => agregarProducto(producto)} style={{ cursor: 'pointer' }}>
-                      <div className="card-body d-flex flex-column justify-content-between">
-                        <div>
-                          <h6 className="mb-2">{producto.nombre}</h6>
-                          <div className="text-muted small">{producto.categoria}</div>
-                          <div className="fw-semibold mt-2">Venta: L {Number(producto.precio).toFixed(2)}</div>
+            <div className="pos-catalog-scroll">
+              <div className="row g-2">
+                {productosFiltrados.length === 0 ? (
+                  <div className="col-12"><div className="alert alert-light border">No hay productos con precio configurado para esta sucursal.</div></div>
+                ) : (
+                  productosFiltrados.map((producto) => {
+                    const cantidadEnCarrito = cantidadEnCarritoPorProducto(producto);
+                    return (
+                    <div className="col-md-4 col-xl-3" key={`${producto.id_Producto}-${producto.id_Presentacion ?? 'n'}`}>
+                      <div className="card h-100 shadow-sm border-0 product-card">
+                        <div className="card-body d-flex flex-column justify-content-between">
+                          <div>
+                            <h6 className="mb-1">{producto.nombre}</h6>
+                            <div className="text-muted small">{producto.categoria}</div>
+                            <div className="fw-semibold mt-1">Venta: L {Number(producto.precio).toFixed(2)}</div>
+                            <div className="small mt-1">
+                              {cantidadEnCarrito > 0 ? (
+                                <span className="badge bg-success-subtle text-success-emphasis border">En cuenta: {cantidadEnCarrito}</span>
+                              ) : (
+                                <span className="badge bg-light text-muted border">Aun no agregado</span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="mt-2 d-flex gap-2">
+                            <button className="btn btn-outline-secondary w-25" type="button" onClick={() => disminuirProducto(producto)} disabled={cantidadEnCarrito <= 0}>-</button>
+                            <button className="btn btn-dark flex-grow-1" type="button" onClick={() => agregarProducto(producto)}>Agregar</button>
+                          </div>
                         </div>
-                        <div className="mt-3"><button className="btn btn-dark w-100" type="button">Agregar</button></div>
                       </div>
                     </div>
-                  </div>
-                ))
-              )}
+                    );
+                  })
+                )}
+              </div>
             </div>
           </div>
 
@@ -404,6 +506,18 @@ function VentasPOS() {
                             <label className="form-label small mb-1">Subt.</label>
                             <div className="form-control form-control-sm bg-light">{Number(item.subtotal || 0).toFixed(2)}</div>
                           </div>
+                        </div>
+                        <div className="form-check mt-2">
+                          <input
+                            className="form-check-input"
+                            type="checkbox"
+                            id={`descuento-linea-${index}`}
+                            checked={aplicaDescuentoLinea(item)}
+                            onChange={(e) => cambiarAplicaDescuento(index, e.target.checked)}
+                          />
+                          <label className="form-check-label small" htmlFor={`descuento-linea-${index}`}>
+                            Aplicar descuento a esta linea
+                          </label>
                         </div>
                       </div>
                     ))
@@ -479,6 +593,7 @@ function VentasPOS() {
 
                 <div className="bg-dark text-white rounded p-3 mb-3">
                   <div className="d-flex justify-content-between"><span>Subtotal base</span><strong>L {subtotalBase.toFixed(2)}</strong></div>
+                  <div className="d-flex justify-content-between"><span>Base descuento (lineas marcadas)</span><strong>L {baseDescuento.toFixed(2)}</strong></div>
                   <div className="d-flex justify-content-between"><span>Descuento</span><strong>L {descuentoCalculado.toFixed(2)}</strong></div>
                   <div className="d-flex justify-content-between"><span>Impuesto</span><strong>L {impuestoCalculado.toFixed(2)}</strong></div>
                   {impuestoIncluidoEnSubtotal && <div className="small text-warning">Impuesto incluido en precios (no se suma al total)</div>}

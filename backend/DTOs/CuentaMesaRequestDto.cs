@@ -1,5 +1,11 @@
-﻿namespace Pinecos.DTOs
+namespace Pinecos.DTOs
 {
+    public class PagoVentaRequestDto
+    {
+        public string Metodo_Pago { get; set; } = string.Empty;
+        public decimal Monto { get; set; }
+    }
+
     public class AbrirCuentaMesaRequestDto
     {
         public int Id_Mesa { get; set; }
@@ -25,5 +31,6 @@
         public string Metodo_Pago { get; set; } = string.Empty;
         public string Tipo_Servicio { get; set; } = "COMER_AQUI";
         public string Observacion { get; set; } = string.Empty;
+        public List<PagoVentaRequestDto> Pagos { get; set; } = new();
     }
 }

@@ -28,6 +28,7 @@ function MenuSucursal() {
   const [productoPresentaciones, setProductoPresentaciones] = useState([]);
   const [error, setError] = useState('');
   const [mensaje, setMensaje] = useState('');
+  const [vista, setVista] = useState('asignar');
 
   const cargarSucursales = async () => {
     const response = await api.get('/Sucursales');
@@ -179,7 +180,16 @@ function MenuSucursal() {
 
       {mensaje && <div className="alert alert-success">{mensaje}</div>}
       {error && <div className="alert alert-danger">{error}</div>}
+      <div className="reports-tabs mb-3">
+        <button className={`btn btn-sm ${vista === 'asignar' ? 'btn-dark' : 'btn-outline-secondary'}`} onClick={() => setVista('asignar')}>
+          Asignar precios
+        </button>
+        <button className={`btn btn-sm ${vista === 'menu' ? 'btn-dark' : 'btn-outline-secondary'}`} onClick={() => setVista('menu')}>
+          Ver menu sucursal
+        </button>
+      </div>
 
+      {vista === 'asignar' && (
       <div className="row g-4">
         <div className="col-md-4">
           <div className="card shadow-sm">
@@ -336,31 +346,34 @@ function MenuSucursal() {
           </div>
         </div>
       </div>
+      )}
 
-      {sucursalSeleccionada && (
+      {vista === 'menu' && sucursalSeleccionada && (
         <div className="row g-4 mt-2">
           <div className="col-md-6">
             <div className="card shadow-sm">
               <div className="card-body">
                 <h5>Productos normales</h5>
-                <table className="table table-bordered">
-                  <thead>
-                    <tr>
-                      <th>Producto</th>
-                      <th>Categoria</th>
-                      <th>Precio</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {menu.normales?.map((item, index) => (
-                      <tr key={index}>
-                        <td>{item.producto}</td>
-                        <td>{item.categoria}</td>
-                        <td>L {Number(item.precio || 0).toFixed(2)}</td>
+                <div className="compact-table-wrap">
+                  <table className="table table-bordered mb-0">
+                    <thead>
+                      <tr>
+                        <th>Producto</th>
+                        <th>Categoria</th>
+                        <th>Precio</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {menu.normales?.map((item, index) => (
+                        <tr key={index}>
+                          <td>{item.producto}</td>
+                          <td>{item.categoria}</td>
+                          <td>L {Number(item.precio || 0).toFixed(2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </div>
@@ -369,28 +382,34 @@ function MenuSucursal() {
             <div className="card shadow-sm">
               <div className="card-body">
                 <h5>Productos con presentacion</h5>
-                <table className="table table-bordered">
-                  <thead>
-                    <tr>
-                      <th>Producto</th>
-                      <th>Presentacion</th>
-                      <th>Precio</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {menu.conPresentacion?.map((item, index) => (
-                      <tr key={index}>
-                        <td>{item.producto}</td>
-                        <td>{item.presentacion}</td>
-                        <td>L {Number(item.precio || 0).toFixed(2)}</td>
+                <div className="compact-table-wrap">
+                  <table className="table table-bordered mb-0">
+                    <thead>
+                      <tr>
+                        <th>Producto</th>
+                        <th>Presentacion</th>
+                        <th>Precio</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {menu.conPresentacion?.map((item, index) => (
+                        <tr key={index}>
+                          <td>{item.producto}</td>
+                          <td>{item.presentacion}</td>
+                          <td>L {Number(item.precio || 0).toFixed(2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </div>
         </div>
+      )}
+
+      {vista === 'menu' && !sucursalSeleccionada && (
+        <div className="alert alert-warning">Selecciona una sucursal para visualizar su menu.</div>
       )}
     </div>
   );

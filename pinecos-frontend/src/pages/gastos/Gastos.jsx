@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import api from '../../services/api';
 import { getUsuario } from '../../utils/auth';
+import { exportToExcelCsv } from '../../utils/excelExport';
 
 function Gastos() {
   const usuario = getUsuario();
@@ -70,6 +71,19 @@ function Gastos() {
     cargarGastos();
     cargarCajaActual();
   }, []);
+
+  const exportarExcel = () => {
+    if (!gastos.length) return;
+    exportToExcelCsv(
+      'gastos.csv',
+      esAdmin ? ['Codigo', 'Fecha', 'Categoria', 'Descripcion', 'Monto', 'Usuario'] : ['Codigo', 'Fecha', 'Categoria', 'Descripcion', 'Monto'],
+      gastos.map((x) => (
+        esAdmin
+          ? [x.id_Gasto, x.fecha ? new Date(x.fecha).toLocaleString('es-HN') : '', x.categoria_Gasto, x.descripcion, Number(x.monto || 0).toFixed(2), x.usuario || x.id_Usuario]
+          : [x.id_Gasto, x.fecha ? new Date(x.fecha).toLocaleString('es-HN') : '', x.categoria_Gasto, x.descripcion, Number(x.monto || 0).toFixed(2)]
+      ))
+    );
+  };
 
   return (
     <div>
@@ -144,37 +158,44 @@ function Gastos() {
 
       <div className="card shadow-sm">
         <div className="card-body">
-          <table className="table table-bordered align-middle">
-            <thead>
-              <tr>
-                <th>Codigo</th>
-                <th>Fecha</th>
-                <th>Categoria</th>
-                <th>Descripcion</th>
-                <th>Monto</th>
-                {esAdmin && <th>Usuario</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {gastos.map((item) => (
-                <tr key={item.id_Gasto}>
-                  <td>{item.id_Gasto}</td>
-                  <td>{new Date(item.fecha).toLocaleString('es-HN')}</td>
-                  <td>{item.categoria_Gasto}</td>
-                  <td>{item.descripcion}</td>
-                  <td>L {Number(item.monto || 0).toFixed(2)}</td>
-                  {esAdmin && <td>{item.usuario || item.id_Usuario}</td>}
-                </tr>
-              ))}
-              {gastos.length === 0 && (
+          <div className="d-flex justify-content-end mb-2">
+            <button className="btn btn-outline-success btn-sm" onClick={exportarExcel} disabled={!gastos.length}>
+              Excel
+            </button>
+          </div>
+          <div className="compact-table-wrap">
+            <table className="table table-bordered align-middle mb-0">
+              <thead>
                 <tr>
-                  <td colSpan={esAdmin ? 6 : 5} className="text-center">
-                    No hay gastos para mostrar
-                  </td>
+                  <th>Codigo</th>
+                  <th>Fecha</th>
+                  <th>Categoria</th>
+                  <th>Descripcion</th>
+                  <th>Monto</th>
+                  {esAdmin && <th>Usuario</th>}
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {gastos.map((item) => (
+                  <tr key={item.id_Gasto}>
+                    <td>{item.id_Gasto}</td>
+                    <td>{new Date(item.fecha).toLocaleString('es-HN')}</td>
+                    <td>{item.categoria_Gasto}</td>
+                    <td>{item.descripcion}</td>
+                    <td>L {Number(item.monto || 0).toFixed(2)}</td>
+                    {esAdmin && <td>{item.usuario || item.id_Usuario}</td>}
+                  </tr>
+                ))}
+                {gastos.length === 0 && (
+                  <tr>
+                    <td colSpan={esAdmin ? 6 : 5} className="text-center">
+                      No hay gastos para mostrar
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>

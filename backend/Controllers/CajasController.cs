@@ -144,42 +144,35 @@ namespace Pinecos.Controllers
                 .ToListAsync();
 
             var ventasTotal = ventas.Sum(x => x.Total);
-            var ventasEfectivo = ventas.Where(x => EsMetodoEfectivo(x.Metodo_Pago)).Sum(x => x.Total);
-            var ventasDelivery = ventas.Where(x => EsMetodoDelivery(x.Metodo_Pago)).Sum(x => x.Total);
-            var ventasPos = ventasTotal - ventasEfectivo - ventasDelivery;
 
             var ingresosCaja = movimientos.Where(x => EsIngreso(x.Tipo)).Sum(x => x.Monto);
             var egresosCaja = movimientos.Where(x => EsEgreso(x.Tipo)).Sum(x => x.Monto);
             var totalGastos = gastos.Sum(x => x.Monto);
 
-            var efectivoEsperado = caja.Monto_Inicial + ventasEfectivo + ingresosCaja - egresosCaja - totalGastos;
-            var totalEsperado = efectivoEsperado + ventasPos + ventasDelivery;
-
-            var ventasPorMetodo = ventas
-                .GroupBy(x => (x.Metodo_Pago ?? string.Empty).Trim().ToUpper())
-                .Select(g => new
-                {
-                    metodo = string.IsNullOrWhiteSpace(g.Key) ? "SIN_METODO" : g.Key,
-                    total = g.Sum(x => x.Total),
-                    cantidad = g.Count()
-                })
-                .OrderByDescending(x => x.total)
-                .Cast<object>()
+            var pagosExpandidos = ventas
+                .SelectMany(v => PagoVentaHelper.ObtenerPagosVenta(v)
+                    .Select(p => new
+                    {
+                        Metodo = NormalizeCanal(p.Metodo_Pago),
+                        MetodoLabel = (p.Metodo_Pago ?? string.Empty).Trim().ToUpperInvariant(),
+                        Monto = p.Monto
+                    }))
+                .Where(x => x.Monto > 0)
                 .ToList();
 
-            var ventasPorMetodoRaw = ventas
-                .GroupBy(x => NormalizeCanal(x.Metodo_Pago))
-                .ToDictionary(g => g.Key, g => g.Sum(x => x.Total));
+            var ventasPorMetodoRaw = pagosExpandidos
+                .GroupBy(x => x.Metodo)
+                .ToDictionary(g => g.Key, g => g.Sum(x => x.Monto));
 
-            ventasEfectivo = ventasPorMetodoRaw
+            var ventasEfectivo = ventasPorMetodoRaw
                 .Where(x => metodosPorCategoria["EFECTIVO"].Contains(x.Key))
                 .Sum(x => x.Value);
 
-            ventasPos = ventasPorMetodoRaw
+            var ventasPos = ventasPorMetodoRaw
                 .Where(x => metodosPorCategoria["POS"].Contains(x.Key))
                 .Sum(x => x.Value);
 
-            ventasDelivery = ventasPorMetodoRaw
+            var ventasDelivery = ventasPorMetodoRaw
                 .Where(x => metodosPorCategoria["DELIVERY"].Contains(x.Key))
                 .Sum(x => x.Value);
 
@@ -187,6 +180,21 @@ namespace Pinecos.Controllers
             var totalClasificado = ventasEfectivo + ventasPos + ventasDelivery;
             if (ventasTotal > totalClasificado)
                 ventasPos += ventasTotal - totalClasificado;
+
+            var efectivoEsperado = caja.Monto_Inicial + ventasEfectivo + ingresosCaja - egresosCaja - totalGastos;
+            var totalEsperado = efectivoEsperado + ventasPos + ventasDelivery;
+
+            var ventasPorMetodo = pagosExpandidos
+                .GroupBy(x => x.MetodoLabel)
+                .Select(g => new
+                {
+                    metodo = string.IsNullOrWhiteSpace(g.Key) ? "SIN_METODO" : g.Key,
+                    total = g.Sum(x => x.Monto),
+                    cantidad = g.Count()
+                })
+                .OrderByDescending(x => x.total)
+                .Cast<object>()
+                .ToList();
 
             return new CuadreResumenDto
             {

@@ -16,15 +16,17 @@ function Layout() {
   }, [location.pathname]);
 
   return (
-    <div className="d-flex min-vh-100 app-shell">
+    <div className="d-flex app-shell">
       <div className={`sidebar-mobile-overlay ${mobileSidebarOpen ? 'show' : ''}`} onClick={closeSidebar} />
       <div className={`sidebar-mobile-wrapper ${mobileSidebarOpen ? 'show' : ''}`}>
         <Sidebar onNavigate={closeSidebar} />
       </div>
-      <div className="flex-grow-1 app-main">
+      <div className="flex-grow-1 app-main d-flex flex-column">
         <Header onToggleSidebar={toggleSidebar} />
-        <main className="p-4 app-content">
-          <Outlet />
+        <main className="app-content">
+          <div className="app-content-inner">
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>

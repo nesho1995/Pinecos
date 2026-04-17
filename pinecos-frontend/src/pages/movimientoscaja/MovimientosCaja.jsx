@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import api from '../../services/api';
+import { exportToExcelCsv } from '../../utils/excelExport';
 
 function MovimientosCaja() {
   const [cajaActual, setCajaActual] = useState(null);
@@ -72,6 +73,21 @@ function MovimientosCaja() {
     }
   };
 
+  const exportarExcel = () => {
+    if (!movimientos.length) return;
+    exportToExcelCsv(
+      `movimientos_caja_${cajaActual?.id_Caja || 'actual'}.csv`,
+      ['Codigo', 'Fecha', 'Tipo', 'Descripcion', 'Monto'],
+      movimientos.map((x) => [
+        x.id_Movimiento_Caja,
+        x.fecha ? new Date(x.fecha).toLocaleString('es-HN') : '',
+        x.tipo,
+        x.descripcion,
+        Number(x.monto || 0).toFixed(2)
+      ])
+    );
+  };
+
   return (
     <div>
       <h2 className="mb-4">Movimientos de Caja</h2>
@@ -130,7 +146,13 @@ function MovimientosCaja() {
 
           <div className="card shadow-sm">
             <div className="card-body">
-              <table className="table table-bordered align-middle">
+              <div className="d-flex justify-content-end mb-2">
+                <button className="btn btn-outline-success btn-sm" onClick={exportarExcel} disabled={!movimientos.length}>
+                  Excel
+                </button>
+              </div>
+              <div className="compact-table-wrap">
+                <table className="table table-bordered align-middle mb-0">
                 <thead>
                   <tr>
                     <th>Codigo</th>
@@ -151,7 +173,8 @@ function MovimientosCaja() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+                </table>
+              </div>
             </div>
           </div>
         </>

@@ -99,6 +99,8 @@ namespace Pinecos.Controllers
             var data = await (
                 from c in query
                 join m in _context.Mesas on c.Id_Mesa equals m.Id_Mesa
+                join u in _context.Usuarios on c.Id_Usuario equals u.Id_Usuario into uj
+                from u in uj.DefaultIfEmpty()
                 select new
                 {
                     c.Id_Cuenta_Mesa,
@@ -106,7 +108,8 @@ namespace Pinecos.Controllers
                     Mesa = m.Nombre,
                     c.Fecha_Apertura,
                     c.Estado,
-                    c.Observacion
+                    c.Observacion,
+                    AtendidoPor = u != null ? u.Nombre : ""
                 }
             ).ToListAsync();
 
@@ -143,12 +146,22 @@ namespace Pinecos.Controllers
             ).ToListAsync();
 
             var total = detalles.Sum(x => x.Subtotal);
+            var usuarioAtendio = await _context.Usuarios
+                .Where(x => x.Id_Usuario == cuenta.Id_Usuario)
+                .Select(x => new
+                {
+                    x.Id_Usuario,
+                    x.Nombre,
+                    x.UsuarioLogin
+                })
+                .FirstOrDefaultAsync();
 
             return Ok(new
             {
                 cuenta,
                 detalles,
-                total
+                total,
+                atendidoPor = usuarioAtendio
             });
         }
 
@@ -307,6 +320,19 @@ namespace Pinecos.Controllers
                 if (total < 0)
                     return BadRequest(new { message = "El total no puede ser negativo" });
 
+                var pagosNormalizados = PagoVentaHelper.NormalizarPagos(request.Pagos);
+                if (pagosNormalizados.Count > 0 && !PagoVentaHelper.CuadraConTotal(pagosNormalizados, total))
+                    return BadRequest(new { message = "La suma de pagos no coincide con el total de la cuenta" });
+
+                var metodoPagoFinal = pagosNormalizados.Count switch
+                {
+                    > 1 => "MIXTO",
+                    1 => pagosNormalizados[0].Metodo_Pago,
+                    _ => request.Metodo_Pago
+                };
+                if (string.IsNullOrWhiteSpace(metodoPagoFinal))
+                    return BadRequest(new { message = "Debes seleccionar método de pago" });
+
                 FacturaEmitidaDto? factura = null;
                 if (request.EmitirFactura)
                 {
@@ -322,9 +348,22 @@ namespace Pinecos.Controllers
                 }
 
                 var tipoServicio = NormalizarTipoServicio(request.Tipo_Servicio);
+                var usuarioAtendio = await _context.Usuarios
+                    .Where(x => x.Id_Usuario == cuenta.Id_Usuario)
+                    .Select(x => new { x.Nombre, x.UsuarioLogin })
+                    .FirstOrDefaultAsync();
+                var usuarioCobro = await _context.Usuarios
+                    .Where(x => x.Id_Usuario == idUsuario.Value)
+                    .Select(x => new { x.Nombre, x.UsuarioLogin })
+                    .FirstOrDefaultAsync();
+                var etiquetaAtendio = usuarioAtendio?.Nombre ?? usuarioAtendio?.UsuarioLogin ?? $"USUARIO_{cuenta.Id_Usuario}";
+                var etiquetaCobro = usuarioCobro?.Nombre ?? usuarioCobro?.UsuarioLogin ?? $"USUARIO_{idUsuario.Value}";
                 var observacionFinal = string.IsNullOrWhiteSpace(request.Observacion)
-                    ? $"SERVICIO:{tipoServicio}"
-                    : $"SERVICIO:{tipoServicio} | {request.Observacion}";
+                    ? $"SERVICIO:{tipoServicio} | ATENDIO:{etiquetaAtendio} | COBRO:{etiquetaCobro}"
+                    : $"SERVICIO:{tipoServicio} | ATENDIO:{etiquetaAtendio} | COBRO:{etiquetaCobro} | {request.Observacion}";
+                var pagosToken = PagoVentaHelper.BuildPagosToken(pagosNormalizados);
+                if (!string.IsNullOrWhiteSpace(pagosToken))
+                    observacionFinal = $"{observacionFinal} | {pagosToken}";
                 if (factura != null)
                 {
                     var fechaLimite = factura.FechaLimiteEmision?.ToString("yyyy-MM-dd") ?? "";
@@ -347,7 +386,7 @@ namespace Pinecos.Controllers
                     Descuento = request.Descuento,
                     Impuesto = request.Impuesto,
                     Total = total,
-                    Metodo_Pago = request.Metodo_Pago,
+                    Metodo_Pago = metodoPagoFinal,
                     Observacion = observacionFinal,
                     Estado = "ACTIVA"
                 };

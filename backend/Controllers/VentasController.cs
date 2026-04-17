@@ -133,6 +133,19 @@ namespace Pinecos.Controllers
             if (total < 0)
                 return BadRequest(new { message = "El total no puede ser negativo" });
 
+            var pagosNormalizados = PagoVentaHelper.NormalizarPagos(request.Pagos);
+            if (pagosNormalizados.Count > 0 && !PagoVentaHelper.CuadraConTotal(pagosNormalizados, total))
+                return BadRequest(new { message = "La suma de pagos no coincide con el total de la venta" });
+
+            var metodoPagoFinal = pagosNormalizados.Count switch
+            {
+                > 1 => "MIXTO",
+                1 => pagosNormalizados[0].Metodo_Pago,
+                _ => request.Metodo_Pago
+            };
+            if (string.IsNullOrWhiteSpace(metodoPagoFinal))
+                return BadRequest(new { message = "Debes seleccionar método de pago" });
+
             using var transaction = await _context.Database.BeginTransactionAsync();
 
             try
@@ -155,6 +168,9 @@ namespace Pinecos.Controllers
                 var observacionFinal = string.IsNullOrWhiteSpace(request.Observacion)
                     ? $"SERVICIO:{tipoServicio}"
                     : $"SERVICIO:{tipoServicio} | {request.Observacion}";
+                var pagosToken = PagoVentaHelper.BuildPagosToken(pagosNormalizados);
+                if (!string.IsNullOrWhiteSpace(pagosToken))
+                    observacionFinal = $"{observacionFinal} | {pagosToken}";
                 if (factura != null)
                 {
                     var fechaLimite = factura.FechaLimiteEmision?.ToString("yyyy-MM-dd") ?? "";
@@ -177,7 +193,7 @@ namespace Pinecos.Controllers
                     Descuento = request.Descuento,
                     Impuesto = request.Impuesto,
                     Total = total,
-                    Metodo_Pago = request.Metodo_Pago,
+                    Metodo_Pago = metodoPagoFinal,
                     Observacion = observacionFinal,
                     Estado = "ACTIVA"
                 };

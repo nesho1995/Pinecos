@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import api from '../../services/api';
-import { imprimirTicketHtml } from '../../utils/printTicket';
+import { imprimirTicketHtml, imprimirTicketsDivisionMesa } from '../../utils/printTicket';
 import { getUsuario } from '../../utils/auth';
 
 function Mesas() {
@@ -31,12 +31,21 @@ function Mesas() {
   const [ajustesVenta, setAjustesVenta] = useState({ descuentos: [], impuestos: [] });
   const [facturacionSar, setFacturacionSar] = useState({ habilitadoCai: false });
   const [emitirFactura, setEmitirFactura] = useState(false);
+  const [personasDivision, setPersonasDivision] = useState(2);
+  const [dividirCuenta, setDividirCuenta] = useState(false);
+  const [cobroMixto, setCobroMixto] = useState(false);
+  const [pagosMixtos, setPagosMixtos] = useState([{ nombre: 'Persona 1', metodo_Pago: 'EFECTIVO', monto: '' }]);
+  const [asignacionDetalles, setAsignacionDetalles] = useState({});
+  const [descuentoDetalles, setDescuentoDetalles] = useState({});
+  const [vistaTablet, setVistaTablet] = useState('mesas');
 
   const [menuItems, setMenuItems] = useState([]);
   const [cajaActual, setCajaActual] = useState(null);
   const [mensaje, setMensaje] = useState('');
   const [error, setError] = useState('');
   const [procesando, setProcesando] = useState(false);
+
+  const redondear2 = (valor) => Number((Number(valor || 0)).toFixed(2));
 
   const limpiarMensajes = () => {
     setMensaje('');
@@ -46,31 +55,36 @@ function Mesas() {
   const cargarSucursales = async () => {
     if (esAdmin) {
       const response = await api.get('/Sucursales', { params: { incluirInactivas: true } });
-      setSucursales(response.data || []);
-      return;
+      const data = response.data || [];
+      setSucursales(data);
+      return data;
     }
 
     if (!idSucursalUsuario) {
       setSucursales([]);
-      return;
+      return [];
     }
 
-    setSucursales([
+    const data = [
       {
         id_Sucursal: Number(idSucursalUsuario),
         nombre: `Sucursal #${idSucursalUsuario}`
       }
-    ]);
+    ];
+    setSucursales(data);
+    return data;
   };
 
   const cargarCajaActual = async () => {
     const response = await api.get('/Dashboard/caja-actual');
     setCajaActual(response.data);
+    return response.data;
   };
 
-  const cargarFacturacionSar = async () => {
+  const cargarFacturacionSar = async (idSucursal) => {
     try {
-      const response = await api.get('/FacturacionSar');
+      const params = idSucursal ? { idSucursal: Number(idSucursal) } : undefined;
+      const response = await api.get('/FacturacionSar', { params });
       setFacturacionSar(response.data || { habilitadoCai: false });
     } catch {
       setFacturacionSar({ habilitadoCai: false });
@@ -126,14 +140,21 @@ function Mesas() {
     setCuentas(response.data || []);
   };
 
-  const cargarCanalesConfig = async () => {
+  const cargarCanalesConfig = async (idSucursal) => {
     try {
-      const response = await api.get('/Cajas/canales-config');
-      setMetodosPago((response.data?.metodosPago || []).filter((x) => x.activo));
+      const params = idSucursal ? { idSucursal: Number(idSucursal) } : undefined;
+      const response = await api.get('/Cajas/canales-config', { params });
+      const activos = (response.data?.metodosPago || []).filter((x) => x.activo);
+      setMetodosPago(
+        activos.length
+          ? activos
+          : [{ codigo: 'EFECTIVO', nombre: 'Efectivo', categoria: 'EFECTIVO', activo: true }]
+      );
     } catch {
       setMetodosPago([
         { codigo: 'EFECTIVO', nombre: 'Efectivo', categoria: 'EFECTIVO', activo: true },
-        { codigo: 'TARJETA', nombre: 'Tarjeta', categoria: 'POS', activo: true }
+        { codigo: 'TARJETA', nombre: 'Tarjeta', categoria: 'POS', activo: true },
+        { codigo: 'TRANSFERENCIA', nombre: 'Transferencia', categoria: 'OTRO', activo: true }
       ]);
     }
   };
@@ -146,10 +167,14 @@ function Mesas() {
   useEffect(() => {
     const init = async () => {
       try {
-        await Promise.all([cargarSucursales(), cargarCajaActual(), cargarCuentasAbiertas(), cargarFacturacionSar()]);
-        await cargarCanalesConfig();
+        const [sucursalesData, caja] = await Promise.all([cargarSucursales(), cargarCajaActual(), cargarCuentasAbiertas()]);
+        const sucursalObjetivo =
+          Number(idSucursalUsuario || caja?.id_Sucursal || sucursalesData?.[0]?.id_Sucursal || 0) || null;
+        await Promise.all([cargarFacturacionSar(sucursalObjetivo), cargarCanalesConfig(sucursalObjetivo)]);
         if (!esAdmin && idSucursalUsuario) {
           setSucursalSeleccionada(String(idSucursalUsuario));
+        } else if (esAdmin && sucursalObjetivo) {
+          setSucursalSeleccionada(String(sucursalObjetivo));
         }
       } catch (err) {
         setError(err?.response?.data?.message || 'Error al cargar mesas');
@@ -160,9 +185,20 @@ function Mesas() {
 
   useEffect(() => {
     if (!sucursalSeleccionada) return;
-    cargarMesas(sucursalSeleccionada);
-    cargarMenu(sucursalSeleccionada);
-    cargarAjustesVenta(sucursalSeleccionada);
+    const cargarSucursal = async () => {
+      try {
+        await Promise.all([
+          cargarMesas(sucursalSeleccionada),
+          cargarMenu(sucursalSeleccionada),
+          cargarAjustesVenta(sucursalSeleccionada),
+          cargarCanalesConfig(sucursalSeleccionada),
+          cargarFacturacionSar(sucursalSeleccionada)
+        ]);
+      } catch (err) {
+        setError(err?.response?.data?.message || 'Error al cargar configuracion de la sucursal');
+      }
+    };
+    cargarSucursal();
   }, [sucursalSeleccionada]);
 
   const menuItemsOrdenados = useMemo(
@@ -214,18 +250,42 @@ function Mesas() {
     }
   }, [impuestosActivos, modoImpuesto]);
 
+  useEffect(() => {
+    const detalles = detalleCuenta?.detalles || [];
+    if (!detalles.length) {
+      setDescuentoDetalles({});
+      return;
+    }
+
+    setDescuentoDetalles((prev) => {
+      const next = {};
+      detalles.forEach((d) => {
+        next[d.id_Detalle_Cuenta_Mesa] = prev[d.id_Detalle_Cuenta_Mesa] ?? true;
+      });
+      return next;
+    });
+  }, [detalleCuenta]);
+
   const subtotalCuenta = Number(detalleCuenta?.total || 0);
+  const subtotalDescuentoCuenta = (detalleCuenta?.detalles || []).reduce((acc, d) => {
+    const aplica = descuentoDetalles[d.id_Detalle_Cuenta_Mesa] ?? true;
+    return aplica ? acc + Number(d.subtotal || 0) : acc;
+  }, 0);
   const descuentoSeleccionado = descuentosActivos.find((x) => x.codigo === modoDescuento) || null;
   const impuestoSeleccionado = impuestosActivos.find((x) => x.codigo === modoImpuesto) || null;
 
   const descuentoNum = useMemo(() => {
     if (!descuentoSeleccionado) return 0;
+    if (subtotalDescuentoCuenta <= 0) return 0;
     const tipo = String(descuentoSeleccionado.tipoCalculo || '').toUpperCase();
     const valor = Number(descuentoSeleccionado.valor || 0);
-    if (tipo === 'PORCENTAJE') return subtotalCuenta * (valor / 100);
-    if (tipo === 'MONTO') return descuentoSeleccionado.permiteEditarMonto ? Number(descuentoManual || 0) : valor;
+    if (tipo === 'PORCENTAJE') return Math.min(subtotalDescuentoCuenta, subtotalDescuentoCuenta * (valor / 100));
+    if (tipo === 'MONTO') {
+      const monto = descuentoSeleccionado.permiteEditarMonto ? Number(descuentoManual || 0) : valor;
+      return Math.min(subtotalDescuentoCuenta, Math.max(0, monto));
+    }
     return 0;
-  }, [descuentoSeleccionado, descuentoManual, subtotalCuenta]);
+  }, [descuentoSeleccionado, descuentoManual, subtotalDescuentoCuenta]);
 
   const { impuestoNum, impuestoIncluidoEnSubtotal } = useMemo(() => {
     if (!impuestoSeleccionado) return { impuestoNum: 0, impuestoIncluidoEnSubtotal: false };
@@ -247,8 +307,111 @@ function Mesas() {
 
   const subtotalBaseCuenta = subtotalCuenta - (impuestoIncluidoEnSubtotal ? impuestoNum : 0);
   const totalCuenta = subtotalBaseCuenta - descuentoNum + impuestoNum;
+  const totalPorPersona = useMemo(() => {
+    const personas = Number(personasDivision || 0);
+    if (!Number.isFinite(personas) || personas <= 0) return 0;
+    return totalCuenta / personas;
+  }, [totalCuenta, personasDivision]);
+  const montosAutoPorPersona = useMemo(() => {
+    const cantidad = Math.max(1, Number(personasDivision || 1));
+    const acumulado = Array.from({ length: cantidad }, () => 0);
+    const detalles = detalleCuenta?.detalles || [];
+    if (!detalles.length) return acumulado;
+
+    detalles.forEach((d) => {
+      const idxRaw = Number(asignacionDetalles[d.id_Detalle_Cuenta_Mesa] ?? 0);
+      const idx = Number.isFinite(idxRaw) ? Math.min(Math.max(idxRaw, 0), cantidad - 1) : 0;
+      acumulado[idx] += Number(d.subtotal || 0);
+    });
+
+    const subtotalBruto = Number(subtotalCuenta || 0);
+    const factor = subtotalBruto > 0 ? Number(totalCuenta || 0) / subtotalBruto : 0;
+    const result = acumulado.map((m) => redondear2(m * factor));
+    const suma = result.reduce((acc, x) => acc + Number(x || 0), 0);
+    const diff = redondear2(Number(totalCuenta || 0) - suma);
+    result[cantidad - 1] = redondear2(Number(result[cantidad - 1] || 0) + diff);
+    return result;
+  }, [personasDivision, detalleCuenta, asignacionDetalles, subtotalCuenta, totalCuenta]);
+  const pagosMixtosDetalle = useMemo(
+    () => (pagosMixtos || [])
+      .map((p, idx) => ({
+        nombre: String(p?.nombre || '').trim() || `Persona ${idx + 1}`,
+        metodo_Pago: String(p?.metodo_Pago || '').trim(),
+        monto: redondear2(p?.monto)
+      }))
+      .filter((p) => p.metodo_Pago && p.monto > 0),
+    [pagosMixtos]
+  );
+  const pagosMixtosNormalizados = useMemo(() => {
+    const acumulado = {};
+    pagosMixtosDetalle.forEach((p) => {
+      const key = p.metodo_Pago;
+      acumulado[key] = redondear2(Number(acumulado[key] || 0) + Number(p.monto || 0));
+    });
+    return Object.entries(acumulado)
+      .map(([metodo_Pago, monto]) => ({ metodo_Pago, monto }))
+      .filter((p) => p.monto > 0);
+  }, [pagosMixtosDetalle]);
+  const totalPagosMixtos = useMemo(
+    () => redondear2(pagosMixtosDetalle.reduce((acc, p) => acc + Number(p.monto || 0), 0)),
+    [pagosMixtosDetalle]
+  );
+  const diferenciaPagosMixtos = redondear2(totalCuenta - totalPagosMixtos);
+
+  useEffect(() => {
+    setCobroMixto(dividirCuenta);
+  }, [dividirCuenta]);
+
+  useEffect(() => {
+    if (!dividirCuenta) return;
+    const cantidad = Math.max(1, Number(personasDivision || 1));
+    const metodoDefault = metodosPago[0]?.codigo || metodoPago || 'EFECTIVO';
+    setPagosMixtos((prev) => {
+      const base = Array.from({ length: cantidad }, (_, idx) => ({
+        nombre: prev[idx]?.nombre || `Persona ${idx + 1}`,
+        metodo_Pago: prev[idx]?.metodo_Pago || metodoDefault,
+        monto: prev[idx]?.monto || ''
+      }));
+      return base;
+    });
+  }, [dividirCuenta, personasDivision, metodoPago, metodosPago]);
+
+  useEffect(() => {
+    if (!dividirCuenta) return;
+    const detalles = detalleCuenta?.detalles || [];
+    const cantidad = Math.max(1, Number(personasDivision || 1));
+    setAsignacionDetalles((prev) => {
+      const next = {};
+      detalles.forEach((d) => {
+        const valorPrevio = prev[d.id_Detalle_Cuenta_Mesa];
+        const raw = Number(valorPrevio ?? 0);
+        next[d.id_Detalle_Cuenta_Mesa] = Number.isFinite(raw) ? Math.min(Math.max(raw, 0), cantidad - 1) : 0;
+      });
+      return next;
+    });
+  }, [dividirCuenta, detalleCuenta, personasDivision]);
+
+  useEffect(() => {
+    if (!dividirCuenta) return;
+    setPagosMixtos((prev) => prev.map((p, idx) => ({ ...p, monto: String((montosAutoPorPersona[idx] || 0).toFixed(2)) })));
+  }, [dividirCuenta, montosAutoPorPersona]);
+
+  useEffect(() => {
+    if (!cobroMixto) {
+      setPagosMixtos([{ nombre: 'Cliente', metodo_Pago: metodoPago || 'EFECTIVO', monto: totalCuenta > 0 ? totalCuenta.toFixed(2) : '' }]);
+    }
+  }, [cobroMixto, metodoPago, totalCuenta]);
+
   const getCuentaMesa = (idMesa) => cuentas.find((c) => c.id_Mesa === idMesa);
   const mesasActivas = mesas.filter((m) => m.activo);
+  const resolverClaseFormaMesa = (forma) => {
+    const f = String(forma || '').trim().toUpperCase();
+    if (f === 'CIRCULAR') return 'mesa-circular';
+    if (f === 'OVALADA' || f === 'OVAL') return 'mesa-oval';
+    if (f === 'BARRA') return 'mesa-barra';
+    if (f === 'CUADRADA' || f === 'RECTANGULAR') return 'mesa-cuadrada';
+    return 'mesa-capsula';
+  };
 
   const abrirCuenta = async () => {
     limpiarMensajes();
@@ -316,6 +479,62 @@ function Mesas() {
     }
   };
 
+  const cambiarDescuentoDetalle = (idDetalle, aplica) => {
+    setDescuentoDetalles((prev) => ({
+      ...prev,
+      [idDetalle]: !!aplica
+    }));
+  };
+
+  const actualizarPagoMixto = (index, campo, valor) => {
+    setPagosMixtos((prev) => prev.map((linea, i) => (i === index ? { ...linea, [campo]: valor } : linea)));
+  };
+
+  const asignarDetalleAPersona = (idDetalle, personaIndex) => {
+    setAsignacionDetalles((prev) => ({ ...prev, [idDetalle]: Number(personaIndex || 0) }));
+  };
+
+  const construirPayloadDivisionTickets = (idVenta) => {
+    if (!dividirCuenta || !detalleCuenta?.detalles?.length) return null;
+
+    const cantidad = Math.max(1, Number(personasDivision || 1));
+    const nombreSucursalActual =
+      sucursales.find((s) => String(s.id_Sucursal) === String(sucursalSeleccionada))?.nombre ||
+      (sucursalSeleccionada ? `Sucursal #${sucursalSeleccionada}` : 'Sucursal');
+
+    const personas = Array.from({ length: cantidad }, (_, idx) => {
+      const pago = pagosMixtos[idx] || {};
+      const nombre = String(pago?.nombre || '').trim() || `Persona ${idx + 1}`;
+      const metodoPagoPersona = String(pago?.metodo_Pago || metodoPago || 'EFECTIVO').trim();
+      const items = (detalleCuenta?.detalles || [])
+        .filter((d) => Number(asignacionDetalles[d.id_Detalle_Cuenta_Mesa] ?? 0) === idx)
+        .map((d) => ({
+          producto: d.producto,
+          cantidad: Number(d.cantidad || 0),
+          subtotal: Number(d.subtotal || 0)
+        }));
+
+      const totalPersona = redondear2(Number(pago?.monto || montosAutoPorPersona[idx] || 0));
+      return {
+        nombre,
+        metodoPago: metodoPagoPersona || 'EFECTIVO',
+        total: totalPersona,
+        items
+      };
+    });
+
+    return {
+      idVenta,
+      mesa: mesaSeleccionada?.nombre || `Mesa #${detalleCuenta?.cuenta?.id_Mesa || ''}`,
+      cuenta: `#${detalleCuenta?.cuenta?.id_Cuenta_Mesa || ''}`,
+      sucursal: nombreSucursalActual,
+      tipoServicio: tipoServicio === 'LLEVAR' ? 'Para llevar' : 'Comer aqui',
+      moneda: 'L',
+      total: Number(totalCuenta || 0),
+      personas
+    };
+  };
+
   const cobrarCuenta = async () => {
     limpiarMensajes();
     if (!detalleCuenta?.cuenta?.id_Cuenta_Mesa) return setError('No hay cuenta abierta');
@@ -324,22 +543,33 @@ function Mesas() {
     if (descuentoNum < 0 || impuestoNum < 0) return setError('Descuento/impuesto invalidos');
     if (subtotalBaseCuenta < 0) return setError('El subtotal base no puede ser negativo');
     if (totalCuenta < 0) return setError('El total no puede ser negativo');
+    if (dividirCuenta) {
+      if (pagosMixtosNormalizados.length === 0) return setError('Debes ingresar al menos un pago en cobro mixto');
+      if (Math.abs(diferenciaPagosMixtos) > 0.01) return setError('La suma de pagos mixtos debe ser igual al total');
+      if ((pagosMixtos || []).some((p) => !String(p?.nombre || '').trim())) return setError('Cada persona debe tener nombre');
+    }
 
     try {
       setProcesando(true);
+      const metodoPagoFinal = dividirCuenta ? 'MIXTO' : metodoPago;
+      const detalleDivision = dividirCuenta
+        ? pagosMixtosDetalle.map((p) => `${p.nombre}:${p.monto.toFixed(2)}(${p.metodo_Pago})`).join('; ')
+        : '';
+      const observacionCobro = `Cobro de mesa | Desc:${modoDescuento} | Imp:${modoImpuesto}${detalleDivision ? ` | DIVISION:${detalleDivision}` : ''}`;
       const response = await api.post(`/CuentasMesa/${detalleCuenta.cuenta.id_Cuenta_Mesa}/cobrar`, {
         id_Caja: cajaActual.id_Caja,
         descuento: descuentoNum,
         impuesto: impuestoNum,
         impuestoIncluidoEnSubtotal,
         emitirFactura: emitirFactura && !!facturacionSar?.habilitadoCai,
-        metodo_Pago: metodoPago,
+        metodo_Pago: metodoPagoFinal,
+        pagos: dividirCuenta ? pagosMixtosNormalizados : [],
         tipo_Servicio: tipoServicio,
-        observacion: `Cobro de mesa | Desc:${modoDescuento} | Imp:${modoImpuesto}`
+        observacion: observacionCobro
       });
 
       const idVenta = response.data.data.id_Venta;
-      setMensaje(`Cuenta cobrada. Venta #${idVenta}`);
+      const payloadDivisionTickets = construirPayloadDivisionTickets(idVenta);
       await cargarCuentasAbiertas();
       await cargarMesas(sucursalSeleccionada);
       setDetalleCuenta(null);
@@ -350,7 +580,25 @@ function Mesas() {
       setEmitirFactura(false);
       setMetodoPago('EFECTIVO');
       setTipoServicio('COMER_AQUI');
-      await imprimirTicketHtml(idVenta);
+      setDividirCuenta(false);
+      setCobroMixto(false);
+      setPagosMixtos([{ nombre: 'Persona 1', metodo_Pago: 'EFECTIVO', monto: '' }]);
+      setAsignacionDetalles({});
+      setDescuentoDetalles({});
+      setPersonasDivision(2);
+
+      let mensajeExito = `Cuenta cobrada. Venta #${idVenta}`;
+      try {
+        if (payloadDivisionTickets) {
+          await imprimirTicketsDivisionMesa(payloadDivisionTickets);
+          mensajeExito += ' | Tickets por persona listos para imprimir';
+        } else {
+          await imprimirTicketHtml(idVenta);
+        }
+      } catch (printErr) {
+        setError(printErr?.message || 'Cuenta cobrada, pero no se pudo abrir la impresion');
+      }
+      setMensaje(mensajeExito);
     } catch (err) {
       setError(err?.response?.data?.message || 'Error al cobrar cuenta');
     } finally {
@@ -370,6 +618,12 @@ function Mesas() {
       setDetalleCuenta(null);
       setFormAgregar({ id_Producto: '', id_Presentacion: '', cantidad: 1 });
       setFiltroProducto('');
+      setDividirCuenta(false);
+      setCobroMixto(false);
+      setPagosMixtos([{ nombre: 'Persona 1', metodo_Pago: 'EFECTIVO', monto: '' }]);
+      setAsignacionDetalles({});
+      setDescuentoDetalles({});
+      setPersonasDivision(2);
       await cargarCuentasAbiertas();
       await cargarMesas(sucursalSeleccionada);
     } catch (err) {
@@ -390,7 +644,14 @@ function Mesas() {
     setEmitirFactura(false);
     setMetodoPago('EFECTIVO');
     setTipoServicio('COMER_AQUI');
+    setPersonasDivision(2);
+    setDividirCuenta(false);
+    setCobroMixto(false);
+    setPagosMixtos([{ nombre: 'Persona 1', metodo_Pago: 'EFECTIVO', monto: '' }]);
+    setAsignacionDetalles({});
+    setDescuentoDetalles({});
     setFiltroProducto('');
+    setVistaTablet('cuenta');
     const cuenta = getCuentaMesa(mesa.id_Mesa);
     if (cuenta) await cargarCuentaDetalle(cuenta.id_Cuenta_Mesa);
   };
@@ -422,40 +683,52 @@ function Mesas() {
         </div>
       </div>
 
-      <div className="row">
-        <div className="col-md-8">
+      <div className="d-xl-none mb-3">
+        <div className="btn-group w-100" role="group" aria-label="Vista mesas/cuenta">
+          <button
+            type="button"
+            className={`btn ${vistaTablet === 'mesas' ? 'btn-dark' : 'btn-outline-secondary'}`}
+            onClick={() => setVistaTablet('mesas')}
+          >
+            Mesas
+          </button>
+          <button
+            type="button"
+            className={`btn ${vistaTablet === 'cuenta' ? 'btn-dark' : 'btn-outline-secondary'}`}
+            onClick={() => setVistaTablet('cuenta')}
+          >
+            Cuenta y Cobro
+          </button>
+        </div>
+      </div>
+
+      <div className="row g-3">
+        <div className={`col-12 col-xl-7 ${vistaTablet === 'mesas' ? '' : 'd-none d-xl-block'}`}>
           <div className="card shadow-sm">
-            <div className="card-body position-relative" style={{ minHeight: '500px' }}>
+            <div className="card-body position-relative mesas-stage">
               {mesasActivas.map((mesa) => {
                 const cuenta = getCuentaMesa(mesa.id_Mesa);
-                const color = cuenta ? '#dc3545' : '#198754';
-                const borderRadius = mesa.forma === 'CIRCULAR' ? '50%' : '12px';
+                const color = cuenta ? '#dc2626' : '#059669';
+                const claseForma = resolverClaseFormaMesa(mesa.forma);
+                const capacidad = Math.max(1, Number(mesa.capacidad || 1));
                 return (
                   <div
                     key={mesa.id_Mesa}
                     onClick={() => seleccionarMesa(mesa)}
+                    className={`mesa-node ${claseForma} ${cuenta ? 'mesa-ocupada' : 'mesa-libre'} ${mesaSeleccionada?.id_Mesa === mesa.id_Mesa ? 'mesa-selected' : ''}`}
                     style={{
                       position: 'absolute',
                       left: `${mesa.pos_X}px`,
                       top: `${mesa.pos_Y}px`,
                       width: `${mesa.ancho}px`,
                       height: `${mesa.alto}px`,
-                      backgroundColor: color,
-                      borderRadius,
-                      color: '#fff',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      cursor: 'pointer',
-                      fontWeight: 'bold',
-                      textAlign: 'center',
-                      padding: '8px',
-                      boxShadow: mesaSeleccionada?.id_Mesa === mesa.id_Mesa ? '0 0 0 4px rgba(13,110,253,.35)' : 'none'
+                      '--mesa-accent': color
                     }}
                   >
-                    <div>
-                      <div>{mesa.nombre}</div>
-                      <small>{cuenta ? 'OCUPADA' : 'LIBRE'}</small>
+                    <div className="mesa-inner">
+                      <div className="mesa-nombre">{mesa.nombre}</div>
+                      <div className={`mesa-estado ${cuenta ? 'ocupada' : 'libre'}`}>{cuenta ? 'OCUPADA' : 'LIBRE'}</div>
+                      <div className="mesa-capacidad">Cap. {capacidad}</div>
                     </div>
                   </div>
                 );
@@ -464,15 +737,27 @@ function Mesas() {
           </div>
         </div>
 
-        <div className="col-md-4">
-          <div className="card shadow-sm">
-            <div className="card-body">
+        <div className={`col-12 col-xl-5 ${vistaTablet === 'cuenta' ? '' : 'd-none d-xl-block'}`}>
+          <div className="card shadow-sm mesas-panel-card mesas-pos-shell">
+            <div className="card-body mesas-panel-body">
+              <div className="d-xl-none mb-2">
+                <button type="button" className="btn btn-outline-secondary btn-sm" onClick={() => setVistaTablet('mesas')}>
+                  Volver a mesas
+                </button>
+              </div>
               {!mesaSeleccionada ? (
                 <p>Selecciona una mesa</p>
               ) : (
                 <>
-                  <h5>{mesaSeleccionada.nombre}</h5>
-                  <p>Capacidad: {mesaSeleccionada.capacidad}</p>
+                  <div className="mesas-header-strip mb-3">
+                    <div>
+                      <h5 className="mb-1">{mesaSeleccionada.nombre}</h5>
+                      <div className="small text-muted">Capacidad: {mesaSeleccionada.capacidad}</div>
+                    </div>
+                    <span className={`badge ${detalleCuenta ? 'text-bg-danger' : 'text-bg-success'}`}>
+                      {detalleCuenta ? 'Cuenta abierta' : 'Mesa libre'}
+                    </span>
+                  </div>
                   {!detalleCuenta ? (
                     <>
                       <h6>Abrir cuenta</h6>
@@ -481,45 +766,73 @@ function Mesas() {
                     </>
                   ) : (
                     <>
-                      <h6>Cuenta #{detalleCuenta.cuenta.id_Cuenta_Mesa}</h6>
+                      <h6 className="mb-1">Cuenta #{detalleCuenta.cuenta.id_Cuenta_Mesa}</h6>
+                      <div className="small text-muted mb-2 mesas-atendio-chip">
+                        Atendio: <strong>{detalleCuenta?.atendidoPor?.nombre || detalleCuenta?.atendidoPor?.usuarioLogin || 'N/D'}</strong>
+                      </div>
 
-                      <div className="position-sticky top-0 bg-white border rounded p-2 mb-3" style={{ zIndex: 10 }}>
+                      <div className="bg-white border rounded p-3 mb-3 mesas-totals-card">
                         <div className="d-flex justify-content-between align-items-center mb-2">
                           <strong>Total actual: L {totalCuenta.toFixed(2)}</strong>
                           <span className={`badge ${cajaActual?.abierta ? 'bg-success' : 'bg-warning text-dark'}`}>
                             {cajaActual?.abierta ? `Caja #${cajaActual.id_Caja} abierta` : 'Caja cerrada'}
                           </span>
                         </div>
-                        <div className="d-grid gap-2">
-                          <button className="btn btn-success" onClick={cobrarCuenta} disabled={!cajaActual?.abierta || procesando}>
-                            {procesando ? 'Procesando...' : 'Cobrar mesa'}
-                          </button>
-                          <button className="btn btn-outline-danger" onClick={cancelarCuenta} disabled={procesando}>
-                            Cancelar cuenta
-                          </button>
-                        </div>
+                        <div className="small text-muted">Paso 1: agrega productos. Paso 2: divide la cuenta si aplica. Paso 3: cobra.</div>
                       </div>
 
-                      <ul className="list-group mb-3">
+                      <div className="mesas-section-card mb-3">
+                        <div className="mesas-section-title">Consumo actual</div>
+                        <ul className="list-group mesas-detalle-list">
                         {detalleCuenta.detalles.length === 0 ? (
                           <li className="list-group-item text-center">Sin productos</li>
                         ) : (
                           detalleCuenta.detalles.map((d) => (
-                            <li key={d.id_Detalle_Cuenta_Mesa} className="list-group-item d-flex justify-content-between align-items-start gap-2">
+                            <li key={d.id_Detalle_Cuenta_Mesa} className="list-group-item d-flex justify-content-between align-items-start gap-2 mesas-detalle-item">
                               <div>
                                 <strong>{d.producto}</strong>
                                 <div className="small">Cant: {d.cantidad}</div>
                                 <div className="small">Precio: L {Number(d.precio_Unitario || 0).toFixed(2)}</div>
                                 <div className="small">Subt: L {Number(d.subtotal || 0).toFixed(2)}</div>
+                                {dividirCuenta && (
+                                  <div className="mt-2">
+                                    <label className="form-label mb-1 small">Lo paga:</label>
+                                    <select
+                                      className="form-select form-select-sm"
+                                      value={asignacionDetalles[d.id_Detalle_Cuenta_Mesa] ?? 0}
+                                      onChange={(e) => asignarDetalleAPersona(d.id_Detalle_Cuenta_Mesa, e.target.value)}
+                                    >
+                                      {Array.from({ length: Math.max(1, Number(personasDivision || 1)) }, (_, idx) => (
+                                        <option key={`detalle-${d.id_Detalle_Cuenta_Mesa}-${idx}`} value={idx}>
+                                          {pagosMixtos[idx]?.nombre || `Persona ${idx + 1}`}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                )}
+                                <div className="form-check mt-2">
+                                  <input
+                                    className="form-check-input"
+                                    type="checkbox"
+                                    id={`desc-detalle-${d.id_Detalle_Cuenta_Mesa}`}
+                                    checked={descuentoDetalles[d.id_Detalle_Cuenta_Mesa] ?? true}
+                                    onChange={(e) => cambiarDescuentoDetalle(d.id_Detalle_Cuenta_Mesa, e.target.checked)}
+                                  />
+                                  <label className="form-check-label small" htmlFor={`desc-detalle-${d.id_Detalle_Cuenta_Mesa}`}>
+                                    Aplica descuento
+                                  </label>
+                                </div>
                               </div>
                               <button className="btn btn-sm btn-danger" onClick={() => eliminarDetalle(d.id_Detalle_Cuenta_Mesa)} disabled={procesando}>X</button>
                             </li>
                           ))
                         )}
-                      </ul>
+                        </ul>
+                      </div>
 
                       <hr />
-                      <h6>Agregar producto</h6>
+                      <div className="mesas-section-card mb-3">
+                      <h6 className="mesas-section-title mb-2">Agregar producto</h6>
                       <input
                         type="text"
                         className="form-control mb-2"
@@ -527,7 +840,7 @@ function Mesas() {
                         value={filtroProducto}
                         onChange={(e) => setFiltroProducto(e.target.value)}
                       />
-                      <div className="border rounded mb-2" style={{ maxHeight: 190, overflowY: 'auto' }}>
+                      <div className="border rounded mb-2 mesas-menu-scroll">
                         {menuItemsFiltrados.length === 0 ? (
                           <div className="p-2 small text-muted">No hay productos para ese filtro.</div>
                         ) : (
@@ -558,16 +871,99 @@ function Mesas() {
                         Precio: L {Number(menuSeleccionado?.precio || 0).toFixed(2)}
                       </div>
                       <button className="btn btn-dark w-100 mb-3" onClick={agregarProducto} disabled={procesando}>Agregar a cuenta</button>
+                      </div>
 
-                      <div className="row g-2 mb-2">
+                      <div className="row g-2 mb-2 mesas-cobro-shell">
                         <div className="col-12">
                           <label className="form-label mb-1">Metodo de pago</label>
-                          <select className="form-select" value={metodoPago} onChange={(e) => setMetodoPago(e.target.value)}>
+                          <select className="form-select" value={metodoPago} onChange={(e) => setMetodoPago(e.target.value)} disabled={dividirCuenta}>
                             {metodosPago.map((m) => (
                               <option key={m.codigo} value={m.codigo}>{m.nombre}</option>
                             ))}
                           </select>
                         </div>
+                        <div className="col-12">
+                          <label className="form-label mb-1">Modo de cobro</label>
+                          <select
+                            className="form-select"
+                            value={dividirCuenta ? 'DIVIDIR' : 'NORMAL'}
+                            onChange={(e) => setDividirCuenta(e.target.value === 'DIVIDIR')}
+                          >
+                            <option value="NORMAL">Cobro normal</option>
+                            <option value="DIVIDIR">Dividir cuenta (quien pago que)</option>
+                          </select>
+                        </div>
+                        {dividirCuenta && (
+                          <div className="col-12">
+                            <div className="border rounded p-3 mesas-mixto-wrap">
+                              <div className="row g-2 mb-2">
+                                <div className="col-6">
+                                  <label className="form-label mb-1">Personas</label>
+                                  <input
+                                    type="number"
+                                    min="2"
+                                    max="20"
+                                    className="form-control"
+                                    value={personasDivision}
+                                    onChange={(e) => setPersonasDivision(e.target.value)}
+                                  />
+                                </div>
+                                <div className="col-6">
+                                  <label className="form-label mb-1">Total por persona</label>
+                                  <div className="form-control bg-light">L {totalPorPersona.toFixed(2)}</div>
+                                </div>
+                              </div>
+                              <div className="d-flex justify-content-between align-items-center mb-2">
+                                <strong className="small">Division final antes de cobrar</strong>
+                                <span className="small text-muted">Personas: {Math.max(1, Number(personasDivision || 1))}</span>
+                              </div>
+                              {(pagosMixtos || []).map((pago, idx) => (
+                                <div className="mesas-mixto-line mb-2" key={`pago-mixto-${idx}`}>
+                                  <div className="mesas-mixto-field mesas-mixto-nombre">
+                                    <input
+                                      type="text"
+                                      className="form-control"
+                                      placeholder="Nombre"
+                                      value={pago.nombre || ''}
+                                      onChange={(e) => actualizarPagoMixto(idx, 'nombre', e.target.value)}
+                                    />
+                                  </div>
+                                  <div className="mesas-mixto-field mesas-mixto-metodo">
+                                    <select
+                                      className="form-select"
+                                      value={pago.metodo_Pago}
+                                      onChange={(e) => actualizarPagoMixto(idx, 'metodo_Pago', e.target.value)}
+                                    >
+                                      {metodosPago.map((m) => (
+                                        <option key={`mix-${idx}-${m.codigo}`} value={m.codigo}>{m.nombre}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  <div className="mesas-mixto-field mesas-mixto-monto">
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      min="0"
+                                      className="form-control"
+                                      placeholder="Monto"
+                                      value={pago.monto}
+                                      readOnly
+                                    />
+                                  </div>
+                                  <div className="mesas-mixto-field mesas-mixto-remove d-flex align-items-center justify-content-center">
+                                    <span className="badge text-bg-light">#{idx + 1}</span>
+                                  </div>
+                                </div>
+                              ))}
+                              <div className="d-flex justify-content-between align-items-center">
+                                <span className="small text-muted">Edita nombres/metodos y al final asigna quien paga cada producto en "Consumo actual".</span>
+                                <div className={`small ${Math.abs(diferenciaPagosMixtos) <= 0.01 ? 'text-success' : 'text-danger'}`}>
+                                  Ingresado: L {totalPagosMixtos.toFixed(2)} | Diferencia: L {diferenciaPagosMixtos.toFixed(2)}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                         <div className="col-12">
                           <label className="form-label mb-1">Tipo de servicio</label>
                           <select className="form-select" value={tipoServicio} onChange={(e) => setTipoServicio(e.target.value)}>
@@ -640,11 +1036,21 @@ function Mesas() {
 
                       <div className="bg-dark text-white rounded p-3 mb-3">
                         <div className="d-flex justify-content-between"><span>Subtotal base</span><strong>L {subtotalBaseCuenta.toFixed(2)}</strong></div>
+                        <div className="d-flex justify-content-between"><span>Base descuento (lineas marcadas)</span><strong>L {subtotalDescuentoCuenta.toFixed(2)}</strong></div>
                         <div className="d-flex justify-content-between"><span>Descuento</span><strong>L {descuentoNum.toFixed(2)}</strong></div>
                         <div className="d-flex justify-content-between"><span>Impuesto</span><strong>L {impuestoNum.toFixed(2)}</strong></div>
                         {impuestoIncluidoEnSubtotal && <div className="small text-warning">Impuesto incluido en precios (no se suma al total)</div>}
                         <hr className="my-2" />
                         <div className="d-flex justify-content-between"><span>Total</span><strong>L {totalCuenta.toFixed(2)}</strong></div>
+                      </div>
+
+                      <div className="d-grid gap-2 mesas-actions-bar">
+                        <button className="btn btn-success" onClick={cobrarCuenta} disabled={!cajaActual?.abierta || procesando}>
+                          {procesando ? 'Procesando...' : 'Cobrar mesa'}
+                        </button>
+                        <button className="btn btn-outline-danger" onClick={cancelarCuenta} disabled={procesando}>
+                          Cancelar cuenta
+                        </button>
                       </div>
                     </>
                   )}

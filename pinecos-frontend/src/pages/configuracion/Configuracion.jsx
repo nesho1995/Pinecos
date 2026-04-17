@@ -48,6 +48,7 @@ function Configuracion() {
     descuentos: [],
     impuestos: []
   });
+  const [tabConfig, setTabConfig] = useState('negocio');
 
   const cargarSucursales = async () => {
     try {
@@ -271,13 +272,34 @@ function Configuracion() {
         });
     };
 
+    const normalizarCodigoMetodo = (value) =>
+      String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toUpperCase()
+        .replace(/[^A-Z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '');
+
+    const dedupeMetodos = (list) => {
+      const seen = new Set();
+      return (list || []).filter((item) => {
+        const key = String(item.codigo || '').toUpperCase();
+        if (!key) return false;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    };
+
     const payload = {
       pos: (canalesForm.pos || []).map((x) => String(x || '').trim()).filter(Boolean),
       delivery: (canalesForm.delivery || []).map((x) => String(x || '').trim()).filter(Boolean),
       metodosPago: (canalesForm.metodosPago || []).map((x) => ({
-        codigo: String(x.codigo || '').trim().toUpperCase(),
+        codigo: normalizarCodigoMetodo(x.codigo) || normalizarCodigoMetodo(x.nombre),
         nombre: String(x.nombre || '').trim(),
-        categoria: String(x.categoria || 'OTRO').trim().toUpperCase(),
+        categoria: ['EFECTIVO', 'POS', 'DELIVERY', 'OTRO'].includes(String(x.categoria || '').trim().toUpperCase())
+          ? String(x.categoria || '').trim().toUpperCase()
+          : 'OTRO',
         activo: !!x.activo
       })).filter((x) => x.codigo && x.nombre),
       requiereMontoEnTodos: true
@@ -285,6 +307,7 @@ function Configuracion() {
 
     payload.pos = dedupe(payload.pos);
     payload.delivery = dedupe(payload.delivery);
+    payload.metodosPago = dedupeMetodos(payload.metodosPago);
 
     if (!payload.metodosPago.some((x) => x.categoria === 'EFECTIVO' && x.activo))
       return setError('Debes tener al menos un metodo de pago activo de tipo EFECTIVO');
@@ -403,9 +426,26 @@ function Configuracion() {
   return (
     <div>
       <h2 className="mb-4">Configuracion del negocio</h2>
+      <div className="reports-tabs mb-3">
+        <button className={`btn btn-sm ${tabConfig === 'negocio' ? 'btn-dark' : 'btn-outline-secondary'}`} onClick={() => setTabConfig('negocio')}>
+          Negocio
+        </button>
+        <button className={`btn btn-sm ${tabConfig === 'sar' ? 'btn-dark' : 'btn-outline-secondary'}`} onClick={() => setTabConfig('sar')}>
+          SAR / CAI
+        </button>
+        <button className={`btn btn-sm ${tabConfig === 'ajustes' ? 'btn-dark' : 'btn-outline-secondary'}`} onClick={() => setTabConfig('ajustes')}>
+          Descuentos e Impuestos
+        </button>
+        <button className={`btn btn-sm ${tabConfig === 'metodos' ? 'btn-dark' : 'btn-outline-secondary'}`} onClick={() => setTabConfig('metodos')}>
+          Metodos y Cuadre
+        </button>
+      </div>
+      {mensaje && <div className="alert alert-success mt-2">{mensaje}</div>}
+      {error && <div className="alert alert-danger mt-2">{error}</div>}
 
+      {tabConfig === 'negocio' && (
       <div className="card shadow-sm">
-        <div className="card-body">
+        <div className="card-body reports-card-body">
           <h5 className="mb-1">Configuracion por sucursal</h5>
           <div className="small text-muted mb-3">
             Editando sucursal: <strong>{sucursalActualNombre}</strong>
@@ -467,9 +507,11 @@ function Configuracion() {
           </form>
         </div>
       </div>
+      )}
 
-      <div className="card shadow-sm mt-4">
-        <div className="card-body">
+      {tabConfig === 'sar' && (
+      <div className="card shadow-sm">
+        <div className="card-body reports-card-body">
           <h5 className="mb-1">Facturacion SAR (CAI) por sucursal</h5>
           <div className="small text-muted mb-3">
             Editando: <strong>{sucursalActualNombre}</strong>
@@ -595,9 +637,11 @@ function Configuracion() {
           </div>
         </div>
       </div>
+      )}
 
-      <div className="card shadow-sm mt-4">
-        <div className="card-body">
+      {tabConfig === 'ajustes' && (
+      <div className="card shadow-sm">
+        <div className="card-body reports-card-body">
           <h5 className="mb-3">Descuentos e Impuestos por Sucursal</h5>
           <form onSubmit={guardarAjustesVenta} className="row g-3">
             <div className="col-12">
@@ -681,9 +725,11 @@ function Configuracion() {
           </form>
         </div>
       </div>
+      )}
 
-      <div className="card shadow-sm mt-4">
-        <div className="card-body">
+      {tabConfig === 'metodos' && (
+      <div className="card shadow-sm">
+        <div className="card-body reports-card-body">
           <h5 className="mb-3">Metodos de Pago y Cuadre por Sucursal</h5>
           <form onSubmit={guardarCanalesCuadre} className="row g-3">
             <div className="col-12">
@@ -744,9 +790,7 @@ function Configuracion() {
           </form>
         </div>
       </div>
-
-      {mensaje && <div className="alert alert-success mt-3 mb-0">{mensaje}</div>}
-      {error && <div className="alert alert-danger mt-3 mb-0">{error}</div>}
+      )}
     </div>
   );
 }
