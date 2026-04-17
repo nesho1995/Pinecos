@@ -6,6 +6,7 @@ using Pinecos.DTOs;
 using Pinecos.Helpers;
 using Pinecos.Models;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Pinecos.Controllers
 {
@@ -16,6 +17,10 @@ namespace Pinecos.Controllers
     {
         private readonly PinecosDbContext _context;
         private readonly IWebHostEnvironment _env;
+        private readonly JsonSerializerOptions _jsonOptions = new()
+        {
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+        };
 
         public CajasController(PinecosDbContext context, IWebHostEnvironment env)
         {
@@ -366,8 +371,11 @@ namespace Pinecos.Controllers
         }
 
         [HttpPost("abrir")]
-        public async Task<ActionResult> AbrirCaja([FromBody] Caja model)
+        public async Task<ActionResult> AbrirCaja([FromBody] AperturaCajaRequestDto request)
         {
+            if (request == null)
+                return BadRequest(new { message = "Debes enviar los datos de apertura de caja" });
+
             var idUsuario = UserHelper.GetUserId(User);
             var idSucursal = UserHelper.GetSucursalId(User);
 
@@ -383,17 +391,38 @@ namespace Pinecos.Controllers
             if (cajaAbierta)
                 return BadRequest(new { message = "Ya existe una caja abierta en esta sucursal" });
 
-            if (model.Monto_Inicial < 0)
+            if (request.Monto_Inicial < 0)
                 return BadRequest(new { message = "El monto inicial no puede ser negativo" });
 
-            if (model.Monto_Inicial > 1000000)
+            if (request.Monto_Inicial > 1000000)
                 return BadRequest(new { message = "El monto inicial excede el limite permitido" });
 
-            model.Id_Sucursal = idSucursal.Value;
-            model.Id_Usuario_Apertura = idUsuario.Value;
-            model.Fecha_Apertura = FechaHelper.AhoraHonduras();
-            model.Estado = "ABIERTA";
-            model.Observacion = (model.Observacion ?? string.Empty).Trim();
+            var usuarioDb = await _context.Usuarios
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.Id_Usuario == idUsuario.Value);
+            var nombreUsuario = string.IsNullOrWhiteSpace(usuarioDb?.Nombre)
+                ? (User?.Identity?.Name ?? $"Usuario #{idUsuario.Value}")
+                : usuarioDb!.Nombre;
+
+            var observacionApertura = new
+            {
+                tipo = "APERTURA_CAJA_V2",
+                fechaApertura = FechaHelper.AhoraHonduras(),
+                usuarioAperturaId = idUsuario.Value,
+                usuarioAperturaNombre = nombreUsuario,
+                turno = (request.Turno ?? string.Empty).Trim(),
+                observacionUsuario = (request.Observacion ?? string.Empty).Trim()
+            };
+
+            var model = new Caja
+            {
+                Id_Sucursal = idSucursal.Value,
+                Id_Usuario_Apertura = idUsuario.Value,
+                Fecha_Apertura = FechaHelper.AhoraHonduras(),
+                Monto_Inicial = request.Monto_Inicial,
+                Estado = "ABIERTA",
+                Observacion = JsonSerializer.Serialize(observacionApertura, _jsonOptions)
+            };
 
             _context.Cajas.Add(model);
             await _context.SaveChangesAsync();
@@ -412,7 +441,17 @@ namespace Pinecos.Controllers
 
             await BitacoraHelper.RegistrarAsync(_context, idUsuario.Value, "CAJA", "ABRIR", $"Caja #{model.Id_Caja} abierta");
 
-            return Ok(new { message = "Caja abierta correctamente", data = model });
+            return Ok(new
+            {
+                message = "Caja abierta correctamente",
+                data = model,
+                auditoria = new
+                {
+                    usuarioAperturaId = idUsuario.Value,
+                    usuarioAperturaNombre = nombreUsuario,
+                    turno = (request.Turno ?? string.Empty).Trim()
+                }
+            });
         }
 
         [HttpGet("cuadre-previo/{idCaja}")]
@@ -432,9 +471,11 @@ namespace Pinecos.Controllers
                 {
                     caja.Id_Caja,
                     caja.Id_Sucursal,
+                    caja.Id_Usuario_Apertura,
                     caja.Fecha_Apertura,
                     caja.Monto_Inicial,
-                    caja.Estado
+                    caja.Estado,
+                    caja.Observacion
                 },
                 canalesConfig,
                 resumen,
@@ -547,6 +588,13 @@ namespace Pinecos.Controllers
             if (!expectedDelivery.SetEquals(deliveryDeclarado))
                 return BadRequest(new { message = "Los canales Delivery del cierre no coinciden con la configuracion de admin" });
 
+            var usuarioDb = await _context.Usuarios
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.Id_Usuario == idUsuario.Value);
+            var nombreUsuario = string.IsNullOrWhiteSpace(usuarioDb?.Nombre)
+                ? (User?.Identity?.Name ?? $"Usuario #{idUsuario.Value}")
+                : usuarioDb!.Nombre;
+
             var fechaCierre = FechaHelper.AhoraHonduras();
             var resumen = await ConstruirResumenCuadreAsync(caja, fechaCierre);
 
@@ -560,6 +608,9 @@ namespace Pinecos.Controllers
             {
                 tipo = "CIERRE_CAJA_V2",
                 fechaCierre,
+                usuarioCierreId = idUsuario.Value,
+                usuarioCierreNombre = nombreUsuario,
+                turno = (request.Turno ?? string.Empty).Trim(),
                 observacionUsuario = request.Observacion,
                 esperado = new
                 {
@@ -585,7 +636,7 @@ namespace Pinecos.Controllers
             caja.Id_Usuario_Cierre = idUsuario.Value;
             caja.Fecha_Cierre = fechaCierre;
             caja.Monto_Cierre = request.Monto_Cierre;
-            caja.Observacion = JsonSerializer.Serialize(cierreDetalle);
+            caja.Observacion = JsonSerializer.Serialize(cierreDetalle, _jsonOptions);
 
             _context.MovimientosCaja.Add(new MovimientoCaja
             {

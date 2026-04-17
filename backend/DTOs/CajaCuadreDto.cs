@@ -19,6 +19,14 @@ namespace Pinecos.DTOs
         public decimal Monto_Cierre { get; set; }
         public List<CanalMontoDto> Pos { get; set; } = new();
         public List<CanalMontoDto> Delivery { get; set; } = new();
+        public string Turno { get; set; } = string.Empty;
+        public string Observacion { get; set; } = string.Empty;
+    }
+
+    public class AperturaCajaRequestDto
+    {
+        public decimal Monto_Inicial { get; set; }
+        public string Turno { get; set; } = string.Empty;
         public string Observacion { get; set; } = string.Empty;
     }
 

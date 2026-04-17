@@ -7,6 +7,7 @@ const cierreBase = {
   monto_Cierre: '',
   pos: [lineaCanal('POS 1')],
   delivery: [lineaCanal('PEDIDOS_YA')],
+  turno: '',
   observacion: ''
 };
 
@@ -25,6 +26,7 @@ const buildCierreFromCanales = (canalesConfig, previous = null) => {
     monto_Cierre: previous?.monto_Cierre ?? '',
     pos,
     delivery,
+    turno: previous?.turno ?? '',
     observacion: previous?.observacion ?? ''
   };
 };
@@ -40,6 +42,7 @@ function Caja() {
 
   const [apertura, setApertura] = useState({
     monto_Inicial: '',
+    turno: '',
     observacion: ''
   });
 
@@ -113,11 +116,12 @@ function Caja() {
     try {
       await api.post('/Cajas/abrir', {
         monto_Inicial: Number(apertura.monto_Inicial),
+        turno: apertura.turno,
         observacion: apertura.observacion
       });
 
       setMensaje('Caja abierta correctamente');
-      setApertura({ monto_Inicial: '', observacion: '' });
+      setApertura({ monto_Inicial: '', turno: '', observacion: '' });
       await refrescarPantalla();
     } catch (err) {
       setError(err?.response?.data?.message || 'Error al abrir caja');
@@ -138,6 +142,7 @@ function Caja() {
         monto_Cierre: Number(cierre.monto_Cierre),
         pos: (cierre.pos || []).map((x) => ({ canal: String(x.canal || '').trim(), monto: Number(x.monto) })),
         delivery: (cierre.delivery || []).map((x) => ({ canal: String(x.canal || '').trim(), monto: Number(x.monto) })),
+        turno: cierre.turno || '',
         observacion: cierre.observacion
       };
 
@@ -187,14 +192,22 @@ function Caja() {
             <h5 className="mb-3">Abrir caja</h5>
             <form onSubmit={abrirCaja} className="row g-3">
               <div className="col-md-4">
+                <label className="form-label">Usuario de sesion</label>
+                <input type="text" className="form-control" value={usuario?.nombre || usuario?.usuario || `Usuario #${idUsuario || ''}`} readOnly />
+              </div>
+              <div className="col-md-4">
                 <label className="form-label">Monto inicial</label>
                 <input type="number" step="0.01" className="form-control" name="monto_Inicial" value={apertura.monto_Inicial} onChange={handleAperturaChange} required />
               </div>
-              <div className="col-md-6">
+              <div className="col-md-4">
+                <label className="form-label">Turno</label>
+                <input type="text" className="form-control" name="turno" value={apertura.turno || ''} onChange={handleAperturaChange} placeholder="Ejemplo: Manana / Tarde / Noche" />
+              </div>
+              <div className="col-md-8">
                 <label className="form-label">Observacion</label>
                 <input type="text" className="form-control" name="observacion" value={apertura.observacion} onChange={handleAperturaChange} />
               </div>
-              <div className="col-md-2 d-flex align-items-end">
+              <div className="col-md-4 d-flex align-items-end">
                 <button className="btn btn-dark w-100">Abrir</button>
               </div>
             </form>
@@ -208,7 +221,8 @@ function Caja() {
                 <h5>Caja abierta</h5>
                 <p><strong>Caja:</strong> {cajaActual.id_Caja}</p>
                 <p><strong>Sucursal:</strong> {cajaActual.id_Sucursal}</p>
-                <p><strong>Abierta por usuario:</strong> {cajaActual.id_Usuario_Apertura}</p>
+                <p><strong>Abierta por:</strong> {cajaActual.usuarioAperturaNombre || `Usuario #${cajaActual.id_Usuario_Apertura}`}</p>
+                <p><strong>Turno apertura:</strong> {cajaActual.turnoApertura || 'N/D'}</p>
                 <p><strong>Fecha apertura:</strong> {new Date(cajaActual.fecha_Apertura).toLocaleString('es-HN')}</p>
                 <p><strong>Monto inicial:</strong> L {Number(cajaActual.monto_Inicial || 0).toFixed(2)}</p>
                 {idUsuario > 0 && Number(cajaActual.id_Usuario_Apertura) !== idUsuario && (
@@ -256,6 +270,11 @@ function Caja() {
                         </div>
                       </div>
                     ))}
+                  </div>
+
+                  <div className="col-12">
+                    <label className="form-label">Turno de cierre</label>
+                    <input type="text" className="form-control" name="turno" value={cierre.turno || ''} onChange={handleCierreChange} placeholder="Ejemplo: Manana / Tarde / Noche" />
                   </div>
 
                   <div className="col-12">

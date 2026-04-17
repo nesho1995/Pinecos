@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Pinecos.Attributes;
 using Pinecos.Data;
 using Pinecos.Helpers;
+using System.Text.Json;
 
 namespace Pinecos.Controllers
 {
@@ -181,12 +182,40 @@ namespace Pinecos.Controllers
             if (caja == null)
                 return Ok(new { abierta = false });
 
+            string? usuarioAperturaNombre = null;
+            string? turnoApertura = null;
+            if (!string.IsNullOrWhiteSpace(caja.Observacion))
+            {
+                try
+                {
+                    using var doc = JsonDocument.Parse(caja.Observacion);
+                    var root = doc.RootElement;
+                    if (root.TryGetProperty("usuarioAperturaNombre", out var nombreEl))
+                        usuarioAperturaNombre = (nombreEl.GetString() ?? string.Empty).Trim();
+                    if (root.TryGetProperty("turno", out var turnoEl))
+                        turnoApertura = (turnoEl.GetString() ?? string.Empty).Trim();
+                }
+                catch
+                {
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(usuarioAperturaNombre))
+            {
+                usuarioAperturaNombre = await _context.Usuarios
+                    .Where(u => u.Id_Usuario == caja.Id_Usuario_Apertura)
+                    .Select(u => u.Nombre)
+                    .FirstOrDefaultAsync();
+            }
+
             return Ok(new
             {
                 abierta = true,
                 caja.Id_Caja,
                 caja.Id_Sucursal,
                 caja.Id_Usuario_Apertura,
+                usuarioAperturaNombre = string.IsNullOrWhiteSpace(usuarioAperturaNombre) ? $"Usuario #{caja.Id_Usuario_Apertura}" : usuarioAperturaNombre,
+                turnoApertura = turnoApertura ?? string.Empty,
                 caja.Fecha_Apertura,
                 caja.Monto_Inicial,
                 caja.Estado,
