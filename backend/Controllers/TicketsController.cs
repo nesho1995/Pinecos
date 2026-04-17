@@ -168,7 +168,7 @@ namespace Pinecos.Controllers
         }
 
         [HttpGet("venta/{idVenta}/html")]
-        public async Task<IActionResult> GetTicketHtml(int idVenta, [FromQuery] string? copia = null)
+        public async Task<IActionResult> GetTicketHtml(int idVenta)
         {
             var rol = UserHelper.GetUserRole(User);
             var idSucursal = UserHelper.GetSucursalId(User);
@@ -247,8 +247,7 @@ namespace Pinecos.Controllers
                 config.Mensaje_Ticket,
                 config.Ancho_Ticket,
                 config.Logo_Url,
-                config.Moneda,
-                string.IsNullOrWhiteSpace(copia) ? "" : copia.Trim().ToUpperInvariant()
+                config.Moneda
             );
 
             return Content(html, "text/html");

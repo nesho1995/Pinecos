@@ -20,8 +20,6 @@ function Reportes() {
   });
 
   const [panel, setPanel] = useState(null);
-  const [dashboardAvanzado, setDashboardAvanzado] = useState(null);
-  const [intervaloSerie, setIntervaloSerie] = useState('DIA');
   const [ventasResumen, setVentasResumen] = useState(null);
   const [gastosResumen, setGastosResumen] = useState(null);
   const [utilidad, setUtilidad] = useState(null);
@@ -157,30 +155,6 @@ function Reportes() {
     }));
   };
 
-  const setRangeAnio = () => {
-    const d = new Date();
-    const inicio = new Date(d.getFullYear(), 0, 1, 0, 0, 0);
-    const fin = new Date(d.getFullYear(), 11, 31, 23, 59, 0);
-    setForm((prev) => ({
-      ...prev,
-      desde: toLocalInput(inicio),
-      hasta: toLocalInput(fin)
-    }));
-  };
-
-  const setRangeTrimestre = () => {
-    const d = new Date();
-    const q = Math.floor(d.getMonth() / 3);
-    const inicioMes = q * 3;
-    const inicio = new Date(d.getFullYear(), inicioMes, 1, 0, 0, 0);
-    const fin = new Date(d.getFullYear(), inicioMes + 3, 0, 23, 59, 0);
-    setForm((prev) => ({
-      ...prev,
-      desde: toLocalInput(inicio),
-      hasta: toLocalInput(fin)
-    }));
-  };
-
   const buildParams = () => {
     const params = {};
     if (form.desde) params.desde = form.desde;
@@ -222,7 +196,6 @@ function Reportes() {
 
       const requests = [
         { key: 'panel', label: 'Panel negocio', request: api.get('/Reportes/panel-negocio', { params: panelParams }) },
-        { key: 'dashAv', label: 'Dashboard avanzado', request: api.get('/Reportes/dashboard-avanzado', { params: { ...panelParams, intervalo: intervaloSerie } }) },
         { key: 'ventas', label: 'Ventas resumen', request: api.get('/Reportes/ventas-resumen', { params }) },
         { key: 'gastos', label: 'Gastos resumen', request: api.get('/Reportes/gastos-resumen', { params }) },
         { key: 'utilidad', label: 'Utilidad', request: api.get('/Reportes/utilidad', { params }) },
@@ -259,7 +232,6 @@ function Reportes() {
       });
 
       setPanel(data.panel || null);
-      setDashboardAvanzado(data.dashAv || null);
       setVentasResumen(data.ventas || null);
       setGastosResumen(data.gastos || null);
       setUtilidad(data.utilidad || null);
@@ -282,7 +254,7 @@ function Reportes() {
 
   useEffect(() => {
     cargarReportes();
-  }, [intervaloSerie]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div>
@@ -309,8 +281,6 @@ function Reportes() {
             <div className="col-md-3 d-flex align-items-end gap-2">
               <button type="button" className="btn btn-outline-secondary" onClick={setRangeHoy}>Hoy</button>
               <button type="button" className="btn btn-outline-secondary" onClick={setRangeMes}>Mes</button>
-              <button type="button" className="btn btn-outline-secondary" onClick={setRangeTrimestre}>Trimestre</button>
-              <button type="button" className="btn btn-outline-secondary" onClick={setRangeAnio}>Anio</button>
               <button type="button" className="btn btn-dark flex-grow-1" onClick={cargarReportes} disabled={loading}>
                 {loading ? 'Consultando...' : 'Consultar'}
               </button>
@@ -326,37 +296,6 @@ function Reportes() {
           <div className="col-md-3"><div className="card shadow-sm"><div className="card-body"><h6>Hoy ticket prom.</h6><h4>L {Number(panel?.hoy?.ventas?.ticketPromedio || 0).toFixed(2)}</h4></div></div></div>
           <div className="col-md-3"><div className="card shadow-sm"><div className="card-body"><h6>Mes ventas</h6><h4>L {Number(panel?.mesActual?.ventas?.total || 0).toFixed(2)}</h4></div></div></div>
           <div className="col-md-3"><div className="card shadow-sm"><div className="card-body"><h6>Mes utilidad neta</h6><h4>L {Number(panel?.mesActual?.costos?.utilidadNeta || 0).toFixed(2)}</h4></div></div></div>
-        </div>
-      )}
-
-      {dashboardAvanzado && (
-        <div className="card shadow-sm mb-4">
-          <div className="card-body">
-            <div className="d-flex justify-content-between align-items-center mb-2">
-              <h5 className="mb-0">Dashboard avanzado</h5>
-              <select className="form-select" style={{ maxWidth: 170 }} value={intervaloSerie} onChange={(e) => setIntervaloSerie(e.target.value)}>
-                <option value="DIA">Serie por dia</option>
-                <option value="MES">Serie por mes</option>
-                <option value="TRIMESTRE">Serie por trimestre</option>
-                <option value="ANIO">Serie por anio</option>
-              </select>
-            </div>
-            <div className="table-responsive">
-              <table className="table table-bordered mb-0">
-                <thead><tr><th>Periodo</th><th>Ventas</th><th>Total</th></tr></thead>
-                <tbody>
-                  {(dashboardAvanzado.serie || []).map((x, idx) => (
-                    <tr key={`ds-${idx}`}>
-                      <td>{x.periodo}</td>
-                      <td>{x.ventas}</td>
-                      <td>L {Number(x.total || 0).toFixed(2)}</td>
-                    </tr>
-                  ))}
-                  {!(dashboardAvanzado.serie || []).length && <tr><td colSpan="3" className="text-center">Sin datos</td></tr>}
-                </tbody>
-              </table>
-            </div>
-          </div>
         </div>
       )}
 

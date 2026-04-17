@@ -12,7 +12,6 @@ const sections = [
       { to: '/mesas', label: 'Mesas y Cuentas' },
       { to: '/gastos', label: 'Gastos' },
       { to: '/reportes', label: 'Reportes' },
-      { to: '/reportes-cliente', label: 'Panel Cliente' },
       { to: '/estado-cuenta', label: 'Estado de Cuenta' }
     ]
   },
@@ -21,8 +20,6 @@ const sections = [
     items: [
       { to: '/menu-sucursal', label: 'Precios por Sucursal' },
       { to: '/mesas-admin', label: 'Mesas' },
-      { to: '/proveedores', label: 'Proveedores' },
-      { to: '/inventario', label: 'Inventario' },
       { to: '/productos', label: 'Productos' },
       { to: '/categorias', label: 'Categorias' },
       { to: '/presentaciones', label: 'Presentaciones' },
@@ -41,7 +38,7 @@ function Sidebar({ onNavigate }) {
       ...section,
       items: section.items.filter((item) => {
         if (admin) return true;
-        if (item.to === '/reportes' || item.to === '/estado-cuenta' || item.to === '/reportes-cliente') return false;
+        if (item.to === '/reportes' || item.to === '/estado-cuenta') return false;
         if (section.title === 'Administracion') return false;
         return true;
       })

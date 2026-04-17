@@ -1,4 +1,4 @@
-# Queries de despliegue y verificacion (2026-04-17)
+﻿# Queries de despliegue y verificacion (2026-04-14)
 
 Este paquete acompana los cambios de backend/frontend implementados.
 
@@ -12,8 +12,6 @@ Este paquete acompana los cambios de backend/frontend implementados.
 - `2026-04-14_postdeploy_checks.sql`: validaciones rapidas despues de publicar.
 - `2026-04-14_cuadre_y_estado_cuenta.sql`: consultas utiles de auditoria.
 - `2026-04-14_schema_hotfix_observacion_caja.sql`: hotfix para permitir JSON largo en cierre de caja.
-- `2026-04-17_inventario_proveedores.sql`: crea estructura inicial de proveedores, inventario, movimientos y compras.
-- `2026-04-17_recetas_consumo_automatico.sql`: crea estructura de recetas por producto/sucursal para consumo automatico.
 
 ## Recomendacion
-Ejecutar primero `predeploy`, luego `schema_hotfix_observacion_caja`, luego `2026-04-17_inventario_proveedores.sql`, despues `2026-04-17_recetas_consumo_automatico.sql`, desplegar API+frontend, y por ultimo `postdeploy`.
+Ejecutar primero `predeploy`, luego `schema_hotfix_observacion_caja`, despues desplegar API+frontend, y por ultimo `postdeploy`.

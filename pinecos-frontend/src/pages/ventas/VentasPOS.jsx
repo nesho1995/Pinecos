@@ -1,6 +1,6 @@
 ﻿import { useEffect, useMemo, useState } from 'react';
 import api from '../../services/api';
-import { imprimirFacturaCaiDoble, imprimirTicketHtml } from '../../utils/printTicket';
+import { imprimirTicketHtml } from '../../utils/printTicket';
 import { getUsuario } from '../../utils/auth';
 
 function VentasPOS() {
@@ -21,11 +21,10 @@ function VentasPOS() {
   const [impuestoManual, setImpuestoManual] = useState('0');
   const [ajustesVenta, setAjustesVenta] = useState({ descuentos: [], impuestos: [] });
   const [facturacionSar, setFacturacionSar] = useState({ habilitadoCai: false });
-  const [modoComprobante, setModoComprobante] = useState('SIN_CAI');
+  const [emitirFactura, setEmitirFactura] = useState(false);
   const [mensaje, setMensaje] = useState('');
   const [error, setError] = useState('');
   const [ultimaVentaId, setUltimaVentaId] = useState(null);
-  const [ultimaVentaConCai, setUltimaVentaConCai] = useState(false);
   const [procesando, setProcesando] = useState(false);
 
   const cargarCajaActual = async () => {
@@ -274,20 +273,13 @@ function VentasPOS() {
     limpiarMensajes();
     setCarrito([]);
     setUltimaVentaId(null);
-    setUltimaVentaConCai(false);
     setModoDescuento('NINGUNO');
     setDescuentoManual('0');
     setModoImpuesto('INCLUIDO_15');
     setImpuestoManual('0');
-    setModoComprobante('SIN_CAI');
+    setEmitirFactura(false);
     setTipoServicio('COMER_AQUI');
   };
-
-  useEffect(() => {
-    if (!facturacionSar?.habilitadoCai) {
-      setModoComprobante('SIN_CAI');
-    }
-  }, [facturacionSar?.habilitadoCai]);
 
   const subtotal = carrito.reduce((acc, item) => acc + Number(item.subtotal || 0), 0);
   const baseDescuento = carrito
@@ -343,9 +335,6 @@ function VentasPOS() {
     if (descuentoCalculado < 0 || impuestoCalculado < 0) return setError('Descuento e impuesto no pueden ser negativos');
     if (subtotalBase < 0) return setError('El subtotal base no puede ser negativo');
     if (total < 0) return setError('El total no puede ser negativo');
-    const ventaConCai = modoComprobante === 'CON_CAI' && !!facturacionSar?.habilitadoCai;
-    if (modoComprobante === 'CON_CAI' && !facturacionSar?.habilitadoCai)
-      return setError('CAI no esta habilitado en esta sucursal');
 
     try {
       setProcesando(true);
@@ -354,7 +343,7 @@ function VentasPOS() {
         descuento: Number(descuentoCalculado.toFixed(2)),
         impuesto: Number(impuestoCalculado.toFixed(2)),
         impuestoIncluidoEnSubtotal,
-        emitirFactura: ventaConCai,
+        emitirFactura: emitirFactura && !!facturacionSar?.habilitadoCai,
         metodo_Pago: metodoPago,
         tipo_Servicio: tipoServicio,
         observacion: `Venta POS | Desc:${modoDescuento} | Imp:${modoImpuesto}`,
@@ -368,26 +357,14 @@ function VentasPOS() {
 
       const idVenta = response.data.data.id_Venta;
       setUltimaVentaId(idVenta);
-      setUltimaVentaConCai(ventaConCai);
+      setMensaje(`Venta registrada correctamente. Venta #${idVenta}`);
       setCarrito([]);
       setModoDescuento('NINGUNO');
       setDescuentoManual('0');
       setModoImpuesto('INCLUIDO_15');
       setImpuestoManual('0');
-      setModoComprobante('SIN_CAI');
+      setEmitirFactura(false);
       setTipoServicio('COMER_AQUI');
-
-      if (ventaConCai) {
-        try {
-          await imprimirFacturaCaiDoble(idVenta);
-          setMensaje(`Venta registrada con CAI. Se imprimieron 2 copias (Cliente y Negocio). Venta #${idVenta}`);
-        } catch (printErr) {
-          setMensaje(`Venta registrada con CAI. Venta #${idVenta}`);
-          setError(printErr?.message || 'No se pudo imprimir la factura CAI');
-        }
-      } else {
-        setMensaje(`Venta registrada correctamente. Venta #${idVenta}`);
-      }
     } catch (err) {
       setError(err?.response?.data?.message || 'Error al registrar venta');
     } finally {
@@ -399,11 +376,7 @@ function VentasPOS() {
     limpiarMensajes();
     if (!ultimaVentaId) return setError('No hay ticket para imprimir');
     try {
-      if (ultimaVentaConCai) {
-        await imprimirFacturaCaiDoble(ultimaVentaId);
-      } else {
-        await imprimirTicketHtml(ultimaVentaId);
-      }
+      await imprimirTicketHtml(ultimaVentaId);
     } catch (err) {
       setError(err?.message || 'No se pudo imprimir el ticket');
     }
@@ -569,28 +542,24 @@ function VentasPOS() {
                   </select>
                 </div>
 
-                {facturacionSar?.habilitadoCai ? (
-                  <div className="form-check mb-2">
-                    <input
-                      className="form-check-input"
-                      type="checkbox"
-                      id="emitirFacturaCaiPos"
-                      checked={modoComprobante === 'CON_CAI'}
-                      onChange={(e) => setModoComprobante(e.target.checked ? 'CON_CAI' : 'SIN_CAI')}
-                    />
-                    <label className="form-check-label" htmlFor="emitirFacturaCaiPos">
-                      Emitir factura CAI (activar solo si el cliente la solicita)
-                    </label>
-                  </div>
-                ) : (
-                  <div className="mb-2">
-                    <small className="text-muted">CAI no habilitado para esta sucursal. Solo ticket sin CAI.</small>
+                {facturacionSar?.habilitadoCai && (
+                  <div className={`alert py-2 ${facturacionSar.facturasRestantes > 0 ? 'alert-info' : 'alert-danger'}`}>
+                    Facturas CAI restantes: <strong>{Number(facturacionSar.facturasRestantes || 0)}</strong>
                   </div>
                 )}
 
                 {facturacionSar?.habilitadoCai && (
-                  <div className={`alert py-2 ${facturacionSar.facturasRestantes > 0 ? 'alert-info' : 'alert-danger'}`}>
-                    Facturas CAI restantes: <strong>{Number(facturacionSar.facturasRestantes || 0)}</strong>
+                  <div className="form-check mb-2">
+                    <input
+                      className="form-check-input"
+                      type="checkbox"
+                      id="emitirFacturaPos"
+                      checked={emitirFactura}
+                      onChange={(e) => setEmitirFactura(e.target.checked)}
+                    />
+                    <label className="form-check-label" htmlFor="emitirFacturaPos">
+                      Emitir factura CAI
+                    </label>
                   </div>
                 )}
 

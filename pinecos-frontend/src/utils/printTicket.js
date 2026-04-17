@@ -88,57 +88,6 @@ export const imprimirTicketHtml = async (idVenta) => {
   await imprimirEnMismaPantalla(response.data);
 };
 
-export const imprimirFacturaCaiDoble = async (idVenta) => {
-  const [clienteResp, negocioResp] = await Promise.all([
-    api.get(`/Tickets/venta/${idVenta}/html`, {
-      params: { copia: 'CLIENTE' },
-      responseType: 'text'
-    }),
-    api.get(`/Tickets/venta/${idVenta}/html`, {
-      params: { copia: 'NEGOCIO' },
-      responseType: 'text'
-    })
-  ]);
-
-  const parser = new DOMParser();
-  const docCliente = parser.parseFromString(clienteResp.data, 'text/html');
-  const docNegocio = parser.parseFromString(negocioResp.data, 'text/html');
-
-  const styleBlocks = [
-    ...Array.from(docCliente.head?.querySelectorAll('style') || []).map((x) => x.textContent || ''),
-    ...Array.from(docNegocio.head?.querySelectorAll('style') || []).map((x) => x.textContent || '')
-  ].filter(Boolean);
-
-  const estilos = Array.from(new Set(styleBlocks)).join('\n');
-  const bodyCliente = docCliente.body?.innerHTML || '';
-  const bodyNegocio = docNegocio.body?.innerHTML || '';
-
-  const htmlDoble = `<!doctype html>
-<html lang="es">
-<head>
-  <meta charset="utf-8" />
-  <title>Factura CAI Doble #${idVenta}</title>
-  <style>
-    ${estilos}
-    .cai-copy-break {
-      page-break-before: always;
-      break-before: page;
-    }
-    .cai-copy-root {
-      display: block;
-    }
-  </style>
-</head>
-<body>
-  <div class="cai-copy-root">${bodyCliente}</div>
-  <div class="cai-copy-break cai-copy-root">${bodyNegocio}</div>
-</body>
-</html>`;
-
-  // Una sola llamada a print evita que el navegador bloquee la segunda copia.
-  await imprimirEnMismaPantalla(htmlDoble);
-};
-
 const construirHtmlTicketPersona = ({
   idVenta,
   mesa,

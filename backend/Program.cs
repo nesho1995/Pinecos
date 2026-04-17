@@ -8,9 +8,6 @@ using System.Text;
 using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.Logging.ClearProviders();
-builder.Logging.AddConsole();
-builder.Logging.AddDebug();
 builder.WebHost.ConfigureKestrel(options =>
 {
     options.Limits.MaxRequestBodySize = 1_048_576; // 1 MB por request
@@ -102,10 +99,7 @@ builder.Services.AddRateLimiter(options =>
         var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
         return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new FixedWindowRateLimiterOptions
         {
-            // Mantener proteccion anti-flood sin bloquear logins validos de otros usuarios
-            // de la misma red/sucursal. El bloqueo estricto de fuerza bruta se hace en
-            // AuthController por usuario+IP.
-            PermitLimit = 60,
+            PermitLimit = 8,
             Window = TimeSpan.FromMinutes(1),
             QueueLimit = 0,
             AutoReplenishment = true

@@ -1,6 +1,5 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
 using Pinecos.Attributes;
 using Pinecos.Data;
 using Pinecos.Helpers;
@@ -13,25 +12,11 @@ namespace Pinecos.Controllers
     public class ReportesController : ControllerBase
     {
         private readonly PinecosDbContext _context;
-        private readonly IMemoryCache _cache;
 
-        public ReportesController(PinecosDbContext context, IMemoryCache cache)
+        public ReportesController(PinecosDbContext context)
         {
             _context = context;
-            _cache = cache;
         }
-
-        private async Task<T> GetOrSetCacheAsync<T>(string key, Func<Task<T>> factory, int seconds = 45)
-        {
-            if (_cache.TryGetValue<T>(key, out var value) && value is not null)
-                return value;
-
-            var result = await factory();
-            _cache.Set(key, result, TimeSpan.FromSeconds(seconds));
-            return result;
-        }
-
-        private static string KeyPart(DateTime? dt) => dt?.ToString("yyyyMMddHHmmss") ?? "null";
 
         private static string NormalizarTipoServicioDesdeObservacion(string? observacion)
         {
@@ -195,39 +180,6 @@ namespace Pinecos.Controllers
             }
         }
 
-        private static (DateTime Inicio, DateTime Fin) ObtenerRangoPeriodo(string periodo)
-        {
-            var now = FechaHelper.AhoraHonduras();
-            var p = (periodo ?? "DIA").Trim().ToUpperInvariant();
-
-            if (p == "MES")
-            {
-                var ini = new DateTime(now.Year, now.Month, 1, 0, 0, 0);
-                var fin = ini.AddMonths(1).AddTicks(-1);
-                return (ini, fin);
-            }
-
-            if (p == "ANIO")
-            {
-                var ini = new DateTime(now.Year, 1, 1, 0, 0, 0);
-                var fin = ini.AddYears(1).AddTicks(-1);
-                return (ini, fin);
-            }
-
-            if (p == "TRIMESTRE")
-            {
-                var trimestre = ((now.Month - 1) / 3) + 1;
-                var mesInicio = ((trimestre - 1) * 3) + 1;
-                var ini = new DateTime(now.Year, mesInicio, 1, 0, 0, 0);
-                var fin = ini.AddMonths(3).AddTicks(-1);
-                return (ini, fin);
-            }
-
-            var diaIni = FechaHelper.HoyInicioHonduras();
-            var diaFin = FechaHelper.HoyFinHonduras();
-            return (diaIni, diaFin);
-        }
-
         [HttpGet("panel-negocio")]
         public async Task<ActionResult> PanelNegocio([FromQuery] int? idSucursal = null)
         {
@@ -237,150 +189,72 @@ namespace Pinecos.Controllers
             var mesInicio = new DateTime(ahora.Year, ahora.Month, 1, 0, 0, 0);
             var mesFin = mesInicio.AddMonths(1).AddTicks(-1);
             var ultimos7Inicio = hoyInicio.AddDays(-6);
-            var key = $"rep:panel:{idSucursal?.ToString() ?? "all"}:{hoyInicio:yyyyMMddHH}";
-            var data = await GetOrSetCacheAsync<object>(key, async () =>
+
+            try
             {
-                try
-                {
-                    var resumenHoy = await ConstruirResumenPeriodo(hoyInicio, hoyFin, idSucursal);
-                    var resumenMes = await ConstruirResumenPeriodo(mesInicio, mesFin, idSucursal);
+                var resumenHoy = await ConstruirResumenPeriodo(hoyInicio, hoyFin, idSucursal);
+                var resumenMes = await ConstruirResumenPeriodo(mesInicio, mesFin, idSucursal);
 
-                    var ventas7Query = _context.Ventas
-                        .AsNoTracking()
-                        .Where(x => x.Fecha >= ultimos7Inicio && x.Fecha <= hoyFin && x.Estado == "ACTIVA");
-                    if (idSucursal.HasValue)
-                        ventas7Query = ventas7Query.Where(x => x.Id_Sucursal == idSucursal.Value);
-
-                    var tendencia7Dias = await ventas7Query
-                        .GroupBy(x => x.Fecha.Date)
-                        .Select(g => new
-                        {
-                            fecha = g.Key,
-                            total = g.Sum(x => x.Total),
-                            ventas = g.Count()
-                        })
-                        .OrderBy(x => x.fecha)
-                        .ToListAsync();
-
-                    var movimientosHoyQuery = _context.MovimientosCaja
-                        .AsNoTracking()
-                        .Where(x => x.Fecha >= hoyInicio && x.Fecha <= hoyFin);
-                    if (idSucursal.HasValue)
-                        movimientosHoyQuery =
-                            from m in movimientosHoyQuery
-                            join c in _context.Cajas.AsNoTracking() on m.Id_Caja equals c.Id_Caja
-                            where c.Id_Sucursal == idSucursal.Value
-                            select m;
-
-                    var movimientosHoy = await movimientosHoyQuery
-                        .OrderByDescending(x => x.Fecha)
-                        .Take(100)
-                        .Select(x => new
-                        {
-                            x.Id_Movimiento_Caja,
-                            x.Id_Caja,
-                            x.Fecha,
-                            Tipo = x.Tipo ?? string.Empty,
-                            Descripcion = x.Descripcion ?? string.Empty,
-                            x.Monto,
-                            x.Id_Usuario
-                        })
-                        .ToListAsync();
-
-                    return (object)new
-                    {
-                        hoy = resumenHoy,
-                        mesActual = resumenMes,
-                        tendencia7Dias,
-                        movimientosHoy
-                    };
-                }
-                catch
-                {
-                    return (object)new
-                    {
-                        hoy = ConstruirResumenPeriodoVacio(hoyInicio, hoyFin),
-                        mesActual = ConstruirResumenPeriodoVacio(mesInicio, mesFin),
-                        tendencia7Dias = Array.Empty<object>(),
-                        movimientosHoy = Array.Empty<object>()
-                    };
-                }
-            }, 30);
-
-            return Ok(data);
-        }
-
-        [HttpGet("dashboard-avanzado")]
-        public async Task<ActionResult> DashboardAvanzado([FromQuery] int? idSucursal = null, [FromQuery] string intervalo = "DIA")
-        {
-            var now = FechaHelper.AhoraHonduras();
-            var (iniDia, finDia) = ObtenerRangoPeriodo("DIA");
-            var (iniMes, finMes) = ObtenerRangoPeriodo("MES");
-            var (iniTrim, finTrim) = ObtenerRangoPeriodo("TRIMESTRE");
-            var (iniAnio, finAnio) = ObtenerRangoPeriodo("ANIO");
-
-            var key = $"rep:dashadv:{idSucursal?.ToString() ?? "all"}:{intervalo}:{now:yyyyMMddHHmm}";
-            var data = await GetOrSetCacheAsync<object>(key, async () =>
-            {
-                var dia = await ConstruirResumenPeriodo(iniDia, finDia, idSucursal);
-                var mes = await ConstruirResumenPeriodo(iniMes, finMes, idSucursal);
-                var trimestre = await ConstruirResumenPeriodo(iniTrim, finTrim, idSucursal);
-                var anio = await ConstruirResumenPeriodo(iniAnio, finAnio, idSucursal);
-
-                var intv = (intervalo ?? "DIA").Trim().ToUpperInvariant();
-                var serieDesde = intv switch
-                {
-                    "MES" => new DateTime(now.Year, 1, 1, 0, 0, 0),
-                    "ANIO" => now.AddYears(-4),
-                    "TRIMESTRE" => now.AddYears(-1),
-                    _ => now.AddDays(-30)
-                };
-                var serieHasta = FechaHelper.HoyFinHonduras();
-
-                var ventasBase = _context.Ventas
+                var ventas7Query = _context.Ventas
                     .AsNoTracking()
-                    .Where(x => x.Estado == "ACTIVA" && x.Fecha >= serieDesde && x.Fecha <= serieHasta);
+                    .Where(x => x.Fecha >= ultimos7Inicio && x.Fecha <= hoyFin && x.Estado == "ACTIVA");
                 if (idSucursal.HasValue)
-                    ventasBase = ventasBase.Where(x => x.Id_Sucursal == idSucursal.Value);
+                    ventas7Query = ventas7Query.Where(x => x.Id_Sucursal == idSucursal.Value);
 
-                var ventasRaw = await ventasBase
-                    .Select(x => new { x.Fecha, x.Total })
+                var tendencia7Dias = await ventas7Query
+                    .GroupBy(x => x.Fecha.Date)
+                    .Select(g => new
+                    {
+                        fecha = g.Key,
+                        total = g.Sum(x => x.Total),
+                        ventas = g.Count()
+                    })
+                    .OrderBy(x => x.fecha)
                     .ToListAsync();
 
-                var serie = intv switch
-                {
-                    "MES" => ventasRaw
-                        .GroupBy(x => new { x.Fecha.Year, x.Fecha.Month })
-                        .Select(g => new { periodo = $"{g.Key.Year}-{g.Key.Month:D2}", total = g.Sum(x => x.Total), ventas = g.Count() })
-                        .OrderBy(x => x.periodo).ToList<object>(),
-                    "ANIO" => ventasRaw
-                        .GroupBy(x => x.Fecha.Year)
-                        .Select(g => new { periodo = $"{g.Key}", total = g.Sum(x => x.Total), ventas = g.Count() })
-                        .OrderBy(x => x.periodo).ToList<object>(),
-                    "TRIMESTRE" => ventasRaw
-                        .GroupBy(x => new { x.Fecha.Year, Q = ((x.Fecha.Month - 1) / 3) + 1 })
-                        .Select(g => new { periodo = $"{g.Key.Year}-T{g.Key.Q}", total = g.Sum(x => x.Total), ventas = g.Count() })
-                        .OrderBy(x => x.periodo).ToList<object>(),
-                    _ => ventasRaw
-                        .GroupBy(x => x.Fecha.Date)
-                        .Select(g => new { periodo = g.Key.ToString("yyyy-MM-dd"), total = g.Sum(x => x.Total), ventas = g.Count() })
-                        .OrderBy(x => x.periodo).ToList<object>()
-                };
+                var movimientosHoyQuery = _context.MovimientosCaja
+                    .AsNoTracking()
+                    .Where(x => x.Fecha >= hoyInicio && x.Fecha <= hoyFin);
+                if (idSucursal.HasValue)
+                    movimientosHoyQuery =
+                        from m in movimientosHoyQuery
+                        join c in _context.Cajas.AsNoTracking() on m.Id_Caja equals c.Id_Caja
+                        where c.Id_Sucursal == idSucursal.Value
+                        select m;
 
-                return (object)new
-                {
-                    periodoActual = new
+                var movimientosHoy = await movimientosHoyQuery
+                    .OrderByDescending(x => x.Fecha)
+                    .Take(100)
+                    .Select(x => new
                     {
-                        dia,
-                        mes,
-                        trimestre,
-                        anio
-                    },
-                    serie
-                };
-            }, 45);
+                        x.Id_Movimiento_Caja,
+                        x.Id_Caja,
+                        x.Fecha,
+                        Tipo = x.Tipo ?? string.Empty,
+                        Descripcion = x.Descripcion ?? string.Empty,
+                        x.Monto,
+                        x.Id_Usuario
+                    })
+                    .ToListAsync();
 
-            return Ok(data);
+                return Ok(new
+                {
+                    hoy = resumenHoy,
+                    mesActual = resumenMes,
+                    tendencia7Dias,
+                    movimientosHoy
+                });
+            }
+            catch
+            {
+                return Ok(new
+                {
+                    hoy = ConstruirResumenPeriodoVacio(hoyInicio, hoyFin),
+                    mesActual = ConstruirResumenPeriodoVacio(mesInicio, mesFin),
+                    tendencia7Dias = Array.Empty<object>(),
+                    movimientosHoy = Array.Empty<object>()
+                });
+            }
         }
 
         [HttpGet("ventas-resumen")]
@@ -821,5 +695,3 @@ namespace Pinecos.Controllers
         }
     }
 }
-
-

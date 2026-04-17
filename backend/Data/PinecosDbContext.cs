@@ -27,12 +27,6 @@ namespace Pinecos.Data
         public DbSet<Mesa> Mesas { get; set; }
         public DbSet<CuentaMesa> CuentasMesa { get; set; }
         public DbSet<DetalleCuentaMesa> DetalleCuentaMesa { get; set; }
-        public DbSet<Proveedor> Proveedores { get; set; }
-        public DbSet<InventarioItem> InventarioItems { get; set; }
-        public DbSet<MovimientoInventario> MovimientosInventario { get; set; }
-        public DbSet<CompraProveedor> ComprasProveedor { get; set; }
-        public DbSet<CompraProveedorDetalle> ComprasProveedorDetalle { get; set; }
-        public DbSet<RecetaProductoInsumo> RecetasProductoInsumo { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<Usuario>().ToTable("usuarios");
@@ -50,12 +44,6 @@ namespace Pinecos.Data
             modelBuilder.Entity<Gasto>().ToTable("gastos");
             modelBuilder.Entity<Bitacora>().ToTable("bitacora");
             modelBuilder.Entity<ConfiguracionNegocio>().ToTable("configuracion_negocio");
-            modelBuilder.Entity<Proveedor>().ToTable("proveedores");
-            modelBuilder.Entity<InventarioItem>().ToTable("inventario_items");
-            modelBuilder.Entity<MovimientoInventario>().ToTable("movimientos_inventario");
-            modelBuilder.Entity<CompraProveedor>().ToTable("compras_proveedor");
-            modelBuilder.Entity<CompraProveedorDetalle>().ToTable("compras_proveedor_detalle");
-            modelBuilder.Entity<RecetaProductoInsumo>().ToTable("receta_producto_insumo");
 
             modelBuilder.Entity<Usuario>().HasKey(x => x.Id_Usuario);
             modelBuilder.Entity<Categoria>().HasKey(x => x.Id_Categoria);
@@ -72,12 +60,6 @@ namespace Pinecos.Data
             modelBuilder.Entity<Gasto>().HasKey(x => x.Id_Gasto);
             modelBuilder.Entity<Bitacora>().HasKey(x => x.Id_Bitacora);
             modelBuilder.Entity<ConfiguracionNegocio>().HasKey(x => x.Id_Configuracion);
-            modelBuilder.Entity<Proveedor>().HasKey(x => x.Id_Proveedor);
-            modelBuilder.Entity<InventarioItem>().HasKey(x => x.Id_Inventario_Item);
-            modelBuilder.Entity<MovimientoInventario>().HasKey(x => x.Id_Movimiento_Inventario);
-            modelBuilder.Entity<CompraProveedor>().HasKey(x => x.Id_Compra_Proveedor);
-            modelBuilder.Entity<CompraProveedorDetalle>().HasKey(x => x.Id_Compra_Proveedor_Detalle);
-            modelBuilder.Entity<RecetaProductoInsumo>().HasKey(x => x.Id_Receta_Producto_Insumo);
 
             modelBuilder.Entity<Usuario>().Property(x => x.Id_Usuario).HasColumnName("id_usuario");
             modelBuilder.Entity<Usuario>().Property(x => x.Nombre).HasColumnName("nombre");
@@ -190,62 +172,6 @@ namespace Pinecos.Data
             modelBuilder.Entity<ConfiguracionNegocio>().Property(x => x.Logo_Url).HasColumnName("logo_url");
             modelBuilder.Entity<ConfiguracionNegocio>().Property(x => x.Moneda).HasColumnName("moneda");
             modelBuilder.Entity<ConfiguracionNegocio>().Property(x => x.Activo).HasColumnName("activo");
-
-            modelBuilder.Entity<Proveedor>().Property(x => x.Id_Proveedor).HasColumnName("id_proveedor");
-            modelBuilder.Entity<Proveedor>().Property(x => x.Nombre).HasColumnName("nombre");
-            modelBuilder.Entity<Proveedor>().Property(x => x.Rtn).HasColumnName("rtn");
-            modelBuilder.Entity<Proveedor>().Property(x => x.Telefono).HasColumnName("telefono");
-            modelBuilder.Entity<Proveedor>().Property(x => x.Email).HasColumnName("email");
-            modelBuilder.Entity<Proveedor>().Property(x => x.Contacto).HasColumnName("contacto");
-            modelBuilder.Entity<Proveedor>().Property(x => x.Direccion).HasColumnName("direccion");
-            modelBuilder.Entity<Proveedor>().Property(x => x.Fecha_Creacion).HasColumnName("fecha_creacion");
-            modelBuilder.Entity<Proveedor>().Property(x => x.Activo).HasColumnName("activo");
-
-            modelBuilder.Entity<InventarioItem>().Property(x => x.Id_Inventario_Item).HasColumnName("id_inventario_item");
-            modelBuilder.Entity<InventarioItem>().Property(x => x.Id_Sucursal).HasColumnName("id_sucursal");
-            modelBuilder.Entity<InventarioItem>().Property(x => x.Codigo).HasColumnName("codigo");
-            modelBuilder.Entity<InventarioItem>().Property(x => x.Nombre).HasColumnName("nombre");
-            modelBuilder.Entity<InventarioItem>().Property(x => x.Unidad_Medida).HasColumnName("unidad_medida");
-            modelBuilder.Entity<InventarioItem>().Property(x => x.Stock_Inicial).HasColumnName("stock_inicial");
-            modelBuilder.Entity<InventarioItem>().Property(x => x.Stock_Minimo).HasColumnName("stock_minimo");
-            modelBuilder.Entity<InventarioItem>().Property(x => x.Costo_Referencia).HasColumnName("costo_referencia");
-            modelBuilder.Entity<InventarioItem>().Property(x => x.Fecha_Creacion).HasColumnName("fecha_creacion");
-            modelBuilder.Entity<InventarioItem>().Property(x => x.Activo).HasColumnName("activo");
-
-            modelBuilder.Entity<MovimientoInventario>().Property(x => x.Id_Movimiento_Inventario).HasColumnName("id_movimiento_inventario");
-            modelBuilder.Entity<MovimientoInventario>().Property(x => x.Id_Inventario_Item).HasColumnName("id_inventario_item");
-            modelBuilder.Entity<MovimientoInventario>().Property(x => x.Id_Sucursal).HasColumnName("id_sucursal");
-            modelBuilder.Entity<MovimientoInventario>().Property(x => x.Id_Usuario).HasColumnName("id_usuario");
-            modelBuilder.Entity<MovimientoInventario>().Property(x => x.Fecha).HasColumnName("fecha");
-            modelBuilder.Entity<MovimientoInventario>().Property(x => x.Tipo).HasColumnName("tipo");
-            modelBuilder.Entity<MovimientoInventario>().Property(x => x.Cantidad).HasColumnName("cantidad");
-            modelBuilder.Entity<MovimientoInventario>().Property(x => x.Costo_Unitario).HasColumnName("costo_unitario");
-            modelBuilder.Entity<MovimientoInventario>().Property(x => x.Referencia).HasColumnName("referencia");
-            modelBuilder.Entity<MovimientoInventario>().Property(x => x.Observacion).HasColumnName("observacion");
-
-            modelBuilder.Entity<CompraProveedor>().Property(x => x.Id_Compra_Proveedor).HasColumnName("id_compra_proveedor");
-            modelBuilder.Entity<CompraProveedor>().Property(x => x.Id_Proveedor).HasColumnName("id_proveedor");
-            modelBuilder.Entity<CompraProveedor>().Property(x => x.Id_Sucursal).HasColumnName("id_sucursal");
-            modelBuilder.Entity<CompraProveedor>().Property(x => x.Id_Usuario).HasColumnName("id_usuario");
-            modelBuilder.Entity<CompraProveedor>().Property(x => x.Fecha).HasColumnName("fecha");
-            modelBuilder.Entity<CompraProveedor>().Property(x => x.Total).HasColumnName("total");
-            modelBuilder.Entity<CompraProveedor>().Property(x => x.Estado).HasColumnName("estado");
-            modelBuilder.Entity<CompraProveedor>().Property(x => x.Observacion).HasColumnName("observacion");
-
-            modelBuilder.Entity<CompraProveedorDetalle>().Property(x => x.Id_Compra_Proveedor_Detalle).HasColumnName("id_compra_proveedor_detalle");
-            modelBuilder.Entity<CompraProveedorDetalle>().Property(x => x.Id_Compra_Proveedor).HasColumnName("id_compra_proveedor");
-            modelBuilder.Entity<CompraProveedorDetalle>().Property(x => x.Id_Inventario_Item).HasColumnName("id_inventario_item");
-            modelBuilder.Entity<CompraProveedorDetalle>().Property(x => x.Cantidad).HasColumnName("cantidad");
-            modelBuilder.Entity<CompraProveedorDetalle>().Property(x => x.Costo_Unitario).HasColumnName("costo_unitario");
-            modelBuilder.Entity<CompraProveedorDetalle>().Property(x => x.Subtotal).HasColumnName("subtotal");
-
-            modelBuilder.Entity<RecetaProductoInsumo>().Property(x => x.Id_Receta_Producto_Insumo).HasColumnName("id_receta_producto_insumo");
-            modelBuilder.Entity<RecetaProductoInsumo>().Property(x => x.Id_Sucursal).HasColumnName("id_sucursal");
-            modelBuilder.Entity<RecetaProductoInsumo>().Property(x => x.Id_Producto).HasColumnName("id_producto");
-            modelBuilder.Entity<RecetaProductoInsumo>().Property(x => x.Id_Presentacion).HasColumnName("id_presentacion");
-            modelBuilder.Entity<RecetaProductoInsumo>().Property(x => x.Id_Inventario_Item).HasColumnName("id_inventario_item");
-            modelBuilder.Entity<RecetaProductoInsumo>().Property(x => x.Cantidad_Insumo).HasColumnName("cantidad_insumo");
-            modelBuilder.Entity<RecetaProductoInsumo>().Property(x => x.Activo).HasColumnName("activo");
             modelBuilder.Entity<Mesa>().ToTable("mesas");
             modelBuilder.Entity<CuentaMesa>().ToTable("cuentas_mesa");
             modelBuilder.Entity<DetalleCuentaMesa>().ToTable("detalle_cuenta_mesa");
