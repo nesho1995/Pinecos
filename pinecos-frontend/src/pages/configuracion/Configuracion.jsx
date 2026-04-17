@@ -672,9 +672,10 @@ function Configuracion() {
                         <label className="form-check-label">Manual</label>
                       </div>
                     </div>
-                    <div className="col-md-2 d-flex align-items-center justify-content-between">
-                      <div className="form-check form-switch">
+                    <div className="col-12 d-flex align-items-center justify-content-between flex-wrap gap-2 mt-1">
+                      <div className="form-check form-switch mb-0">
                         <input className="form-check-input" type="checkbox" checked={!!x.activo} onChange={(e) => updateAjuste('descuentos', i, 'activo', e.target.checked)} />
+                        <label className="form-check-label">Activo</label>
                       </div>
                       <button type="button" className="btn btn-sm btn-outline-danger" onClick={() => removeAjuste('descuentos', i)}>Quitar</button>
                     </div>
@@ -708,9 +709,10 @@ function Configuracion() {
                         <label className="form-check-label">Manual</label>
                       </div>
                     </div>
-                    <div className="col-md-2 d-flex align-items-center justify-content-between">
-                      <div className="form-check form-switch">
+                    <div className="col-12 d-flex align-items-center justify-content-between flex-wrap gap-2 mt-1">
+                      <div className="form-check form-switch mb-0">
                         <input className="form-check-input" type="checkbox" checked={!!x.activo} onChange={(e) => updateAjuste('impuestos', i, 'activo', e.target.checked)} />
+                        <label className="form-check-label">Activo</label>
                       </div>
                       <button type="button" className="btn btn-sm btn-outline-danger" onClick={() => removeAjuste('impuestos', i)}>Quitar</button>
                     </div>

@@ -473,14 +473,6 @@ function VentasPOS() {
                       {cajaActual?.abierta ? `Caja #${cajaActual.id_Caja} abierta` : 'Caja cerrada'}
                     </span>
                   </div>
-                  <div className="d-grid gap-2 mt-2">
-                    <button className="btn btn-success" onClick={cobrarVenta} disabled={procesando || carrito.length === 0}>
-                      {procesando ? 'Procesando...' : 'Cobrar venta'}
-                    </button>
-                    <button className="btn btn-outline-secondary" onClick={limpiarCarrito} disabled={carrito.length === 0}>
-                      Limpiar cuenta
-                    </button>
-                  </div>
                 </div>
 
                 <div className="order-items-scroll">
@@ -599,6 +591,15 @@ function VentasPOS() {
                   {impuestoIncluidoEnSubtotal && <div className="small text-warning">Impuesto incluido en precios (no se suma al total)</div>}
                   <hr className="my-2" />
                   <div className="d-flex justify-content-between"><span>Total</span><strong>L {total.toFixed(2)}</strong></div>
+                </div>
+
+                <div className="d-grid gap-2 mt-2">
+                  <button className="btn btn-success" onClick={cobrarVenta} disabled={procesando || carrito.length === 0}>
+                    {procesando ? 'Procesando...' : 'Cobrar venta'}
+                  </button>
+                  <button className="btn btn-outline-secondary" onClick={limpiarCarrito} disabled={carrito.length === 0}>
+                    Limpiar cuenta
+                  </button>
                 </div>
 
               </div>
