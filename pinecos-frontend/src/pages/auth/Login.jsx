@@ -1,7 +1,7 @@
-﻿import { useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { loginRequest } from '../../services/authService';
-import { setSession } from '../../utils/auth';
+import { loginRequest, meRequest } from '../../services/authService';
+import { clearSession, isAuthenticated, setSession } from '../../utils/auth';
 
 function Login() {
   const navigate = useNavigate();
@@ -13,6 +13,26 @@ function Login() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    let activo = true;
+
+    const validarSesionExistente = async () => {
+      if (!isAuthenticated()) return;
+
+      try {
+        await meRequest();
+        if (activo) navigate('/dashboard', { replace: true });
+      } catch {
+        clearSession();
+      }
+    };
+
+    validarSesionExistente();
+    return () => {
+      activo = false;
+    };
+  }, [navigate]);
 
   const handleChange = (e) => {
     setForm({
@@ -29,15 +49,15 @@ function Login() {
       setLoading(true);
       const data = await loginRequest(form.usuario, form.clave);
       setSession(data.token, data.usuario);
-      navigate('/dashboard');
-        } catch (err) {
+      navigate('/dashboard', { replace: true });
+    } catch (err) {
       const responseData = err?.response?.data;
       const backendMessage =
         typeof responseData === 'string'
           ? responseData
           : responseData?.message;
 
-      setError(backendMessage || 'Error al iniciar sesión');
+      setError(backendMessage || 'Error al iniciar sesion');
     } finally {
       setLoading(false);
     }

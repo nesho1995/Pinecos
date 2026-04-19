@@ -15,6 +15,7 @@ namespace Pinecos.Controllers
     {
         private readonly PinecosDbContext _context;
         private readonly IWebHostEnvironment _env;
+        private const string CortesiaToken = "[CORTESIA]";
 
         public CuentasMesaController(PinecosDbContext context, IWebHostEnvironment env)
         {
@@ -31,6 +32,29 @@ namespace Pinecos.Controllers
                 "LLEVAR" => "LLEVAR",
                 _ => "COMER_AQUI"
             };
+        }
+
+        private static bool EsDetalleCortesia(DetalleCuentaMesaRequestDto? request)
+        {
+            if (request == null) return false;
+            if (request.Es_Cortesia) return true;
+            return !string.IsNullOrWhiteSpace(request.Observacion) &&
+                   request.Observacion.Contains(CortesiaToken, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string ConstruirObservacionDetalle(string? observacionBase, bool esCortesia, decimal precioLista)
+        {
+            var baseLimpia = (observacionBase ?? string.Empty).Trim();
+            if (!esCortesia) return baseLimpia;
+
+            var token = $"{CortesiaToken}|PRECIO_LISTA:{precioLista:0.00}";
+            if (string.IsNullOrWhiteSpace(baseLimpia))
+                return token;
+
+            if (baseLimpia.Contains(CortesiaToken, StringComparison.OrdinalIgnoreCase))
+                return baseLimpia;
+
+            return $"{baseLimpia} | {token}";
         }
 
         [HttpPost("abrir")]
@@ -141,6 +165,7 @@ namespace Pinecos.Controllers
                     Costo_Unitario = p.Costo,
                     d.Precio_Unitario,
                     d.Subtotal,
+                    EsCortesia = d.Observacion != null && d.Observacion.Contains(CortesiaToken),
                     d.Observacion
                 }
             ).ToListAsync();
@@ -204,7 +229,9 @@ namespace Pinecos.Controllers
             if (!precioUnitario.HasValue || precioUnitario.Value <= 0)
                 return BadRequest(new { message = "No hay precio configurado para este producto en la sucursal" });
 
-            var subtotal = request.Cantidad * precioUnitario.Value;
+            var esCortesia = EsDetalleCortesia(request);
+            var precioUnitarioFinal = esCortesia ? 0m : precioUnitario.Value;
+            var subtotal = request.Cantidad * precioUnitarioFinal;
 
             var detalle = new DetalleCuentaMesa
             {
@@ -212,9 +239,9 @@ namespace Pinecos.Controllers
                 Id_Producto = request.Id_Producto,
                 Id_Presentacion = request.Id_Presentacion,
                 Cantidad = request.Cantidad,
-                Precio_Unitario = precioUnitario.Value,
+                Precio_Unitario = precioUnitarioFinal,
                 Subtotal = subtotal,
-                Observacion = request.Observacion
+                Observacion = ConstruirObservacionDetalle(request.Observacion, esCortesia, precioUnitario.Value)
             };
 
             _context.DetalleCuentaMesa.Add(detalle);

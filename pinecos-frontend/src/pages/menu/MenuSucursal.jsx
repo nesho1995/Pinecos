@@ -29,6 +29,7 @@ function MenuSucursal() {
   const [error, setError] = useState('');
   const [mensaje, setMensaje] = useState('');
   const [vista, setVista] = useState('asignar');
+  const [eliminandoRelacionId, setEliminandoRelacionId] = useState(null);
 
   const cargarSucursales = async () => {
     const response = await api.get('/Sucursales');
@@ -134,6 +135,29 @@ function MenuSucursal() {
       await cargarMenu(sucursalSeleccionada);
     } catch (err) {
       setError(err?.response?.data?.message || 'Error al guardar precio de presentacion');
+    }
+  };
+
+  const handleEliminarRelacionProductoPresentacion = async (idProductoPresentacion) => {
+    setError('');
+    setMensaje('');
+
+    if (!window.confirm('Esta accion eliminara la relacion en todas las sucursales. Deseas continuar?')) {
+      return;
+    }
+
+    try {
+      setEliminandoRelacionId(idProductoPresentacion);
+      await api.delete(`/Menu/producto-presentacion/${idProductoPresentacion}`);
+      setMensaje('Relacion eliminada correctamente');
+      await cargarProductoPresentaciones();
+      if (sucursalSeleccionada) {
+        await cargarMenu(sucursalSeleccionada);
+      }
+    } catch (err) {
+      setError(err?.response?.data?.message || 'Error al eliminar relacion');
+    } finally {
+      setEliminandoRelacionId(null);
     }
   };
 
@@ -289,6 +313,47 @@ function MenuSucursal() {
                   <button className="btn btn-dark w-100">Guardar relacion</button>
                 </div>
               </form>
+
+              <hr />
+              <div className="d-flex justify-content-between align-items-center mb-2">
+                <h6 className="mb-0">Relaciones creadas</h6>
+                <small className="text-muted">{productoPresentaciones.length} total</small>
+              </div>
+              <div className="compact-table-wrap" style={{ maxHeight: '260px' }}>
+                <table className="table table-sm table-bordered mb-0">
+                  <thead>
+                    <tr>
+                      <th>Producto</th>
+                      <th>Presentacion</th>
+                      <th style={{ width: '92px' }}>Accion</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {productoPresentaciones.length === 0 ? (
+                      <tr>
+                        <td colSpan={3} className="text-center text-muted">Sin relaciones</td>
+                      </tr>
+                    ) : (
+                      productoPresentaciones.map((item) => (
+                        <tr key={item.id_Producto_Presentacion}>
+                          <td>{item.producto}</td>
+                          <td>{item.presentacion}</td>
+                          <td className="text-center">
+                            <button
+                              type="button"
+                              className="btn btn-outline-danger btn-sm"
+                              onClick={() => handleEliminarRelacionProductoPresentacion(item.id_Producto_Presentacion)}
+                              disabled={eliminandoRelacionId === item.id_Producto_Presentacion}
+                            >
+                              Quitar
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>

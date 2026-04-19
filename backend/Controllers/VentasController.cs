@@ -15,6 +15,7 @@ namespace Pinecos.Controllers
     {
         private readonly PinecosDbContext _context;
         private readonly IWebHostEnvironment _env;
+        private const string CortesiaToken = "[CORTESIA]";
 
         public VentasController(PinecosDbContext context, IWebHostEnvironment env)
         {
@@ -31,6 +32,29 @@ namespace Pinecos.Controllers
                 "LLEVAR" => "LLEVAR",
                 _ => "COMER_AQUI"
             };
+        }
+
+        private static bool EsDetalleCortesia(VentaDetalleRequestDto? item)
+        {
+            if (item == null) return false;
+            if (item.Es_Cortesia) return true;
+            return !string.IsNullOrWhiteSpace(item.Observacion) &&
+                   item.Observacion.Contains(CortesiaToken, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string ConstruirObservacionDetalle(string? observacionBase, bool esCortesia, decimal precioLista)
+        {
+            var baseLimpia = (observacionBase ?? string.Empty).Trim();
+            if (!esCortesia) return baseLimpia;
+
+            var token = $"{CortesiaToken}|PRECIO_LISTA:{precioLista:0.00}";
+            if (string.IsNullOrWhiteSpace(baseLimpia))
+                return token;
+
+            if (baseLimpia.Contains(CortesiaToken, StringComparison.OrdinalIgnoreCase))
+                return baseLimpia;
+
+            return $"{baseLimpia} | {token}";
         }
 
         [HttpPost]
@@ -107,7 +131,9 @@ namespace Pinecos.Controllers
                     });
                 }
 
-                var lineaSubtotal = item.Cantidad * precioUnitario.Value;
+                var esCortesia = EsDetalleCortesia(item);
+                var precioUnitarioFinal = esCortesia ? 0m : precioUnitario.Value;
+                var lineaSubtotal = item.Cantidad * precioUnitarioFinal;
                 subtotal += lineaSubtotal;
 
                 detallesVenta.Add(new DetalleVenta
@@ -115,10 +141,10 @@ namespace Pinecos.Controllers
                     Id_Producto = item.Id_Producto,
                     Id_Presentacion = item.Id_Presentacion,
                     Cantidad = item.Cantidad,
-                    Precio_Unitario = precioUnitario.Value,
+                    Precio_Unitario = precioUnitarioFinal,
                     Costo_Unitario = producto.Costo,
                     Subtotal = lineaSubtotal,
-                    Observacion = item.Observacion
+                    Observacion = ConstruirObservacionDetalle(item.Observacion, esCortesia, precioUnitario.Value)
                 });
             }
 

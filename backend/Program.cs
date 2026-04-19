@@ -47,6 +47,43 @@ builder.Services.AddAuthentication(options =>
         ValidAudience = jwtAudience,
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
     };
+    options.Events = new JwtBearerEvents
+    {
+        OnTokenValidated = async context =>
+        {
+            var userIdClaim = context.Principal?.FindFirst("id_usuario")?.Value;
+            if (!int.TryParse(userIdClaim, out var userId))
+            {
+                context.Fail("Token invalido");
+                return;
+            }
+
+            var db = context.HttpContext.RequestServices.GetRequiredService<PinecosDbContext>();
+            var usuarioDb = await db.Usuarios
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.Id_Usuario == userId);
+
+            if (usuarioDb == null || !usuarioDb.Activo)
+            {
+                context.Fail("Sesion invalida");
+                return;
+            }
+
+            var rolToken = context.Principal?.FindFirst("rol")?.Value ?? string.Empty;
+            if (!string.Equals(usuarioDb.Rol, rolToken, StringComparison.OrdinalIgnoreCase))
+            {
+                context.Fail("Sesion invalida");
+                return;
+            }
+
+            var sucursalToken = context.Principal?.FindFirst("id_sucursal")?.Value ?? string.Empty;
+            var sucursalDb = usuarioDb.Id_Sucursal?.ToString() ?? string.Empty;
+            if (!string.Equals(sucursalToken, sucursalDb, StringComparison.Ordinal))
+            {
+                context.Fail("Sesion invalida");
+            }
+        }
+    };
 });
 
 builder.Services.AddCors(options =>
@@ -144,6 +181,13 @@ app.Use(async (context, next) =>
 
 app.Use(async (context, next) =>
 {
+    if (context.Request.Path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase))
+    {
+        context.Response.Headers.CacheControl = "no-store, no-cache, must-revalidate";
+        context.Response.Headers.Pragma = "no-cache";
+        context.Response.Headers.Expires = "0";
+    }
+
     context.Response.Headers.XContentTypeOptions = "nosniff";
     context.Response.Headers.XFrameOptions = "DENY";
     context.Response.Headers["Referrer-Policy"] = "no-referrer";

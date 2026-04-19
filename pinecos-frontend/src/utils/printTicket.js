@@ -1,5 +1,13 @@
 import api from '../services/api';
 
+const escapeHtml = (value) =>
+  String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+
 const imprimirEnMismaPantalla = (html) =>
   new Promise((resolve, reject) => {
     const iframe = document.createElement('iframe');
@@ -72,20 +80,86 @@ const imprimirEnMismaPantalla = (html) =>
     }, 5000);
   });
 
-const escapeHtml = (value) =>
-  String(value ?? '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
+const construirHtmlDobleCopiaCai = (htmlBase) => {
+  const parser = new DOMParser();
+  const documento = parser.parseFromString(String(htmlBase || ''), 'text/html');
+  const headOriginal = documento.head?.innerHTML || '';
+  const bodyOriginal = documento.body?.innerHTML || String(htmlBase || '');
+
+  const renderCopia = (etiqueta) => `
+    <section class="ticket-copia-cai">
+      <div class="ticket-copia-cai__badge">${escapeHtml(etiqueta)}</div>
+      ${bodyOriginal}
+    </section>
+  `;
+
+  return `
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  ${headOriginal}
+  <style>
+    .ticket-copia-cai {
+      width: 100%;
+      margin: 0;
+      padding: 0;
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+    .ticket-copia-cai + .ticket-copia-cai {
+      margin-top: 8mm;
+      page-break-before: always;
+    }
+    .ticket-copia-cai__badge {
+      text-align: center;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      margin: 0 0 2mm;
+      padding: 1.5mm 0;
+      border-top: 1px dashed #111;
+      border-bottom: 1px dashed #111;
+    }
+    @media print {
+      .ticket-copia-cai + .ticket-copia-cai {
+        page-break-before: always;
+      }
+    }
+  </style>
+</head>
+<body>
+  ${renderCopia('COPIA CLIENTE')}
+  ${renderCopia('COPIA NEGOCIO')}
+</body>
+</html>`;
+};
 
 export const imprimirTicketHtml = async (idVenta) => {
+  let esFacturaCai = false;
+  try {
+    const ticketResponse = await api.get(`/Tickets/venta/${idVenta}`);
+    const ticketPayload = ticketResponse?.data?.data ?? ticketResponse?.data;
+    esFacturaCai = Boolean(ticketPayload?.esFacturaCai ?? ticketPayload?.EsFacturaCai);
+  } catch {
+    esFacturaCai = false;
+  }
+
   const response = await api.get(`/Tickets/venta/${idVenta}/html`, {
     responseType: 'text'
   });
+  const html = esFacturaCai
+    ? construirHtmlDobleCopiaCai(response.data)
+    : response.data;
 
-  await imprimirEnMismaPantalla(response.data);
+  await imprimirEnMismaPantalla(html);
+};
+
+export const imprimirHtmlDirecto = async (html) => {
+  if (!html || typeof html !== 'string') {
+    throw new Error('No hay contenido para imprimir');
+  }
+  await imprimirEnMismaPantalla(html);
 };
 
 const construirHtmlTicketPersona = ({

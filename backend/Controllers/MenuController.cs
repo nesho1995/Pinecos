@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Pinecos.Attributes;
 using Pinecos.Data;
+using Pinecos.Helpers;
 using Pinecos.Models;
 
 namespace Pinecos.Controllers
@@ -102,6 +103,50 @@ namespace Pinecos.Controllers
             ).ToListAsync();
 
             return Ok(data);
+        }
+
+        [HttpDelete("producto-presentacion/{idProductoPresentacion:int}")]
+        public async Task<ActionResult> EliminarProductoPresentacion(int idProductoPresentacion)
+        {
+            var idUsuario = UserHelper.GetUserId(User);
+            if (!idUsuario.HasValue)
+                return Unauthorized(new { message = "Usuario no valido en el token" });
+
+            var relacion = await _context.ProductoPresentaciones
+                .FirstOrDefaultAsync(x => x.Id_Producto_Presentacion == idProductoPresentacion);
+
+            if (relacion == null)
+                return NotFound(new { message = "Relacion producto-presentacion no encontrada" });
+
+            using var transaction = await _context.Database.BeginTransactionAsync();
+
+            try
+            {
+                var preciosSucursal = await _context.ProductoPresentacionSucursales
+                    .Where(x => x.Id_Producto_Presentacion == idProductoPresentacion)
+                    .ToListAsync();
+
+                if (preciosSucursal.Count > 0)
+                    _context.ProductoPresentacionSucursales.RemoveRange(preciosSucursal);
+
+                _context.ProductoPresentaciones.Remove(relacion);
+                await _context.SaveChangesAsync();
+
+                await BitacoraHelper.RegistrarAsync(
+                    _context,
+                    idUsuario.Value,
+                    "MENU",
+                    "ELIMINAR_RELACION",
+                    $"Relacion producto-presentacion #{idProductoPresentacion} eliminada");
+
+                await transaction.CommitAsync();
+                return Ok(new { message = "Relacion eliminada correctamente" });
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
         }
 
         [HttpPost("producto-presentacion-sucursal")]

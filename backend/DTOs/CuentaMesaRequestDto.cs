@@ -18,6 +18,7 @@ namespace Pinecos.DTOs
         public int? Id_Presentacion { get; set; }
         public int Cantidad { get; set; }
         public decimal Precio_Unitario { get; set; }
+        public bool Es_Cortesia { get; set; }
         public string Observacion { get; set; } = string.Empty;
     }
 

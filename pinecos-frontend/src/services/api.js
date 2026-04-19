@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { clearSession } from '../utils/auth';
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5152/api';
 const genericErrorMessage = 'Ocurrio un error interno. Intenta nuevamente o contacta al administrador.';
@@ -34,6 +35,10 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    const status = error?.response?.status;
+    const endpoint = String(error?.config?.url || '').toLowerCase();
+    const isLoginRequest = endpoint.includes('/auth/login');
+
     try {
       const responseData = error?.response?.data;
       const baseMessage =
@@ -56,6 +61,13 @@ api.interceptors.response.use(
     } catch {
       error.message = genericErrorMessage;
       if (error?.response) error.response.data = { message: genericErrorMessage };
+    }
+
+    if (status === 401 && !isLoginRequest) {
+      clearSession();
+      if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+        window.location.replace('/login');
+      }
     }
 
     return Promise.reject(error);

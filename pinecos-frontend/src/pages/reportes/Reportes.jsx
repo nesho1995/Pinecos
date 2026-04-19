@@ -254,7 +254,7 @@ function Reportes() {
 
   useEffect(() => {
     cargarReportes();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div>

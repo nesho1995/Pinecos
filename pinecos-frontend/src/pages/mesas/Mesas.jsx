@@ -18,7 +18,7 @@ function Mesas() {
   const [formAgregar, setFormAgregar] = useState({
     id_Producto: '',
     id_Presentacion: '',
-    cantidad: 1
+    es_Cortesia: false
   });
   const [filtroProducto, setFiltroProducto] = useState('');
   const [metodoPago, setMetodoPago] = useState('EFECTIVO');
@@ -181,7 +181,7 @@ function Mesas() {
       }
     };
     init();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!sucursalSeleccionada) return;
@@ -260,7 +260,12 @@ function Mesas() {
     setDescuentoDetalles((prev) => {
       const next = {};
       detalles.forEach((d) => {
-        next[d.id_Detalle_Cuenta_Mesa] = prev[d.id_Detalle_Cuenta_Mesa] ?? true;
+        const valorPrevio = prev[d.id_Detalle_Cuenta_Mesa];
+        if (d.esCortesia) {
+          next[d.id_Detalle_Cuenta_Mesa] = false;
+          return;
+        }
+        next[d.id_Detalle_Cuenta_Mesa] = valorPrevio ?? true;
       });
       return next;
     });
@@ -268,6 +273,7 @@ function Mesas() {
 
   const subtotalCuenta = Number(detalleCuenta?.total || 0);
   const subtotalDescuentoCuenta = (detalleCuenta?.detalles || []).reduce((acc, d) => {
+    if (d.esCortesia) return acc;
     const aplica = descuentoDetalles[d.id_Detalle_Cuenta_Mesa] ?? true;
     return aplica ? acc + Number(d.subtotal || 0) : acc;
   }, 0);
@@ -441,18 +447,17 @@ function Mesas() {
     limpiarMensajes();
     if (!detalleCuenta?.cuenta?.id_Cuenta_Mesa) return setError('No hay cuenta abierta');
     if (!formAgregar.id_Producto) return setError('Selecciona un producto');
-    if (!formAgregar.cantidad || Number(formAgregar.cantidad) <= 0) return setError('Cantidad invalida');
-
     try {
       setProcesando(true);
       await api.post(`/CuentasMesa/${detalleCuenta.cuenta.id_Cuenta_Mesa}/agregar-producto`, {
         id_Producto: Number(formAgregar.id_Producto),
         id_Presentacion: formAgregar.id_Presentacion ? Number(formAgregar.id_Presentacion) : null,
-        cantidad: Number(formAgregar.cantidad),
-        observacion: ''
+        cantidad: 1,
+        es_Cortesia: !!formAgregar.es_Cortesia,
+        observacion: formAgregar.es_Cortesia ? '[CORTESIA]' : ''
       });
       setMensaje('Producto agregado');
-      setFormAgregar({ id_Producto: '', id_Presentacion: '', cantidad: 1 });
+      setFormAgregar({ id_Producto: '', id_Presentacion: '', es_Cortesia: false });
       await cargarCuentaDetalle(detalleCuenta.cuenta.id_Cuenta_Mesa);
       await cargarCuentasAbiertas();
       await cargarMesas(sucursalSeleccionada);
@@ -480,6 +485,8 @@ function Mesas() {
   };
 
   const cambiarDescuentoDetalle = (idDetalle, aplica) => {
+    const detalle = (detalleCuenta?.detalles || []).find((d) => d.id_Detalle_Cuenta_Mesa === idDetalle);
+    if (detalle?.esCortesia) return;
     setDescuentoDetalles((prev) => ({
       ...prev,
       [idDetalle]: !!aplica
@@ -591,10 +598,11 @@ function Mesas() {
       try {
         if (payloadDivisionTickets) {
           await imprimirTicketsDivisionMesa(payloadDivisionTickets);
-          mensajeExito += ' | Tickets por persona listos para imprimir';
-        } else {
-          await imprimirTicketHtml(idVenta);
+          mensajeExito += ' | Tickets por persona impresos';
         }
+        // Siempre se imprime el comprobante final de la venta (ticket/factura CAI),
+        // incluso cuando hubo division por persona.
+        await imprimirTicketHtml(idVenta);
       } catch (printErr) {
         setError(printErr?.message || 'Cuenta cobrada, pero no se pudo abrir la impresion');
       }
@@ -616,7 +624,7 @@ function Mesas() {
       await api.post(`/CuentasMesa/${detalleCuenta.cuenta.id_Cuenta_Mesa}/cancelar`);
       setMensaje('Cuenta cancelada y mesa liberada correctamente');
       setDetalleCuenta(null);
-      setFormAgregar({ id_Producto: '', id_Presentacion: '', cantidad: 1 });
+      setFormAgregar({ id_Producto: '', id_Presentacion: '', es_Cortesia: false });
       setFiltroProducto('');
       setDividirCuenta(false);
       setCobroMixto(false);
@@ -791,6 +799,7 @@ function Mesas() {
                             <li key={d.id_Detalle_Cuenta_Mesa} className="list-group-item d-flex justify-content-between align-items-start gap-2 mesas-detalle-item">
                               <div>
                                 <strong>{d.producto}</strong>
+                                {d.esCortesia && <span className="badge text-bg-warning ms-2">Cortesia</span>}
                                 <div className="small">Cant: {d.cantidad}</div>
                                 <div className="small">Precio: L {Number(d.precio_Unitario || 0).toFixed(2)}</div>
                                 <div className="small">Subt: L {Number(d.subtotal || 0).toFixed(2)}</div>
@@ -816,6 +825,7 @@ function Mesas() {
                                     type="checkbox"
                                     id={`desc-detalle-${d.id_Detalle_Cuenta_Mesa}`}
                                     checked={descuentoDetalles[d.id_Detalle_Cuenta_Mesa] ?? true}
+                                    disabled={!!d.esCortesia}
                                     onChange={(e) => cambiarDescuentoDetalle(d.id_Detalle_Cuenta_Mesa, e.target.checked)}
                                   />
                                   <label className="form-check-label small" htmlFor={`desc-detalle-${d.id_Detalle_Cuenta_Mesa}`}>
@@ -853,7 +863,7 @@ function Mesas() {
                                 type="button"
                                 key={`${item.id_Producto}-${item.id_Presentacion ?? 'n'}`}
                                 className={`list-group-item list-group-item-action d-flex justify-content-between align-items-center ${seleccionado ? 'active' : ''}`}
-                                onClick={() => setFormAgregar({
+                            onClick={() => setFormAgregar({
                                   ...formAgregar,
                                   id_Producto: String(item.id_Producto),
                                   id_Presentacion: item.id_Presentacion ? String(item.id_Presentacion) : ''
@@ -866,9 +876,21 @@ function Mesas() {
                           })
                         )}
                       </div>
-                      <input type="number" className="form-control mb-2" placeholder="Cantidad" value={formAgregar.cantidad} min="1" onChange={(e) => setFormAgregar({ ...formAgregar, cantidad: e.target.value })} />
+                      <div className="small text-muted mb-2">Cada toque en agregar crea una linea nueva.</div>
                       <div className="form-control mb-3 bg-light">
-                        Precio: L {Number(menuSeleccionado?.precio || 0).toFixed(2)}
+                        Precio: L {Number(formAgregar.es_Cortesia ? 0 : menuSeleccionado?.precio || 0).toFixed(2)}
+                      </div>
+                      <div className="form-check mb-2">
+                        <input
+                          className="form-check-input"
+                          type="checkbox"
+                          id="agregar-cortesia-mesa"
+                          checked={!!formAgregar.es_Cortesia}
+                          onChange={(e) => setFormAgregar((prev) => ({ ...prev, es_Cortesia: e.target.checked }))}
+                        />
+                        <label className="form-check-label" htmlFor="agregar-cortesia-mesa">
+                          Agregar como cortesia (sin cobro)
+                        </label>
                       </div>
                       <button className="btn btn-dark w-100 mb-3" onClick={agregarProducto} disabled={procesando}>Agregar a cuenta</button>
                       </div>

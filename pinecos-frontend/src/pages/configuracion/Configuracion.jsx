@@ -205,14 +205,6 @@ function Configuracion() {
     }
   };
 
-  const updateCanalNombre = (tipo, index, value) => {
-    setCanalesForm((prev) => {
-      const list = [...prev[tipo]];
-      list[index] = value;
-      return { ...prev, [tipo]: list };
-    });
-  };
-
   const updateMetodoPago = (index, field, value) => {
     setCanalesForm((prev) => {
       const list = [...(prev.metodosPago || [])];
@@ -235,20 +227,6 @@ function Configuracion() {
     setCanalesForm((prev) => {
       const list = (prev.metodosPago || []).filter((_, i) => i !== index);
       return { ...prev, metodosPago: list.length ? list : [{ codigo: 'EFECTIVO', nombre: 'Efectivo', categoria: 'EFECTIVO', activo: true }] };
-    });
-  };
-
-  const addCanal = (tipo, prefijo) => {
-    setCanalesForm((prev) => ({
-      ...prev,
-      [tipo]: [...prev[tipo], `${prefijo} ${prev[tipo].length + 1}`]
-    }));
-  };
-
-  const removeCanal = (tipo, index) => {
-    setCanalesForm((prev) => {
-      const list = prev[tipo].filter((_, i) => i !== index);
-      return { ...prev, [tipo]: list.length ? list : [tipo === 'pos' ? 'POS 1' : 'PEDIDOS_YA'] };
     });
   };
 

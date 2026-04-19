@@ -5,6 +5,7 @@ using Pinecos.Data;
 using Pinecos.DTOs;
 using Pinecos.Helpers;
 using Pinecos.Models;
+using System.Data;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -414,44 +415,63 @@ namespace Pinecos.Controllers
                 observacionUsuario = (request.Observacion ?? string.Empty).Trim()
             };
 
-            var model = new Caja
+            await using var tx = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+            try
             {
-                Id_Sucursal = idSucursal.Value,
-                Id_Usuario_Apertura = idUsuario.Value,
-                Fecha_Apertura = FechaHelper.AhoraHonduras(),
-                Monto_Inicial = request.Monto_Inicial,
-                Estado = "ABIERTA",
-                Observacion = JsonSerializer.Serialize(observacionApertura, _jsonOptions)
-            };
+                var cajaAbiertaConcurrente = await _context.Cajas.AnyAsync(x =>
+                    x.Id_Sucursal == idSucursal.Value && x.Estado == "ABIERTA");
 
-            _context.Cajas.Add(model);
-            await _context.SaveChangesAsync();
-
-            // Mantiene traza de caja chica inicial asociada a esta caja.
-            _context.MovimientosCaja.Add(new MovimientoCaja
-            {
-                Id_Caja = model.Id_Caja,
-                Fecha = model.Fecha_Apertura,
-                Tipo = "APERTURA_CAJA_CHICA",
-                Descripcion = "Apertura de caja con monto inicial",
-                Monto = model.Monto_Inicial,
-                Id_Usuario = idUsuario.Value
-            });
-            await _context.SaveChangesAsync();
-
-            await BitacoraHelper.RegistrarAsync(_context, idUsuario.Value, "CAJA", "ABRIR", $"Caja #{model.Id_Caja} abierta");
-
-            return Ok(new
-            {
-                message = "Caja abierta correctamente",
-                data = model,
-                auditoria = new
+                if (cajaAbiertaConcurrente)
                 {
-                    usuarioAperturaId = idUsuario.Value,
-                    usuarioAperturaNombre = nombreUsuario,
-                    turno = (request.Turno ?? string.Empty).Trim()
+                    await tx.RollbackAsync();
+                    return BadRequest(new { message = "Ya existe una caja abierta en esta sucursal" });
                 }
-            });
+
+                var model = new Caja
+                {
+                    Id_Sucursal = idSucursal.Value,
+                    Id_Usuario_Apertura = idUsuario.Value,
+                    Fecha_Apertura = FechaHelper.AhoraHonduras(),
+                    Monto_Inicial = request.Monto_Inicial,
+                    Estado = "ABIERTA",
+                    Observacion = JsonSerializer.Serialize(observacionApertura, _jsonOptions)
+                };
+
+                _context.Cajas.Add(model);
+                await _context.SaveChangesAsync();
+
+                // Mantiene traza de caja chica inicial asociada a esta caja.
+                _context.MovimientosCaja.Add(new MovimientoCaja
+                {
+                    Id_Caja = model.Id_Caja,
+                    Fecha = model.Fecha_Apertura,
+                    Tipo = "APERTURA_CAJA_CHICA",
+                    Descripcion = "Apertura de caja con monto inicial",
+                    Monto = model.Monto_Inicial,
+                    Id_Usuario = idUsuario.Value
+                });
+                await _context.SaveChangesAsync();
+                await tx.CommitAsync();
+
+                await BitacoraHelper.RegistrarAsync(_context, idUsuario.Value, "CAJA", "ABRIR", $"Caja #{model.Id_Caja} abierta");
+
+                return Ok(new
+                {
+                    message = "Caja abierta correctamente",
+                    data = model,
+                    auditoria = new
+                    {
+                        usuarioAperturaId = idUsuario.Value,
+                        usuarioAperturaNombre = nombreUsuario,
+                        turno = (request.Turno ?? string.Empty).Trim()
+                    }
+                });
+            }
+            catch
+            {
+                await tx.RollbackAsync();
+                throw;
+            }
         }
 
         [HttpGet("cuadre-previo/{idCaja}")]

@@ -41,7 +41,7 @@ function MesasAdmin() {
 
   useEffect(() => {
     cargarSucursales().catch((err) => setError(err?.response?.data?.message || 'Error al cargar sucursales'));
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     cargarMesas(sucursalSeleccionada).catch((err) => setError(err?.response?.data?.message || 'Error al cargar mesas'));
