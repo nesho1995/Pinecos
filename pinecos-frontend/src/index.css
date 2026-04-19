@@ -476,6 +476,22 @@ body {
   padding-right: 2px;
 }
 
+.order-items-scroll.pos-order-lines {
+  flex: 1 1 auto;
+  min-height: 240px;
+  max-height: min(58vh, 560px);
+  overflow-y: auto;
+}
+
+.pos-line-item {
+  border-color: #dbe3ee !important;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+
+.pos-line-item .btn-danger {
+  min-width: 86px;
+}
+
 .compact-toolbar {
   display: flex;
   gap: 0.35rem;
@@ -692,14 +708,30 @@ body {
 }
 
 @media (max-width: 991px) {
+  html,
+  body,
+  #root {
+    height: auto;
+    min-height: 100%;
+  }
+
   .app-shell {
     position: relative;
-    height: 100%;
+    height: auto;
     min-height: 100dvh;
+    overflow: visible;
   }
 
   body {
-    overflow: auto;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+  }
+
+  .app-main {
+    overflow: visible;
+    min-height: 100dvh;
   }
 
   .sidebar-mobile-wrapper {
@@ -738,7 +770,19 @@ body {
 
   .app-content {
     padding: 10px 10px 14px;
-    overflow: visible;
+    overflow-x: hidden;
+    overflow-y: visible;
+  }
+
+  .app-content .table-responsive,
+  .app-content .compact-table-wrap,
+  .reports-card-body,
+  .mesas-panel-card .card-body {
+    max-height: none;
+  }
+
+  .mesas-panel-card .card-body {
+    overflow-y: visible;
   }
 
   .carrito-sticky {
@@ -774,7 +818,7 @@ body {
   }
 }
 
-@media (max-width: 1199px) {
+@media (min-width: 992px) and (max-width: 1199px) {
   .mesas-panel-card .card-body {
     max-height: calc(100vh - 180px);
     overflow-y: auto;
