@@ -711,14 +711,16 @@ body {
   html,
   body,
   #root {
-    height: auto;
+    height: auto !important;
     min-height: 100%;
+    overflow: visible !important;
   }
 
   .app-shell {
     position: relative;
-    height: auto;
+    height: auto !important;
     min-height: 100dvh;
+    max-height: none;
     overflow: visible;
   }
 
@@ -726,12 +728,14 @@ body {
     overflow-x: hidden;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
-    overscroll-behavior-y: contain;
+    overscroll-behavior-y: auto;
   }
 
   .app-main {
+    height: auto !important;
+    max-height: none;
     overflow: visible;
-    min-height: 100dvh;
+    min-height: 0;
   }
 
   .sidebar-mobile-wrapper {
@@ -770,8 +774,16 @@ body {
 
   .app-content {
     padding: 10px 10px 14px;
+    height: auto !important;
+    min-height: 0;
+    max-height: none;
     overflow-x: hidden;
     overflow-y: visible;
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 18px);
+  }
+
+  .app-content-inner {
+    max-height: none;
   }
 
   .app-content .table-responsive,
@@ -779,6 +791,18 @@ body {
   .reports-card-body,
   .mesas-panel-card .card-body {
     max-height: none;
+    height: auto;
+    overflow-y: visible;
+  }
+
+  .app-content .table-responsive,
+  .app-content .compact-table-wrap {
+    overflow-x: auto;
+  }
+
+  .app-content .table-responsive thead th,
+  .app-content .compact-table-wrap thead th {
+    position: static;
   }
 
   .mesas-panel-card .card-body {
