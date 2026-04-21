@@ -149,14 +149,17 @@ function MenuSucursal() {
 
     try {
       setEliminandoRelacionId(idProductoPresentacion);
-      await api.delete(`/Menu/producto-presentacion/${idProductoPresentacion}`);
-      setMensaje('Relacion eliminada correctamente');
+      const res = await api.delete(`/Menu/producto-presentacion/${idProductoPresentacion}`);
+      const body = res.data ?? {};
+      setMensaje(body.message || 'Relacion eliminada correctamente');
       await cargarProductoPresentaciones();
       if (sucursalSeleccionada) {
         await cargarMenu(sucursalSeleccionada);
       }
     } catch (err) {
-      setError(err?.response?.data?.message || 'Error al eliminar relacion');
+      const d = err?.response?.data;
+      const extra = d?.detalle ? ` (${d.detalle})` : '';
+      setError((d?.message || 'Error al eliminar relacion') + extra);
     } finally {
       setEliminandoRelacionId(null);
     }

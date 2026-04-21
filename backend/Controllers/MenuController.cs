@@ -145,12 +145,12 @@ namespace Pinecos.Controllers
 
                 return BadRequest(new
                 {
-                    message = "No se puede eliminar esta relacion porque tiene historial en ventas o cuentas. Inactiva sus precios por sucursal en su lugar."
+                    message =
+                        "No se puede eliminar esta relacion porque ya hubo ventas o cargos en mesa con esta presentacion. Puedes inactivar precios en Paso C; el historial fiscal debe conservarse."
                 });
             }
 
-            using var transaction = await _context.Database.BeginTransactionAsync();
-
+            // Un solo SaveChanges ya corre en una transaccion implicita de EF; evita conflictos al hacer Rollback/Dispose manual.
             try
             {
                 var recetasRelacionadas = await _context.RecetasProductoInsumo
@@ -169,12 +169,9 @@ namespace Pinecos.Controllers
 
                 _context.ProductoPresentaciones.Remove(relacion);
                 await _context.SaveChangesAsync();
-                await transaction.CommitAsync();
             }
             catch (DbUpdateException)
             {
-                await transaction.RollbackAsync();
-
                 var preciosActivos = await _context.ProductoPresentacionSucursales
                     .Where(x => x.Id_Producto_Presentacion == idProductoPresentacion && x.Activo)
                     .ToListAsync();
@@ -189,17 +186,17 @@ namespace Pinecos.Controllers
 
                 return Ok(new
                 {
-                    message = "La relacion esta en uso y no se pudo eliminar fisicamente. Sus precios por sucursal quedaron inactivos.",
+                    message =
+                        "La relacion no se pudo borrar por restriccion en base de datos (p. ej. otro modulo la referencia). Los precios por sucursal activos quedaron inactivos.",
                     eliminada = false,
                     preciosInactivados = true
                 });
             }
             catch (Exception ex)
             {
-                await transaction.RollbackAsync();
                 return BadRequest(new
                 {
-                    message = "No se pudo eliminar la relacion. Si el producto ya se vendio con esta presentacion, el sistema bloquea el borrado.",
+                    message = "No se pudo eliminar la relacion.",
                     detalle = ex.InnerException?.Message ?? ex.Message
                 });
             }
