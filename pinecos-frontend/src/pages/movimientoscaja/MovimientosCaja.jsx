@@ -4,6 +4,7 @@ import { exportToExcelCsv } from '../../utils/excelExport';
 
 function MovimientosCaja() {
   const [cajaActual, setCajaActual] = useState(null);
+  const [cargandoCaja, setCargandoCaja] = useState(true);
   const [movimientos, setMovimientos] = useState([]);
   const [form, setForm] = useState({
     tipo: 'EGRESO',
@@ -14,9 +15,15 @@ function MovimientosCaja() {
   const [mensaje, setMensaje] = useState('');
 
   const cargarCajaActual = async () => {
-    const response = await api.get('/Dashboard/caja-actual');
-    setCajaActual(response.data);
-    return response.data;
+    try {
+      setCargandoCaja(true);
+      const response = await api.get('/Dashboard/caja-actual');
+      const data = response.data || { abierta: false };
+      setCajaActual(data);
+      return data;
+    } finally {
+      setCargandoCaja(false);
+    }
   };
 
   const cargarMovimientos = async (idCaja) => {
@@ -95,7 +102,9 @@ function MovimientosCaja() {
       {mensaje && <div className="alert alert-success">{mensaje}</div>}
       {error && <div className="alert alert-danger">{error}</div>}
 
-      {!cajaActual?.abierta ? (
+      {cargandoCaja ? (
+        <div className="alert alert-secondary">Validando caja de la sucursal...</div>
+      ) : !cajaActual?.abierta ? (
         <div className="alert alert-warning">No hay caja abierta.</div>
       ) : (
         <>

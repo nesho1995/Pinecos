@@ -41,6 +41,7 @@ function Mesas() {
 
   const [menuItems, setMenuItems] = useState([]);
   const [cajaActual, setCajaActual] = useState(null);
+  const [cargandoCaja, setCargandoCaja] = useState(true);
   const [mensaje, setMensaje] = useState('');
   const [error, setError] = useState('');
   const [procesando, setProcesando] = useState(false);
@@ -76,9 +77,15 @@ function Mesas() {
   };
 
   const cargarCajaActual = async () => {
-    const response = await api.get('/Dashboard/caja-actual');
-    setCajaActual(response.data);
-    return response.data;
+    try {
+      setCargandoCaja(true);
+      const response = await api.get('/Dashboard/caja-actual');
+      const data = response.data || { abierta: false };
+      setCajaActual(data);
+      return data;
+    } finally {
+      setCargandoCaja(false);
+    }
   };
 
   const cargarFacturacionSar = async (idSucursal) => {
@@ -782,8 +789,8 @@ function Mesas() {
                       <div className="bg-white border rounded p-3 mb-3 mesas-totals-card">
                         <div className="d-flex justify-content-between align-items-center mb-2">
                           <strong>Total actual: L {totalCuenta.toFixed(2)}</strong>
-                          <span className={`badge ${cajaActual?.abierta ? 'bg-success' : 'bg-warning text-dark'}`}>
-                            {cajaActual?.abierta ? `Caja #${cajaActual.id_Caja} abierta` : 'Caja cerrada'}
+                          <span className={`badge ${cargandoCaja ? 'bg-secondary' : cajaActual?.abierta ? 'bg-success' : 'bg-warning text-dark'}`}>
+                            {cargandoCaja ? 'Validando caja...' : cajaActual?.abierta ? `Caja #${cajaActual.id_Caja} abierta` : 'Caja cerrada'}
                           </span>
                         </div>
                         <div className="small text-muted">Paso 1: agrega productos. Paso 2: divide la cuenta si aplica. Paso 3: cobra.</div>
@@ -1067,7 +1074,7 @@ function Mesas() {
                       </div>
 
                       <div className="d-grid gap-2 mesas-actions-bar">
-                        <button className="btn btn-success" onClick={cobrarCuenta} disabled={!cajaActual?.abierta || procesando}>
+                        <button className="btn btn-success" onClick={cobrarCuenta} disabled={cargandoCaja || !cajaActual?.abierta || procesando}>
                           {procesando ? 'Procesando...' : 'Cobrar mesa'}
                         </button>
                         <button className="btn btn-outline-danger" onClick={cancelarCuenta} disabled={procesando}>

@@ -8,6 +8,7 @@ function VentasPOS() {
   const idSucursalUsuario = usuario?.id_Sucursal ?? usuario?.id_sucursal ?? null;
 
   const [cajaActual, setCajaActual] = useState(null);
+  const [cargandoCaja, setCargandoCaja] = useState(true);
   const [productos, setProductos] = useState([]);
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState('');
   const [busqueda, setBusqueda] = useState('');
@@ -34,9 +35,15 @@ function VentasPOS() {
   const [preCuentaResumenUltima, setPreCuentaResumenUltima] = useState(null);
 
   const cargarCajaActual = async () => {
-    const response = await api.get('/Dashboard/caja-actual');
-    setCajaActual(response.data);
-    return response.data;
+    try {
+      setCargandoCaja(true);
+      const response = await api.get('/Dashboard/caja-actual');
+      const data = response.data || { abierta: false };
+      setCajaActual(data);
+      return data;
+    } finally {
+      setCargandoCaja(false);
+    }
   };
 
   const cargarFacturacionSar = async (idSucursal) => {
@@ -687,7 +694,13 @@ function VentasPOS() {
       <div className="d-flex justify-content-between align-items-center mb-3">
         <div>
           <h2 className="mb-1">POS Ventas</h2>
-          <div className="text-muted">{cajaActual?.abierta ? `Caja abierta #${cajaActual.id_Caja}` : 'No hay caja abierta'}</div>
+          <div className="text-muted">
+            {cargandoCaja
+              ? 'Validando estado de caja...'
+              : cajaActual?.abierta
+                ? `Caja abierta #${cajaActual.id_Caja}`
+                : 'No hay caja abierta'}
+          </div>
         </div>
         <div className="compact-toolbar">
           <button className="btn btn-outline-secondary" onClick={limpiarCarrito}>Limpiar</button>
@@ -699,7 +712,9 @@ function VentasPOS() {
       {error && <div className="alert alert-danger">{error}</div>}
       {!idSucursalUsuario && <div className="alert alert-warning mb-3">El usuario no tiene sucursal asignada.</div>}
 
-      {!cajaActual?.abierta ? (
+      {cargandoCaja ? (
+        <div className="alert alert-secondary">Validando caja de la sucursal...</div>
+      ) : !cajaActual?.abierta ? (
         <div className="alert alert-warning">Debes abrir caja antes de vender.</div>
       ) : (
         <div className="row g-3 pos-layout-row">
@@ -769,8 +784,8 @@ function VentasPOS() {
                     <span className="small text-muted">Unidades: {unidadesTotales}</span>
                   </div>
                   <div className="d-flex justify-content-between align-items-center mt-1">
-                    <span className={`badge ${cajaActual?.abierta ? 'bg-success' : 'bg-warning text-dark'}`}>
-                      {cajaActual?.abierta ? `Caja #${cajaActual.id_Caja} abierta` : 'Caja cerrada'}
+                    <span className={`badge ${cargandoCaja ? 'bg-secondary' : cajaActual?.abierta ? 'bg-success' : 'bg-warning text-dark'}`}>
+                      {cargandoCaja ? 'Validando caja...' : cajaActual?.abierta ? `Caja #${cajaActual.id_Caja} abierta` : 'Caja cerrada'}
                     </span>
                   </div>
                 </div>

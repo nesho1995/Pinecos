@@ -16,6 +16,7 @@ function Gastos() {
   const [error, setError] = useState('');
   const [mensaje, setMensaje] = useState('');
   const [cajaActual, setCajaActual] = useState(null);
+  const [cargandoCaja, setCargandoCaja] = useState(true);
 
   const cargarGastos = async () => {
     try {
@@ -35,10 +36,13 @@ function Gastos() {
 
   const cargarCajaActual = async () => {
     try {
+      setCargandoCaja(true);
       const response = await api.get('/Dashboard/caja-actual');
       setCajaActual(response.data || null);
     } catch {
       setCajaActual(null);
+    } finally {
+      setCargandoCaja(false);
     }
   };
 
@@ -95,10 +99,12 @@ function Gastos() {
         </div>
       )}
 
-      <div className={`alert ${cajaActual?.abierta ? 'alert-success' : 'alert-warning'}`}>
-        {cajaActual?.abierta
-          ? `Caja abierta #${cajaActual.id_Caja}. Ya puedes registrar gastos.`
-          : 'No hay caja abierta en tu sucursal. Abre caja para registrar gastos.'}
+      <div className={`alert ${cargandoCaja ? 'alert-secondary' : cajaActual?.abierta ? 'alert-success' : 'alert-warning'}`}>
+        {cargandoCaja
+          ? 'Validando estado de caja...'
+          : cajaActual?.abierta
+            ? `Caja abierta #${cajaActual.id_Caja}. Ya puedes registrar gastos.`
+            : 'No hay caja abierta en tu sucursal. Abre caja para registrar gastos.'}
       </div>
 
       <div className="card shadow-sm mb-4">
@@ -114,7 +120,7 @@ function Gastos() {
                 onChange={handleChange}
                 placeholder="Ej: Insumos"
                 required
-                disabled={!cajaActual?.abierta}
+                disabled={cargandoCaja || !cajaActual?.abierta}
               />
             </div>
 
@@ -127,7 +133,7 @@ function Gastos() {
                 value={form.descripcion}
                 onChange={handleChange}
                 required
-                disabled={!cajaActual?.abierta}
+                disabled={cargandoCaja || !cajaActual?.abierta}
               />
             </div>
 
@@ -142,12 +148,12 @@ function Gastos() {
                 value={form.monto}
                 onChange={handleChange}
                 required
-                disabled={!cajaActual?.abierta}
+                disabled={cargandoCaja || !cajaActual?.abierta}
               />
             </div>
 
             <div className="col-md-2 d-flex align-items-end">
-              <button className="btn btn-dark w-100" disabled={!cajaActual?.abierta}>Guardar</button>
+              <button className="btn btn-dark w-100" disabled={cargandoCaja || !cajaActual?.abierta}>Guardar</button>
             </div>
           </form>
 
