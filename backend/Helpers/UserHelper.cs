@@ -17,7 +17,10 @@ namespace Pinecos.Helpers
 
         public static string GetUserRole(ClaimsPrincipal user)
         {
-            return user.FindFirst("rol")?.Value ?? string.Empty;
+            var value = user.FindFirst("rol")?.Value
+                        ?? user.FindFirst(ClaimTypes.Role)?.Value
+                        ?? string.Empty;
+            return value.Trim().ToUpperInvariant();
         }
 
         public static int? GetSucursalId(ClaimsPrincipal user)

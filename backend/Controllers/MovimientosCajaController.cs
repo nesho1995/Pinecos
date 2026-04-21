@@ -25,7 +25,7 @@ namespace Pinecos.Controllers
             var idSucursal = UserHelper.GetSucursalId(User);
             var rol = UserHelper.GetUserRole(User);
 
-            if (!idSucursal.HasValue)
+            if (rol != "ADMIN" && !idSucursal.HasValue)
                 return BadRequest(new { message = "El usuario no tiene sucursal asignada" });
 
             var caja = await _context.Cajas.FirstOrDefaultAsync(x => x.Id_Caja == idCaja);
@@ -33,8 +33,11 @@ namespace Pinecos.Controllers
             if (caja == null)
                 return NotFound(new { message = "Caja no encontrada" });
 
-            if (rol != "ADMIN" && caja.Id_Sucursal != idSucursal.Value)
-                return Forbid();
+            if (rol != "ADMIN")
+            {
+                if (caja.Id_Sucursal != idSucursal!.Value)
+                    return Forbid();
+            }
 
             var movimientos = await _context.MovimientosCaja
                 .Where(x => x.Id_Caja == idCaja)

@@ -164,7 +164,7 @@ namespace Pinecos.Controllers
             int? sucursalObjetivo = null;
             if (rol == "ADMIN")
             {
-                sucursalObjetivo = idSucursalToken ?? idSucursal;
+                sucursalObjetivo = idSucursal ?? idSucursalToken;
             }
             else
             {

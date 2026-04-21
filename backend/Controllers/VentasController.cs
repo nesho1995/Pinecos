@@ -284,10 +284,22 @@ namespace Pinecos.Controllers
         [HttpGet("{id}")]
         public async Task<ActionResult> GetVenta(int id)
         {
+            var rol = UserHelper.GetUserRole(User);
+            var idSucursal = UserHelper.GetSucursalId(User);
+
             var venta = await _context.Ventas.FindAsync(id);
 
             if (venta == null)
                 return NotFound(new { message = "Venta no encontrada" });
+
+            if (rol != "ADMIN")
+            {
+                if (!idSucursal.HasValue)
+                    return BadRequest(new { message = "El usuario no tiene sucursal asignada" });
+
+                if (venta.Id_Sucursal != idSucursal.Value)
+                    return Forbid();
+            }
 
             var detalles = await _context.DetalleVenta
                 .Where(x => x.Id_Venta == id)

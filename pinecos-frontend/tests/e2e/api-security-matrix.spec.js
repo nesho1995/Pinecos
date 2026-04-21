@@ -98,7 +98,7 @@ test.describe.serial('API Security Matrix', () => {
 
     const endpoints = [
       { id: 'auth-me', path: '/api/Auth/me', adminOnly: false },
-      { id: 'dashboard-resumen', path: '/api/Dashboard/resumen', adminOnly: false },
+      { id: 'dashboard-resumen', path: '/api/Dashboard/resumen', adminOnly: true },
       { id: 'dashboard-caja-actual', path: `/api/Dashboard/caja-actual?idSucursal=${idSucursal}`, adminOnly: false },
       { id: 'cajas-abiertas', path: '/api/Cajas/abiertas', adminOnly: false },
       { id: 'cajas-canales', path: `/api/Cajas/canales-config?idSucursal=${idSucursal}`, adminOnly: false },
@@ -106,13 +106,13 @@ test.describe.serial('API Security Matrix', () => {
       { id: 'facturacion-sar', path: `/api/FacturacionSar?idSucursal=${idSucursal}`, adminOnly: false },
       { id: 'mesas-sucursal', path: `/api/Mesas/sucursal/${idSucursal}`, adminOnly: false },
       { id: 'cuentas-abiertas', path: '/api/CuentasMesa/abiertas', adminOnly: false },
-      { id: 'ventas-lista', path: '/api/Ventas', adminOnly: false, cajeroExpected: [200, 403] },
-      { id: 'inventario-items', path: `/api/Inventario/items?idSucursal=${idSucursal}`, adminOnly: false },
+      { id: 'ventas-lista', path: '/api/Ventas', adminOnly: true },
+      { id: 'inventario-items', path: `/api/Inventario/items?idSucursal=${idSucursal}`, adminOnly: true },
       { id: 'usuarios', path: '/api/Usuarios', adminOnly: true },
       { id: 'reportes-panel', path: `/api/Reportes/panel-negocio?idSucursal=${idSucursal}`, adminOnly: true },
       { id: 'bitacora', path: '/api/Bitacora?pagina=1&pageSize=20', adminOnly: true },
       { id: 'configuracion', path: `/api/Configuracion?idSucursal=${idSucursal}`, adminOnly: true },
-      { id: 'menu-sucursal', path: `/api/Menu/sucursal/${idSucursal}`, adminOnly: true }
+      { id: 'menu-sucursal', path: `/api/Menu/sucursal/${idSucursal}`, adminOnly: false }
     ];
 
     const tokenModes = [

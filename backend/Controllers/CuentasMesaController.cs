@@ -143,10 +143,22 @@ namespace Pinecos.Controllers
         [HttpGet("{idCuenta}")]
         public async Task<ActionResult> GetCuenta(int idCuenta)
         {
+            var rol = UserHelper.GetUserRole(User);
+            var idSucursal = UserHelper.GetSucursalId(User);
+
             var cuenta = await _context.CuentasMesa.FindAsync(idCuenta);
 
             if (cuenta == null)
                 return NotFound(new { message = "Cuenta de mesa no encontrada" });
+
+            if (rol != "ADMIN")
+            {
+                if (!idSucursal.HasValue)
+                    return BadRequest(new { message = "El usuario no tiene sucursal asignada" });
+
+                if (cuenta.Id_Sucursal != idSucursal.Value)
+                    return Forbid();
+            }
 
             var detalles = await (
                 from d in _context.DetalleCuentaMesa
@@ -256,16 +268,39 @@ namespace Pinecos.Controllers
         public async Task<ActionResult> EliminarDetalle(int idDetalle)
         {
             var idUsuario = UserHelper.GetUserId(User);
+            var rol = UserHelper.GetUserRole(User);
+            var idSucursal = UserHelper.GetSucursalId(User);
 
             if (!idUsuario.HasValue)
                 return Unauthorized(new { message = "Usuario no válido en el token" });
 
-            var detalle = await _context.DetalleCuentaMesa.FindAsync(idDetalle);
+            var detalleCuenta = await (
+                from d in _context.DetalleCuentaMesa
+                join c in _context.CuentasMesa on d.Id_Cuenta_Mesa equals c.Id_Cuenta_Mesa
+                where d.Id_Detalle_Cuenta_Mesa == idDetalle
+                select new
+                {
+                    Detalle = d,
+                    Cuenta = c
+                }
+            ).FirstOrDefaultAsync();
 
-            if (detalle == null)
+            if (detalleCuenta == null)
                 return NotFound(new { message = "Detalle no encontrado" });
 
-            _context.DetalleCuentaMesa.Remove(detalle);
+            if (rol != "ADMIN")
+            {
+                if (!idSucursal.HasValue)
+                    return BadRequest(new { message = "El usuario no tiene sucursal asignada" });
+
+                if (detalleCuenta.Cuenta.Id_Sucursal != idSucursal.Value)
+                    return Forbid();
+            }
+
+            if (detalleCuenta.Cuenta.Estado != "ABIERTA")
+                return BadRequest(new { message = "No se puede eliminar detalle de una cuenta cerrada o cancelada" });
+
+            _context.DetalleCuentaMesa.Remove(detalleCuenta.Detalle);
             await _context.SaveChangesAsync();
 
             await BitacoraHelper.RegistrarAsync(_context, idUsuario.Value, "CUENTAS_MESA", "ELIMINAR_DETALLE", $"Detalle #{idDetalle} eliminado");
