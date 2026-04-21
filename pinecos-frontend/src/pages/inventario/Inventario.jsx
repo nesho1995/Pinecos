@@ -619,10 +619,41 @@ function Inventario() {
   };
 
   return (
-    <div>
+    <div className="inv-page">
       <h2 className="mb-4">Inventario</h2>
       {mensaje && <div className="alert alert-success">{mensaje}</div>}
       {error && <div className="alert alert-danger">{error}</div>}
+
+      <details className="card shadow-sm mb-4 inventario-guia border border-primary border-opacity-25" open>
+        <summary className="px-3 py-3 fw-semibold user-select-none bg-primary-subtle rounded-top">
+          Como funciona el inventario (tocar para ver u ocultar)
+        </summary>
+        <div className="card-body border-top py-3">
+          <ol className="small ps-3 lh-lg mb-3">
+            <li>
+              <strong>Proveedores:</strong> alta de proveedores antes de registrar compras con nombre claro.
+            </li>
+            <li>
+              <strong>Insumos:</strong> materia prima por sucursal (elige sucursal arriba). Pon <em>stock minimo</em> para alertas en resumen.
+            </li>
+            <li>
+              <strong>Compras:</strong> cuando entra mercaderia desde proveedor; suma stock y deja costo (equivalente a movimiento COMPRA).
+            </li>
+            <li>
+              <strong>Movimientos:</strong> entradas/salidas manuales o ajustes (mermas, donaciones). Para compras usa la pestaña Compras.
+            </li>
+            <li>
+              <strong>Recetas:</strong> cuanto insumo descuenta cada producto al vendarse en POS; opcional por presentacion (8/12 oz).
+            </li>
+            <li>
+              <strong>Kardex:</strong> auditoria por insumo: entradas, salidas y saldo en el rango de fechas.
+            </li>
+          </ol>
+          <p className="small text-muted mb-0">
+            <strong>Cobro POS:</strong> el stock baja solo si existe receta para ese producto (y presentacion si aplica). Sin receta, la venta no mueve inventario.
+          </p>
+        </div>
+      </details>
 
       <div className="card shadow-sm mb-4">
         <div className="card-body">
@@ -646,18 +677,23 @@ function Inventario() {
                 <label className="form-check-label" htmlFor="verInactivosInventario">Ver inactivos</label>
               </div>
             </div>
+            <div className="col-12">
+              <p className="small text-muted mb-0">
+                Casi todo (insumos, movimientos, compras, kardex) filtra por la sucursal elegida. Cambia de sucursal para trabajar otra tienda.
+              </p>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="reports-tabs mb-3">
-        <button className={`btn btn-sm ${tab === 'resumen' ? 'btn-dark' : 'btn-outline-secondary'}`} onClick={() => setTab('resumen')}>Resumen</button>
-        <button className={`btn btn-sm ${tab === 'items' ? 'btn-dark' : 'btn-outline-secondary'}`} onClick={() => setTab('items')}>Insumos</button>
-        <button className={`btn btn-sm ${tab === 'movimientos' ? 'btn-dark' : 'btn-outline-secondary'}`} onClick={() => setTab('movimientos')}>Movimientos</button>
-        <button className={`btn btn-sm ${tab === 'compras' ? 'btn-dark' : 'btn-outline-secondary'}`} onClick={() => setTab('compras')}>Compras</button>
-        <button className={`btn btn-sm ${tab === 'ordenes' ? 'btn-dark' : 'btn-outline-secondary'}`} onClick={() => setTab('ordenes')}>Ordenes OC</button>
-        <button className={`btn btn-sm ${tab === 'recetas' ? 'btn-dark' : 'btn-outline-secondary'}`} onClick={() => setTab('recetas')}>Recetas</button>
-        <button className={`btn btn-sm ${tab === 'kardex' ? 'btn-dark' : 'btn-outline-secondary'}`} onClick={() => setTab('kardex')}>Kardex</button>
+      <div className="reports-tabs inventario-tabs mb-3" role="tablist" aria-label="Secciones inventario">
+        <button type="button" className={`btn btn-sm ${tab === 'resumen' ? 'btn-dark' : 'btn-outline-secondary'}`} onClick={() => setTab('resumen')}>Resumen</button>
+        <button type="button" className={`btn btn-sm ${tab === 'items' ? 'btn-dark' : 'btn-outline-secondary'}`} onClick={() => setTab('items')}>Insumos</button>
+        <button type="button" className={`btn btn-sm ${tab === 'movimientos' ? 'btn-dark' : 'btn-outline-secondary'}`} onClick={() => setTab('movimientos')}>Movimientos</button>
+        <button type="button" className={`btn btn-sm ${tab === 'compras' ? 'btn-dark' : 'btn-outline-secondary'}`} onClick={() => setTab('compras')}>Compras</button>
+        <button type="button" className={`btn btn-sm ${tab === 'ordenes' ? 'btn-dark' : 'btn-outline-secondary'}`} onClick={() => setTab('ordenes')}>Ordenes OC</button>
+        <button type="button" className={`btn btn-sm ${tab === 'recetas' ? 'btn-dark' : 'btn-outline-secondary'}`} onClick={() => setTab('recetas')}>Recetas</button>
+        <button type="button" className={`btn btn-sm ${tab === 'kardex' ? 'btn-dark' : 'btn-outline-secondary'}`} onClick={() => setTab('kardex')}>Kardex</button>
       </div>
 
       {tab === 'resumen' && (
@@ -891,7 +927,10 @@ function Inventario() {
           <div className="col-md-5">
             <div className="card shadow-sm">
               <div className="card-body">
-                <h5 className="mb-3">Registrar movimiento</h5>
+                <h5 className="mb-2">Registrar movimiento</h5>
+                <p className="small text-muted mb-3">
+                  Compras con proveedor van en la pestaña <strong>Compras</strong>. Aqui solo ajustes, mermas, traslados internos o correcciones.
+                </p>
                 <form className="row g-2" onSubmit={registrarMovimiento}>
                   <div className="col-12">
                     <label className="form-label">Insumo</label>
@@ -979,7 +1018,10 @@ function Inventario() {
           <div className="col-md-6">
             <div className="card shadow-sm">
               <div className="card-body">
-                <h5 className="mb-3">Registrar compra a proveedor</h5>
+                <h5 className="mb-2">Registrar compra a proveedor</h5>
+                <p className="small text-muted mb-3">
+                  Registra cuando la mercaderia ya ingreso con factura o vale. Los insumos de cada linea deben pertenecer a la misma sucursal; el sistema suma stock y registra compra para esa tienda.
+                </p>
                 <form className="row g-2" onSubmit={registrarCompra}>
                   <div className="col-12">
                     <label className="form-label">Proveedor</label>
@@ -1183,7 +1225,10 @@ function Inventario() {
           <div className="col-md-6">
             <div className="card shadow-sm">
               <div className="card-body">
-                <h5 className="mb-3">Configurar receta de producto</h5>
+                <h5 className="mb-2">Configurar receta de producto</h5>
+                <p className="small text-muted mb-3">
+                  Define cuanto insumo consume <strong>una unidad vendida</strong> del producto. Si el producto tiene presentaciones en el menu, puedes receta por tamano o una receta general.
+                </p>
                 <form className="row g-2" onSubmit={guardarReceta}>
                   <div className="col-12">
                     <label className="form-label">Producto</label>
@@ -1293,6 +1338,9 @@ function Inventario() {
                     <button className="btn btn-dark w-100" type="submit">Consultar</button>
                   </div>
                 </form>
+                <p className="small text-muted mb-0 mt-3">
+                  Kardex valorizado: cada linea muestra entrada/salida y saldo; el costo sigue un <strong>promedio ponderado</strong> segun movimientos en esa sucursal.
+                </p>
               </div>
             </div>
           </div>

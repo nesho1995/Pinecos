@@ -894,3 +894,74 @@ body {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
 }
+
+/* Inventario / Proveedores: ayuda y uso en tablet */
+.inventario-guia summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.inventario-guia summary::-webkit-details-marker {
+  display: none;
+}
+
+.inventario-guia summary::before {
+  content: "▸ ";
+  display: inline-block;
+  transition: transform 0.15s ease;
+}
+
+.inventario-guia[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.inventario-tabs {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 6px;
+  scrollbar-width: thin;
+  gap: 0.5rem;
+}
+
+.inventario-tabs .btn {
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding: 0.4rem 0.9rem;
+  font-size: 0.95rem;
+}
+
+@media (max-width: 991px) {
+  .inv-page .form-select:not([size]),
+  .inv-page .form-control:not([type="checkbox"]):not([type="radio"]),
+  .prov-page .form-select:not([size]),
+  .prov-page .form-control:not([type="checkbox"]):not([type="radio"]) {
+    min-height: 46px;
+    font-size: 16px;
+  }
+
+  .prov-page .prov-save-btn {
+    min-height: 48px;
+    font-weight: 600;
+  }
+}
+
+/* POS: botones grandes para dedo */
+.pos-page .product-card .btn.pos-touch-add {
+  min-height: 46px;
+  font-weight: 600;
+}
+
+.pos-checkout-actions .btn {
+  min-height: 48px;
+  font-size: 1.02rem;
+  font-weight: 600;
+}
+
+@media (max-width: 991px) {
+  .pos-checkout-actions .btn.btn-success {
+    min-height: 52px;
+    font-size: 1.08rem;
+  }
+}

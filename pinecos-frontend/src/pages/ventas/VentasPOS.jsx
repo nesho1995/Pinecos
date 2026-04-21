@@ -771,7 +771,7 @@ function VentasPOS() {
                             <div className="small text-muted mt-1">Edita cantidades en el panel de cobro</div>
                           </div>
                           <div className="mt-2 d-flex gap-2">
-                            <button className="btn btn-dark w-100" type="button" onClick={() => agregarProducto(producto)}>Agregar</button>
+                            <button className="btn btn-dark w-100 pos-touch-add" type="button" onClick={() => agregarProducto(producto)}>Agregar</button>
                           </div>
                         </div>
                       </div>
@@ -1036,14 +1036,14 @@ function VentasPOS() {
                   <div className="d-flex justify-content-between fs-5"><span>Total final</span><strong>L {total.toFixed(2)}</strong></div>
                 </div>
 
-                <div className="d-grid gap-2 mt-2">
-                  <button className="btn btn-outline-primary" onClick={generarPreCuenta} disabled={procesando || carrito.length === 0}>
+                <div className="d-grid gap-2 mt-2 pos-checkout-actions">
+                  <button type="button" className="btn btn-outline-primary" onClick={generarPreCuenta} disabled={procesando || carrito.length === 0}>
                     {preCuentaEstado === 'DESACTUALIZADA' ? 'Regenerar pre-cuenta' : 'Generar pre-cuenta'}
                   </button>
-                  <button className="btn btn-success" onClick={cobrarVenta} disabled={procesando || carrito.length === 0 || preCuentaEstado !== 'VIGENTE'}>
+                  <button type="button" className="btn btn-success" onClick={cobrarVenta} disabled={procesando || carrito.length === 0 || preCuentaEstado !== 'VIGENTE'}>
                     {procesando ? 'Procesando...' : 'Cobro final'}
                   </button>
-                  <button className="btn btn-outline-secondary" onClick={limpiarCarrito} disabled={carrito.length === 0}>
+                  <button type="button" className="btn btn-outline-secondary" onClick={limpiarCarrito} disabled={carrito.length === 0}>
                     Limpiar cuenta
                   </button>
                 </div>

@@ -162,8 +162,22 @@ function Proveedores() {
   };
 
   return (
-    <div>
+    <div className="prov-page">
       <h2 className="mb-4">Proveedores</h2>
+
+      <details className="card shadow-sm mb-4 inventario-guia border border-secondary border-opacity-25">
+        <summary className="px-3 py-3 fw-semibold user-select-none bg-light rounded-top">
+          Para que sirve esta pantalla (tocar para ver u ocultar)
+        </summary>
+        <div className="card-body border-top py-3 small">
+          <p className="mb-2">
+            Los proveedores se eligen al registrar <strong>compras</strong> y <strong>ordenes de compra</strong> en Inventario. Usa nombre comercial reconocible y datos de contacto para reclamos.
+          </p>
+          <p className="text-muted mb-0">
+            Inactivar un proveedor no borra compras ya registradas; solo evita usarlo en compras nuevas.
+          </p>
+        </div>
+      </details>
 
       <div className="card shadow-sm mb-4">
         <div className="card-body">
@@ -199,7 +213,7 @@ function Proveedores() {
               </div>
             </div>
             <div className="col-md-2 d-flex align-items-end">
-              <button className="btn btn-dark w-100" type="submit">{editandoId ? 'Actualizar' : 'Guardar'}</button>
+              <button className="btn btn-dark w-100 prov-save-btn py-2" type="submit">{editandoId ? 'Actualizar' : 'Guardar'}</button>
             </div>
             <div className="col-md-2 d-flex align-items-end">
               <button className="btn btn-outline-secondary w-100" type="button" onClick={limpiarFormulario}>Limpiar</button>
