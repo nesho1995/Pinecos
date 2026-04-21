@@ -153,6 +153,10 @@ namespace Pinecos.Data
             modelBuilder.Entity<Venta>().Property(x => x.Metodo_Pago).HasColumnName("metodo_pago");
             modelBuilder.Entity<Venta>().Property(x => x.Observacion).HasColumnName("observacion");
             modelBuilder.Entity<Venta>().Property(x => x.Estado).HasColumnName("estado");
+            modelBuilder.Entity<Venta>().Property(x => x.Fecha_Anulacion).HasColumnName("fecha_anulacion");
+            modelBuilder.Entity<Venta>().Property(x => x.Id_Usuario_Anulacion).HasColumnName("id_usuario_anulacion");
+            modelBuilder.Entity<Venta>().Property(x => x.Motivo_Anulacion).HasColumnName("motivo_anulacion");
+            modelBuilder.Entity<Venta>().Property(x => x.Referencia_Anulacion_Fiscal).HasColumnName("referencia_anulacion_fiscal");
 
             modelBuilder.Entity<DetalleVenta>().Property(x => x.Id_Detalle_Venta).HasColumnName("id_detalle_venta");
             modelBuilder.Entity<DetalleVenta>().Property(x => x.Id_Venta).HasColumnName("id_venta");

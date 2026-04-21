@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using System.Text.RegularExpressions;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Pinecos.Attributes;
 using Pinecos.Data;
@@ -94,6 +95,13 @@ namespace Pinecos.Controllers
 
             if (request.EmitirFactura && facturasRestantes <= 0)
                 return BadRequest(new { message = "No quedan facturas CAI disponibles en el rango configurado" });
+
+            if (request.EmitirFactura)
+            {
+                var errFiscal = FacturaClienteValidacionHelper.ValidarParaEmisionCai(request.FacturaCliente);
+                if (errFiscal != null)
+                    return BadRequest(new { message = errFiscal });
+            }
 
             var caja = await _context.Cajas.FirstOrDefaultAsync(x =>
                 x.Id_Caja == request.Id_Caja &&
@@ -266,26 +274,60 @@ namespace Pinecos.Controllers
 
         [HttpGet]
         [AuthorizeRoles("ADMIN")]
-        public async Task<ActionResult> GetVentas()
+        public async Task<ActionResult> GetVentas(
+            [FromQuery] DateTime? desde,
+            [FromQuery] DateTime? hasta,
+            [FromQuery] string? estado,
+            [FromQuery] int? idSucursal)
         {
             var rol = UserHelper.GetUserRole(User);
-            var idSucursal = UserHelper.GetSucursalId(User);
+            var idSucursalUsuario = UserHelper.GetSucursalId(User);
 
             var query = _context.Ventas.AsQueryable();
 
             if (rol != "ADMIN")
             {
-                if (!idSucursal.HasValue)
+                if (!idSucursalUsuario.HasValue)
                     return BadRequest(new { message = "El usuario no tiene sucursal asignada" });
 
+                query = query.Where(x => x.Id_Sucursal == idSucursalUsuario.Value);
+            }
+            else if (idSucursal.HasValue)
+            {
                 query = query.Where(x => x.Id_Sucursal == idSucursal.Value);
+            }
+
+            if (desde.HasValue)
+                query = query.Where(x => x.Fecha >= desde.Value);
+
+            if (hasta.HasValue)
+                query = query.Where(x => x.Fecha <= hasta.Value);
+
+            if (!string.IsNullOrWhiteSpace(estado))
+            {
+                var e = estado.Trim().ToUpperInvariant();
+                if (e == "ACTIVA" || e == "ANULADA")
+                    query = query.Where(x => x.Estado == e);
             }
 
             var ventas = await query
                 .OrderByDescending(x => x.Fecha)
+                .Take(2000)
                 .ToListAsync();
 
-            return Ok(ventas);
+            var lista = ventas.Select(v =>
+            {
+                var meta = FacturaMetadataHelper.ParseFromObservacion(v.Observacion);
+                return new
+                {
+                    venta = v,
+                    tieneFacturaCai = meta.EsFacturaCai,
+                    numeroFactura = meta.NumeroFactura,
+                    cai = meta.Cai
+                };
+            }).ToList();
+
+            return Ok(lista);
         }
 
         [HttpGet("{id}")]
@@ -321,12 +363,20 @@ namespace Pinecos.Controllers
 
         [HttpPost("anular/{id}")]
         [AuthorizeRoles("ADMIN")]
-        public async Task<ActionResult> AnularVenta(int id)
+        public async Task<ActionResult> AnularVenta(int id, [FromBody] AnularVentaRequestDto? body)
         {
             var idUsuario = UserHelper.GetUserId(User);
 
             if (!idUsuario.HasValue)
                 return Unauthorized(new { message = "Usuario no válido en el token" });
+
+            var motivo = (body?.Motivo ?? string.Empty).Trim();
+            if (motivo.Length < 5)
+                return BadRequest(new { message = "Debe indicar un motivo de anulacion (minimo 5 caracteres)." });
+
+            var refFiscal = Regex.Replace(body?.ReferenciaDocumentoFiscal ?? string.Empty, @"\s+", " ").Trim();
+            if (refFiscal.Length > 200)
+                return BadRequest(new { message = "La referencia de documento fiscal no puede superar 200 caracteres." });
 
             var venta = await _context.Ventas.FindAsync(id);
 
@@ -336,12 +386,32 @@ namespace Pinecos.Controllers
             if (venta.Estado == "ANULADA")
                 return BadRequest(new { message = "La venta ya está anulada" });
 
+            var meta = FacturaMetadataHelper.ParseFromObservacion(venta.Observacion);
+
             venta.Estado = "ANULADA";
+            venta.Fecha_Anulacion = FechaHelper.AhoraHonduras();
+            venta.Id_Usuario_Anulacion = idUsuario.Value;
+            venta.Motivo_Anulacion = motivo;
+            venta.Referencia_Anulacion_Fiscal = string.IsNullOrWhiteSpace(refFiscal) ? null : refFiscal;
+
             await _context.SaveChangesAsync();
 
-            await BitacoraHelper.RegistrarAsync(_context, idUsuario.Value, "VENTAS", "ANULAR", $"Venta #{venta.Id_Venta} anulada");
+            var detalleBit = $"Venta #{venta.Id_Venta} anulada. Motivo: {motivo}";
+            if (!string.IsNullOrEmpty(refFiscal))
+                detalleBit += $". Ref.fiscal: {refFiscal}";
+            if (meta.EsFacturaCai)
+                detalleBit +=
+                    $". CAI emitido conserva correlativo ({meta.NumeroFactura}); completar tramite fiscal fuera del sistema si aplica.";
 
-            return Ok(new { message = "Venta anulada correctamente" });
-        }   
+            await BitacoraHelper.RegistrarAsync(_context, idUsuario.Value, "VENTAS", "ANULAR", detalleBit);
+
+            return Ok(new
+            {
+                message = "Venta anulada correctamente en el sistema.",
+                advertenciaCai = meta.EsFacturaCai
+                    ? "Esta venta tenia factura CAI. El correlativo no se reclama en el sistema; documente la anulacion fiscal (p. ej. nota de credito) segun normativa y contador."
+                    : (string?)null
+            });
+        }
     }
 }

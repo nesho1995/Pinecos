@@ -26,6 +26,22 @@ namespace Pinecos.Documents
                 {
                     column.Item().AlignCenter().Text("PINECOS").Bold().FontSize(18);
                     column.Item().AlignCenter().Text(_ticket.Sucursal).FontSize(11);
+                    if (_ticket.EsAnulada)
+                    {
+                        column.Item().PaddingTop(4)
+                            .Background("#fee2e2")
+                            .Border(1)
+                            .BorderColor("#b91c1c")
+                            .Padding(6)
+                            .AlignCenter()
+                            .Text(string.IsNullOrWhiteSpace(_ticket.TextoBannerAnulacion)
+                                ? "VENTA ANULADA EN SISTEMA"
+                                : _ticket.TextoBannerAnulacion)
+                            .FontColor("#7f1d1d")
+                            .Bold()
+                            .FontSize(8);
+                    }
+
                     column.Item().AlignCenter().Text($"Ticket Venta #{_ticket.IdVenta}").FontSize(11);
                     column.Item().PaddingTop(5).Text($"Fecha: {_ticket.Fecha:dd/MM/yyyy HH:mm}");
                     column.Item().Text($"Cajero: {_ticket.Cajero}");

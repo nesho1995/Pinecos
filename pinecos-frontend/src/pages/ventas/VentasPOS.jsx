@@ -1,7 +1,10 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useRef, useState } from 'react';
 import api from '../../services/api';
 import { imprimirHtmlDirecto, imprimirTicketHtml } from '../../utils/printTicket';
 import { getUsuario } from '../../utils/auth';
+import FacturaCaiClienteForm, { facturaClienteVacio } from '../../components/factura/FacturaCaiClienteForm';
+import CheckoutPayMethodChips from '../../components/checkout/CheckoutPayMethodChips';
+import CheckoutServiceToggle from '../../components/checkout/CheckoutServiceToggle';
 
 function VentasPOS() {
   const usuario = getUsuario();
@@ -25,6 +28,7 @@ function VentasPOS() {
   const [ajustesVenta, setAjustesVenta] = useState({ descuentos: [], impuestos: [] });
   const [facturacionSar, setFacturacionSar] = useState({ habilitadoCai: false });
   const [emitirFactura, setEmitirFactura] = useState(false);
+  const [facturaCliente, setFacturaCliente] = useState(() => facturaClienteVacio());
   const [mensaje, setMensaje] = useState('');
   const [error, setError] = useState('');
   const [ultimaVentaId, setUltimaVentaId] = useState(null);
@@ -33,6 +37,7 @@ function VentasPOS() {
   const [preCuentaFecha, setPreCuentaFecha] = useState(null);
   const [preCuentaHtmlUltima, setPreCuentaHtmlUltima] = useState('');
   const [preCuentaResumenUltima, setPreCuentaResumenUltima] = useState(null);
+  const cobrarVentaRef = useRef(async () => {});
 
   const cargarCajaActual = async () => {
     try {
@@ -559,6 +564,10 @@ function VentasPOS() {
     [carrito]
   );
 
+  useEffect(() => {
+    if (!emitirFactura) setFacturaCliente(facturaClienteVacio());
+  }, [emitirFactura]);
+
   const cobrarVenta = async () => {
     limpiarMensajes();
     if (!cajaActual?.abierta) return setError('No hay caja abierta');
@@ -571,6 +580,23 @@ function VentasPOS() {
     if (descuentoCalculado < 0 || impuestoCalculado < 0) return setError('Descuento e impuesto no pueden ser negativos');
     if (subtotalBase < 0) return setError('El subtotal base no puede ser negativo');
     if (total < 0) return setError('El total no puede ser negativo');
+    const emiteCai = emitirFactura && !!facturacionSar?.habilitadoCai;
+    if (emiteCai) {
+      const nom = String(facturaCliente?.nombreCliente || '').trim();
+      const dir = String(facturaCliente?.direccionCliente || '').trim();
+      const tel = String(facturaCliente?.telefonoCliente || '').trim();
+      const esOt = String(facturaCliente?.tipoCliente || '').toUpperCase() === 'OBLIGADO_TRIBUTARIO';
+      const rtnDigits = String(facturaCliente?.rtnCliente || '').replace(/\D/g, '');
+      const idn = String(facturaCliente?.identidadCliente || '').trim();
+      if (nom.length < 3) return setError('Factura CAI: ingrese nombre o razon social del adquirente.');
+      if (dir.length < 5) return setError('Factura CAI: ingrese la direccion del adquirente.');
+      if (tel.length < 5) return setError('Factura CAI: ingrese un telefono de contacto.');
+      if (esOt) {
+        if (rtnDigits.length !== 14) return setError('Factura CAI: el RTN de la empresa debe tener 14 digitos.');
+      } else if (idn.length < 5) {
+        return setError('Factura CAI: ingrese el numero de identidad del adquirente.');
+      }
+    }
     if (esPagoEnEfectivo && !soloCortesia) {
       if (!efectivoRecibido || Number.isNaN(efectivoRecibidoNum)) {
         return setError('Ingresa el efectivo recibido');
@@ -585,12 +611,28 @@ function VentasPOS() {
       const metodoPagoFinal = soloCortesia
         ? 'CORTESIA'
         : canalPagoSeleccionado?.nombre || canalPagoSeleccionado?.codigo || metodoPago;
+      const emiteCaiReq = emitirFactura && !!facturacionSar?.habilitadoCai;
       const response = await api.post('/Ventas', {
         id_Caja: cajaActual.id_Caja,
         descuento: Number(descuentoCalculado.toFixed(2)),
         impuesto: Number(impuestoCalculado.toFixed(2)),
         impuestoIncluidoEnSubtotal,
-        emitirFactura: emitirFactura && !!facturacionSar?.habilitadoCai,
+        emitirFactura: emiteCaiReq,
+        facturaCliente: emiteCaiReq
+          ? {
+              tipoCliente: facturaCliente.tipoCliente,
+              nombreCliente: String(facturaCliente.nombreCliente || '').trim(),
+              rtnCliente: String(facturaCliente.rtnCliente || '').trim(),
+              identidadCliente: String(facturaCliente.identidadCliente || '').trim(),
+              direccionCliente: String(facturaCliente.direccionCliente || '').trim(),
+              telefonoCliente: String(facturaCliente.telefonoCliente || '').trim(),
+              condicionPago: facturaCliente.condicionPago || 'CONTADO',
+              tipoFacturaFiscal: facturaCliente.tipoFacturaFiscal || 'GRAVADO_15',
+              numeroOrdenCompraExenta: String(facturaCliente.numeroOrdenCompraExenta || '').trim(),
+              numeroConstanciaRegistroExonerado: String(facturaCliente.numeroConstanciaRegistroExonerado || '').trim(),
+              numeroRegistroSag: String(facturaCliente.numeroRegistroSag || '').trim()
+            }
+          : null,
         metodo_Pago: metodoPagoFinal,
         tipo_Servicio: tipoServicio,
         observacion: `Venta POS | TipoPago:${soloCortesia ? 'CORTESIA' : metodoPago}${canalPagoSeleccionado ? ` | Canal:${canalPagoSeleccionado.nombre}` : ''} | Desc:${modoDescuento} | Imp:${modoImpuesto}${esPagoEnEfectivo && !soloCortesia ? ` | Efectivo:${efectivoRecibidoNum.toFixed(2)} | Cambio:${Math.max(0, cambioCalculado).toFixed(2)}` : ''}`,
@@ -612,6 +654,7 @@ function VentasPOS() {
       setModoImpuesto('INCLUIDO_15');
       setImpuestoManual('0');
       setEmitirFactura(false);
+      setFacturaCliente(facturaClienteVacio());
       setEfectivoRecibido('');
       setTipoServicio('COMER_AQUI');
       setPreCuentaEstado('NINGUNA');
@@ -624,6 +667,21 @@ function VentasPOS() {
       setProcesando(false);
     }
   };
+
+  cobrarVentaRef.current = cobrarVenta;
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (!e.altKey || e.code !== 'KeyC' || e.repeat) return;
+      const tag = e.target?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (!cajaActual?.abierta || carrito.length === 0 || preCuentaEstado !== 'VIGENTE' || procesando) return;
+      e.preventDefault();
+      void cobrarVentaRef.current();
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [cajaActual?.abierta, carrito.length, preCuentaEstado, procesando]);
 
   const generarPreCuenta = async () => {
     limpiarMensajes();
@@ -906,23 +964,32 @@ function VentasPOS() {
                   )}
                 </div>
 
-                <hr />
-                <div className="mb-2">
-                  <label className="form-label">Tipo de pago</label>
-                  <select className="form-select" value={metodoPago} onChange={(e) => setMetodoPago(e.target.value)}>
-                    <option value="EFECTIVO">Efectivo</option>
-                    <option value="POS">POS</option>
-                    <option value="TRANSFERENCIA">Transferencia</option>
-                    <option value="OTRO">Otro</option>
-                  </select>
+                <div className="pro-checkout-steps mt-3 mb-2" aria-hidden="true">
+                  <span className={`pro-checkout-step ${preCuentaEstado === 'VIGENTE' ? 'pro-checkout-step--ok' : ''}`}>1 Pre-cuenta</span>
+                  <span className={`pro-checkout-step ${preCuentaEstado === 'VIGENTE' ? 'pro-checkout-step--ok' : preCuentaEstado === 'DESACTUALIZADA' ? 'pro-checkout-step--warn' : ''}`}>
+                    2 Pago y total
+                  </span>
+                  <span className="pro-checkout-step">3 Cobro final</span>
                 </div>
 
+                <div className="pro-checkout-total-hero">
+                  <div className="pro-checkout-total-label">Total a cobrar</div>
+                  <div className="pro-checkout-total-amount">L {Number(total || 0).toFixed(2)}</div>
+                  <div className="pro-checkout-total-sub mt-2 d-flex flex-column gap-1">
+                    <div className="d-flex justify-content-between"><span>Subtotal base</span><span>L {subtotalBase.toFixed(2)}</span></div>
+                    <div className="d-flex justify-content-between"><span>Descuento</span><span>L {descuentoCalculado.toFixed(2)}</span></div>
+                    <div className="d-flex justify-content-between"><span>ISV {impuestoIncluidoEnSubtotal ? '(incl.)' : ''}</span><span>L {impuestoCalculado.toFixed(2)}</span></div>
+                  </div>
+                </div>
+
+                <CheckoutPayMethodChips value={metodoPago} onChange={setMetodoPago} disabled={procesando} />
+
                 {!esPagoEnEfectivo && (
-                  <div className="mb-2">
-                    <label className="form-label">Canal de cobro</label>
+                  <div className="mb-2 mt-2">
+                    <label className="form-label">Canal / terminal</label>
                     <select className="form-select" value={canalPagoCodigo} onChange={(e) => setCanalPagoCodigo(e.target.value)}>
                       {canalesPagoFiltrados.length === 0 ? (
-                        <option value="">No hay canales configurados para este tipo</option>
+                        <option value="">Configura canales en Administracion</option>
                       ) : (
                         canalesPagoFiltrados.map((canal) => (
                           <option key={canal.codigo} value={canal.codigo}>{canal.nombre}</option>
@@ -933,116 +1000,104 @@ function VentasPOS() {
                 )}
 
                 {esPagoEnEfectivo && (
-                  <div className="mb-2">
+                  <div className="pro-cash-strip mb-2 mt-2">
                     <label className="form-label">Efectivo recibido</label>
                     <input
                       type="number"
                       min="0"
                       step="0.01"
-                      className="form-control"
+                      className="form-control form-control-lg"
                       value={efectivoRecibido}
                       onChange={(e) => setEfectivoRecibido(e.target.value)}
-                      placeholder="Ingresa el monto entregado por el cliente"
+                      placeholder="Monto que entrega el cliente"
                     />
-                    <div className={`small mt-1 ${cambioCalculado >= 0 ? 'text-success' : 'text-danger'}`}>
+                    <div className={`fw-semibold mt-2 ${cambioCalculado >= 0 ? 'text-success' : 'text-danger'}`}>
                       Cambio: L {Math.max(0, cambioCalculado).toFixed(2)}
-                      {cambioCalculado < 0 ? ` | Faltan L ${Math.abs(cambioCalculado).toFixed(2)}` : ''}
+                      {cambioCalculado < 0 ? ` · Faltan L ${Math.abs(cambioCalculado).toFixed(2)}` : ''}
                     </div>
                   </div>
                 )}
 
-                <div className="mb-2">
-                  <label className="form-label">Tipo de servicio</label>
-                  <select className="form-select" value={tipoServicio} onChange={(e) => setTipoServicio(e.target.value)}>
-                    <option value="COMER_AQUI">Comer aqui</option>
-                    <option value="LLEVAR">Para llevar</option>
-                  </select>
+                <div className="mb-2 mt-2">
+                  <CheckoutServiceToggle value={tipoServicio} onChange={setTipoServicio} disabled={procesando} />
                 </div>
 
-                {facturacionSar?.habilitadoCai && (
-                  <div className={`alert py-2 ${facturacionSar.facturasRestantes > 0 ? 'alert-info' : 'alert-danger'}`}>
-                    Facturas CAI restantes: <strong>{Number(facturacionSar.facturasRestantes || 0)}</strong>
-                  </div>
-                )}
-
-                {facturacionSar?.habilitadoCai && (
-                  <div className="form-check mb-2">
-                    <input
-                      className="form-check-input"
-                      type="checkbox"
-                      id="emitirFacturaPos"
-                      checked={emitirFactura}
-                      onChange={(e) => setEmitirFactura(e.target.checked)}
-                    />
-                    <label className="form-check-label" htmlFor="emitirFacturaPos">
-                      Emitir factura CAI
-                    </label>
-                  </div>
-                )}
-
-                <div className="row g-2 mb-2">
-                  <div className="col-12">
-                    <label className="form-label mb-1">Descuento</label>
-                    <select className="form-select" value={modoDescuento} onChange={(e) => setModoDescuento(e.target.value)}>
-                      {descuentosActivos.map((opt) => <option key={opt.codigo} value={opt.codigo}>{opt.nombre}</option>)}
-                    </select>
-                  </div>
-                  {descuentoSeleccionado?.permiteEditarMonto && (
-                    <div className="col-12">
-                      <input type="number" min="0" step="0.01" className="form-control" value={descuentoManual} onChange={(e) => setDescuentoManual(e.target.value)} placeholder="Monto descuento" />
-                    </div>
-                  )}
-                  {modoDescuento !== 'NINGUNO' && (
-                    <div className="col-12">
-                      <div className="alert alert-info py-2 mb-2">
-                        El descuento se aplica solo a las lineas marcadas. Ideal para casos como tercera edad aunque pague otra persona.
+                <details className="pro-checkout-advanced">
+                  <summary>Mas opciones — descuento, impuesto, factura CAI</summary>
+                  <div className="pt-2 mt-2 border-top">
+                    <div className="row g-2 mb-2">
+                      <div className="col-12">
+                        <label className="form-label mb-1">Descuento</label>
+                        <select className="form-select" value={modoDescuento} onChange={(e) => setModoDescuento(e.target.value)}>
+                          {descuentosActivos.map((opt) => <option key={opt.codigo} value={opt.codigo}>{opt.nombre}</option>)}
+                        </select>
                       </div>
-                      <div className="d-flex gap-2">
-                        <button type="button" className="btn btn-sm btn-outline-success" onClick={() => aplicarDescuentoATodasLasLineas(true)} disabled={carrito.length === 0}>
-                          Marcar todas
-                        </button>
-                        <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => aplicarDescuentoATodasLasLineas(false)} disabled={carrito.length === 0}>
-                          Quitar en todas
-                        </button>
-                      </div>
-                      <div className="small text-muted mt-1">
-                        Lineas con descuento: {lineasConDescuento} de {carrito.length}
-                      </div>
+                      {descuentoSeleccionado?.permiteEditarMonto && (
+                        <div className="col-12">
+                          <input type="number" min="0" step="0.01" className="form-control" value={descuentoManual} onChange={(e) => setDescuentoManual(e.target.value)} placeholder="Monto descuento" />
+                        </div>
+                      )}
+                      {modoDescuento !== 'NINGUNO' && (
+                        <div className="col-12">
+                          <div className="small text-muted mb-1">Solo lineas marcadas en la tabla.</div>
+                          <div className="d-flex gap-2 flex-wrap">
+                            <button type="button" className="btn btn-sm btn-outline-success" onClick={() => aplicarDescuentoATodasLasLineas(true)} disabled={carrito.length === 0}>
+                              Marcar todas
+                            </button>
+                            <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => aplicarDescuentoATodasLasLineas(false)} disabled={carrito.length === 0}>
+                              Quitar en todas
+                            </button>
+                          </div>
+                          <div className="small text-muted mt-1">Con descuento: {lineasConDescuento} / {carrito.length}</div>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
 
-                <div className="row g-2 mb-2">
-                  <div className="col-12">
-                    <label className="form-label mb-1">Impuesto</label>
-                    <select className="form-select" value={modoImpuesto} onChange={(e) => setModoImpuesto(e.target.value)}>
-                      {impuestosActivos.map((opt) => <option key={opt.codigo} value={opt.codigo}>{opt.nombre}</option>)}
-                    </select>
+                    <div className="row g-2 mb-2">
+                      <div className="col-12">
+                        <label className="form-label mb-1">Impuesto</label>
+                        <select className="form-select" value={modoImpuesto} onChange={(e) => setModoImpuesto(e.target.value)}>
+                          {impuestosActivos.map((opt) => <option key={opt.codigo} value={opt.codigo}>{opt.nombre}</option>)}
+                        </select>
+                      </div>
+                      {impuestoSeleccionado?.permiteEditarMonto && (
+                        <div className="col-12">
+                          <input type="number" min="0" step="0.01" className="form-control" value={impuestoManual} onChange={(e) => setImpuestoManual(e.target.value)} placeholder="Monto impuesto" />
+                        </div>
+                      )}
+                    </div>
+
+                    {facturacionSar?.habilitadoCai && (
+                      <>
+                        <div className={`alert py-2 ${facturacionSar.facturasRestantes > 0 ? 'alert-info' : 'alert-danger'}`}>
+                          Facturas CAI restantes: <strong>{Number(facturacionSar.facturasRestantes || 0)}</strong>
+                        </div>
+                        <div className="form-check mb-2">
+                          <input
+                            className="form-check-input"
+                            type="checkbox"
+                            id="emitirFacturaPos"
+                            checked={emitirFactura}
+                            onChange={(e) => setEmitirFactura(e.target.checked)}
+                          />
+                          <label className="form-check-label fw-semibold" htmlFor="emitirFacturaPos">
+                            Emitir factura CAI (datos del cliente abajo)
+                          </label>
+                        </div>
+                        {emitirFactura && <FacturaCaiClienteForm idPrefix="pos" value={facturaCliente} onChange={setFacturaCliente} />}
+                      </>
+                    )}
                   </div>
-                  {impuestoSeleccionado?.permiteEditarMonto && (
-                    <div className="col-12">
-                      <input type="number" min="0" step="0.01" className="form-control" value={impuestoManual} onChange={(e) => setImpuestoManual(e.target.value)} placeholder="Monto impuesto" />
-                    </div>
-                  )}
-                </div>
+                </details>
 
-                <div className="border rounded p-3 mb-3 bg-light">
-                  <div className="fw-semibold mb-2">Resumen de cobro</div>
-                  <div className="d-flex justify-content-between"><span>Subtotal (sin ISV)</span><strong>L {subtotalBase.toFixed(2)}</strong></div>
-                  <div className="d-flex justify-content-between"><span>Descuento</span><strong>L {descuentoCalculado.toFixed(2)}</strong></div>
-                  <div className="d-flex justify-content-between"><span>ISV {impuestoIncluidoEnSubtotal ? '(incluido)' : ''}</span><strong>L {impuestoCalculado.toFixed(2)}</strong></div>
-                  {impuestoIncluidoEnSubtotal && <div className="small text-muted">El ISV ya viene incluido en precios.</div>}
-                  <hr className="my-2" />
-                  <div className="d-flex justify-content-between fs-5"><span>Total final</span><strong>L {total.toFixed(2)}</strong></div>
-                </div>
-
-                <div className="d-grid gap-2 mt-2 pos-checkout-actions">
+                <div className="d-grid gap-2 mt-3 pos-checkout-actions">
                   <button type="button" className="btn btn-outline-primary" onClick={generarPreCuenta} disabled={procesando || carrito.length === 0}>
                     {preCuentaEstado === 'DESACTUALIZADA' ? 'Regenerar pre-cuenta' : 'Generar pre-cuenta'}
                   </button>
                   <button type="button" className="btn btn-success" onClick={cobrarVenta} disabled={procesando || carrito.length === 0 || preCuentaEstado !== 'VIGENTE'}>
                     {procesando ? 'Procesando...' : 'Cobro final'}
                   </button>
+                  <div className="small text-muted text-center">Atajo: <kbd className="px-1">Alt</kbd> + <kbd className="px-1">C</kbd> (fuera de campos de texto)</div>
                   <button type="button" className="btn btn-outline-secondary" onClick={limpiarCarrito} disabled={carrito.length === 0}>
                     Limpiar cuenta
                   </button>

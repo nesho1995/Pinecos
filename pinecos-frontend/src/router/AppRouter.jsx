@@ -15,6 +15,7 @@ import MovimientosCaja from '../pages/movimientoscaja/MovimientosCaja';
 import Mesas from '../pages/mesas/Mesas';
 import MesasAdmin from '../pages/mesas/MesasAdmin';
 import Reportes from '../pages/reportes/Reportes';
+import GestionVentas from '../pages/gestionventas/GestionVentas';
 import Bitacora from '../pages/bitacora/Bitacora';
 import EstadoCuenta from '../pages/estadocuenta/EstadoCuenta';
 import Proveedores from '../pages/proveedores/Proveedores';
@@ -58,6 +59,7 @@ function AppRouter() {
           <Route path="mesas" element={<RoleRoute allowedRoles={['ADMIN', 'CAJERO']}><Mesas /></RoleRoute>} />
           <Route path="mesas-admin" element={<RoleRoute allowedRoles={['ADMIN']}><MesasAdmin /></RoleRoute>} />
           <Route path="reportes" element={<RoleRoute allowedRoles={['ADMIN']}><Reportes /></RoleRoute>} />
+          <Route path="gestion-ventas" element={<RoleRoute allowedRoles={['ADMIN']}><GestionVentas /></RoleRoute>} />
           <Route path="estado-cuenta" element={<RoleRoute allowedRoles={['ADMIN']}><EstadoCuenta /></RoleRoute>} />
           <Route path="proveedores" element={<RoleRoute allowedRoles={['ADMIN']}><Proveedores /></RoleRoute>} />
           <Route path="inventario" element={<RoleRoute allowedRoles={['ADMIN']}><Inventario /></RoleRoute>} />

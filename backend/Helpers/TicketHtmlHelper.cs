@@ -58,6 +58,13 @@ namespace Pinecos.Helpers
                     ? string.Empty
                     : $@"<div class='cai-leyenda-sar'><div class='cai-leyenda-titulo'>LEYENDA AUTORIZADA</div><div>{Esc(ticket.LeyendaSar)}</div></div>";
 
+                var textoAnul = string.IsNullOrWhiteSpace(ticket.TextoBannerAnulacion)
+                    ? "VENTA ANULADA EN SISTEMA"
+                    : ticket.TextoBannerAnulacion;
+                var bannerAnulacionHtml = ticket.EsAnulada
+                    ? $"<div class='anulacion-banner'>{Esc(textoAnul)}</div>"
+                    : string.Empty;
+
                 sb.Append($@"
 <!DOCTYPE html>
 <html lang='es'>
@@ -87,6 +94,7 @@ namespace Pinecos.Helpers
     .imprenta-block {{ font-size: 10px; margin-top: 6px; padding: 6px; border: 1px solid #bbb; background: #fff; }}
     .pie-fiscal {{ margin-top: 10px; text-align: center; font-size: 10px; font-weight: 600; }}
     .firma-linea {{ margin-top: 28px; border-top: 1px solid #222; width: 55%; margin-left: auto; margin-right: auto; padding-top: 4px; text-align: center; font-size: 10px; }}
+    .anulacion-banner {{ border: 3px solid #b91c1c; background: #fee2e2; color: #7f1d1d; padding: 10px 12px; margin: 8px 0 10px; text-align: center; font-weight: 800; font-size: 10.5px; line-height: 1.35; }}
     @media print {{
       @page {{ size: letter; margin: 8mm; }}
     }}
@@ -94,6 +102,7 @@ namespace Pinecos.Helpers
 </head>
 <body>
   <div class='sheet'>
+    {bannerAnulacionHtml}
     {logoHtml}
     <div class='center'><strong>{Esc(ticket.NombreNegocio)}</strong></div>
     <div class='center small'>{Esc(ticket.DireccionNegocio)}</div>
@@ -188,6 +197,13 @@ namespace Pinecos.Helpers
                 return sb.ToString();
             }
 
+            var textoAnulTicket = string.IsNullOrWhiteSpace(ticket.TextoBannerAnulacion)
+                ? "VENTA ANULADA EN SISTEMA"
+                : ticket.TextoBannerAnulacion;
+            var bannerTicket = ticket.EsAnulada
+                ? $"<div style='border:2px solid #b91c1c;background:#fee2e2;color:#7f1d1d;padding:8px;margin-bottom:8px;text-align:center;font-weight:800;font-size:11px;'>{Esc(textoAnulTicket)}</div>"
+                : string.Empty;
+
             sb.Append($@"
 <!DOCTYPE html>
 <html lang='es'>
@@ -268,6 +284,7 @@ namespace Pinecos.Helpers
     <button class='print-btn no-print' onclick='window.print()'>Imprimir</button>
 
     <div class='ticket'>
+        {bannerTicket}
         {logoHtml}
         <div class='center bold'>{nombreNegocio}</div>
         <div class='center small'>{ticket.Sucursal}</div>

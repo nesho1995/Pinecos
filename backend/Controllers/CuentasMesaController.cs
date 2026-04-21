@@ -366,6 +366,13 @@ namespace Pinecos.Controllers
             if (request.EmitirFactura && facturasRestantes <= 0)
                 return BadRequest(new { message = "No quedan facturas CAI disponibles en el rango configurado" });
 
+            if (request.EmitirFactura)
+            {
+                var errFiscal = FacturaClienteValidacionHelper.ValidarParaEmisionCai(request.FacturaCliente);
+                if (errFiscal != null)
+                    return BadRequest(new { message = errFiscal });
+            }
+
             if (request.Descuento < 0 || request.Impuesto < 0)
                 return BadRequest(new { message = "Descuento e impuesto no pueden ser negativos" });
 

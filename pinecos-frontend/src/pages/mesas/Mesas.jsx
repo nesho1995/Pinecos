@@ -2,6 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import api from '../../services/api';
 import { imprimirTicketHtml, imprimirTicketsDivisionMesa } from '../../utils/printTicket';
 import { getUsuario } from '../../utils/auth';
+import FacturaCaiClienteForm, { facturaClienteVacio } from '../../components/factura/FacturaCaiClienteForm';
+import CheckoutPayMethodChips from '../../components/checkout/CheckoutPayMethodChips';
+import CheckoutServiceToggle from '../../components/checkout/CheckoutServiceToggle';
 
 function Mesas() {
   const usuario = getUsuario();
@@ -31,6 +34,7 @@ function Mesas() {
   const [ajustesVenta, setAjustesVenta] = useState({ descuentos: [], impuestos: [] });
   const [facturacionSar, setFacturacionSar] = useState({ habilitadoCai: false });
   const [emitirFactura, setEmitirFactura] = useState(false);
+  const [facturaCliente, setFacturaCliente] = useState(() => facturaClienteVacio());
   const [personasDivision, setPersonasDivision] = useState(2);
   const [dividirCuenta, setDividirCuenta] = useState(false);
   const [cobroMixto, setCobroMixto] = useState(false);
@@ -238,8 +242,19 @@ function Mesas() {
   );
 
   useEffect(() => {
-    if (!metodosPago.some((x) => x.codigo === metodoPago)) {
-      setMetodoPago(metodosPago[0]?.codigo || 'EFECTIVO');
+    if (!emitirFactura) setFacturaCliente(facturaClienteVacio());
+  }, [emitirFactura]);
+
+  useEffect(() => {
+    const upper = (c) => String(c || '').toUpperCase();
+    const list = metodosPago || [];
+    if (!list.length) return;
+    const codes = list.map((x) => upper(x.codigo));
+    const current = upper(metodoPago);
+    if (!codes.includes(current)) {
+      setMetodoPago(codes[0] || 'EFECTIVO');
+    } else if (String(metodoPago || '') !== current) {
+      setMetodoPago(current);
     }
   }, [metodosPago, metodoPago]);
 
@@ -563,6 +578,24 @@ function Mesas() {
       if ((pagosMixtos || []).some((p) => !String(p?.nombre || '').trim())) return setError('Cada persona debe tener nombre');
     }
 
+    const emiteCai = emitirFactura && !!facturacionSar?.habilitadoCai;
+    if (emiteCai) {
+      const nom = String(facturaCliente?.nombreCliente || '').trim();
+      const dir = String(facturaCliente?.direccionCliente || '').trim();
+      const tel = String(facturaCliente?.telefonoCliente || '').trim();
+      const esOt = String(facturaCliente?.tipoCliente || '').toUpperCase() === 'OBLIGADO_TRIBUTARIO';
+      const rtnDigits = String(facturaCliente?.rtnCliente || '').replace(/\D/g, '');
+      const idn = String(facturaCliente?.identidadCliente || '').trim();
+      if (nom.length < 3) return setError('Factura CAI: ingrese nombre o razon social del adquirente.');
+      if (dir.length < 5) return setError('Factura CAI: ingrese la direccion del adquirente.');
+      if (tel.length < 5) return setError('Factura CAI: ingrese un telefono de contacto.');
+      if (esOt) {
+        if (rtnDigits.length !== 14) return setError('Factura CAI: el RTN de la empresa debe tener 14 digitos.');
+      } else if (idn.length < 5) {
+        return setError('Factura CAI: ingrese el numero de identidad del adquirente.');
+      }
+    }
+
     try {
       setProcesando(true);
       const metodoPagoFinal = dividirCuenta ? 'MIXTO' : metodoPago;
@@ -570,12 +603,28 @@ function Mesas() {
         ? pagosMixtosDetalle.map((p) => `${p.nombre}:${p.monto.toFixed(2)}(${p.metodo_Pago})`).join('; ')
         : '';
       const observacionCobro = `Cobro de mesa | Desc:${modoDescuento} | Imp:${modoImpuesto}${detalleDivision ? ` | DIVISION:${detalleDivision}` : ''}`;
+      const emiteCaiReq = emitirFactura && !!facturacionSar?.habilitadoCai;
       const response = await api.post(`/CuentasMesa/${detalleCuenta.cuenta.id_Cuenta_Mesa}/cobrar`, {
         id_Caja: cajaActual.id_Caja,
         descuento: descuentoNum,
         impuesto: impuestoNum,
         impuestoIncluidoEnSubtotal,
-        emitirFactura: emitirFactura && !!facturacionSar?.habilitadoCai,
+        emitirFactura: emiteCaiReq,
+        facturaCliente: emiteCaiReq
+          ? {
+              tipoCliente: facturaCliente.tipoCliente,
+              nombreCliente: String(facturaCliente.nombreCliente || '').trim(),
+              rtnCliente: String(facturaCliente.rtnCliente || '').trim(),
+              identidadCliente: String(facturaCliente.identidadCliente || '').trim(),
+              direccionCliente: String(facturaCliente.direccionCliente || '').trim(),
+              telefonoCliente: String(facturaCliente.telefonoCliente || '').trim(),
+              condicionPago: facturaCliente.condicionPago || 'CONTADO',
+              tipoFacturaFiscal: facturaCliente.tipoFacturaFiscal || 'GRAVADO_15',
+              numeroOrdenCompraExenta: String(facturaCliente.numeroOrdenCompraExenta || '').trim(),
+              numeroConstanciaRegistroExonerado: String(facturaCliente.numeroConstanciaRegistroExonerado || '').trim(),
+              numeroRegistroSag: String(facturaCliente.numeroRegistroSag || '').trim()
+            }
+          : null,
         metodo_Pago: metodoPagoFinal,
         pagos: dividirCuenta ? pagosMixtosNormalizados : [],
         tipo_Servicio: tipoServicio,
@@ -592,6 +641,7 @@ function Mesas() {
       setModoImpuesto('INCLUIDO_15');
       setImpuestoManual('0');
       setEmitirFactura(false);
+      setFacturaCliente(facturaClienteVacio());
       setMetodoPago('EFECTIVO');
       setTipoServicio('COMER_AQUI');
       setDividirCuenta(false);
@@ -706,7 +756,7 @@ function Mesas() {
             {esAdmin && (
               <div className="col-md-8">
                 <div className="alert alert-info mb-0 py-2 small">
-                  El plano de mesas (posicion y forma) se configura en <strong>Administracion → Mesas</strong>.
+                  El plano de mesas (posicion y forma) se configura en <strong>Locales → Mesas (configuracion)</strong>.
                 </div>
               </div>
             )}
@@ -803,13 +853,13 @@ function Mesas() {
                       </div>
 
                       <div className="bg-white border rounded p-3 mb-3 mesas-totals-card">
-                        <div className="d-flex justify-content-between align-items-center mb-2">
-                          <strong>Total actual: L {totalCuenta.toFixed(2)}</strong>
+                        <div className="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                          <span className="small text-muted">Estado de caja</span>
                           <span className={`badge ${cargandoCaja ? 'bg-secondary' : cajaActual?.abierta ? 'bg-success' : 'bg-warning text-dark'}`}>
                             {cargandoCaja ? 'Validando caja...' : cajaActual?.abierta ? `Caja #${cajaActual.id_Caja} abierta` : 'Caja cerrada'}
                           </span>
                         </div>
-                        <div className="small text-muted">Paso 1: agrega productos. Paso 2: divide la cuenta si aplica. Paso 3: cobra.</div>
+                        <div className="small text-muted">Agrega consumo, divide si hace falta, y cobra abajo con el total destacado.</div>
                       </div>
 
                       <div className="mesas-section-card mb-3">
@@ -918,15 +968,21 @@ function Mesas() {
                       <button className="btn btn-dark w-100 mb-3" onClick={agregarProducto} disabled={procesando}>Agregar a cuenta</button>
                       </div>
 
-                      <div className="row g-2 mb-2 mesas-cobro-shell">
-                        <div className="col-12">
-                          <label className="form-label mb-1">Metodo de pago</label>
-                          <select className="form-select" value={metodoPago} onChange={(e) => setMetodoPago(e.target.value)} disabled={dividirCuenta}>
-                            {metodosPago.map((m) => (
-                              <option key={m.codigo} value={m.codigo}>{m.nombre}</option>
-                            ))}
-                          </select>
+                      <div className="pro-checkout-total-hero mb-3">
+                        <div className="pro-checkout-total-label">Total mesa</div>
+                        <div className="pro-checkout-total-amount">L {Number(totalCuenta || 0).toFixed(2)}</div>
+                        <div className="pro-checkout-total-sub mt-2 d-flex flex-column gap-1">
+                          <div className="d-flex justify-content-between"><span>Subtotal base</span><span>L {subtotalBaseCuenta.toFixed(2)}</span></div>
+                          <div className="d-flex justify-content-between"><span>Base descuento (lineas marcadas)</span><span>L {subtotalDescuentoCuenta.toFixed(2)}</span></div>
+                          <div className="d-flex justify-content-between"><span>Descuento</span><span>L {descuentoNum.toFixed(2)}</span></div>
+                          <div className="d-flex justify-content-between"><span>Impuesto</span><span>L {impuestoNum.toFixed(2)}</span></div>
+                          {impuestoIncluidoEnSubtotal && (
+                            <div className="small text-warning">Impuesto incluido en precios (no se suma al total)</div>
+                          )}
                         </div>
+                      </div>
+
+                      <div className="row g-2 mb-2 mesas-cobro-shell">
                         <div className="col-12">
                           <label className="form-label mb-1">Modo de cobro</label>
                           <select
@@ -934,9 +990,23 @@ function Mesas() {
                             value={dividirCuenta ? 'DIVIDIR' : 'NORMAL'}
                             onChange={(e) => setDividirCuenta(e.target.value === 'DIVIDIR')}
                           >
-                            <option value="NORMAL">Cobro normal</option>
-                            <option value="DIVIDIR">Dividir cuenta (quien pago que)</option>
+                            <option value="NORMAL">Un solo pago (rapido)</option>
+                            <option value="DIVIDIR">Dividir cuenta (quien paga cada consumo)</option>
                           </select>
+                        </div>
+                        <div className="col-12">
+                          <CheckoutPayMethodChips
+                            value={metodoPago}
+                            onChange={setMetodoPago}
+                            disabled={dividirCuenta || procesando}
+                            options={(metodosPago || []).length
+                              ? metodosPago.map((m) => ({
+                                  codigo: String(m.codigo || '').toUpperCase(),
+                                  label: m.nombre || m.codigo,
+                                  title: m.nombre
+                                }))
+                              : undefined}
+                          />
                         </div>
                         {dividirCuenta && (
                           <div className="col-12">
@@ -1009,84 +1079,83 @@ function Mesas() {
                             </div>
                           </div>
                         )}
-                        <div className="col-12">
-                          <label className="form-label mb-1">Tipo de servicio</label>
-                          <select className="form-select" value={tipoServicio} onChange={(e) => setTipoServicio(e.target.value)}>
-                            <option value="COMER_AQUI">Comer aqui</option>
-                            <option value="LLEVAR">Para llevar</option>
-                          </select>
+                        <div className="col-12 mb-2">
+                          <CheckoutServiceToggle value={tipoServicio} onChange={setTipoServicio} disabled={procesando} />
                         </div>
-                        {facturacionSar?.habilitadoCai && (
-                          <div className="col-12">
-                            <div className={`alert py-2 mb-0 ${facturacionSar.facturasRestantes > 0 ? 'alert-info' : 'alert-danger'}`}>
-                              Facturas CAI restantes: <strong>{Number(facturacionSar.facturasRestantes || 0)}</strong>
+                        <div className="col-12">
+                          <details className="pro-checkout-advanced">
+                            <summary>Mas opciones — descuento, impuesto, factura CAI</summary>
+                            <div className="pt-2 mt-2 border-top">
+                              <div className="row g-2 mb-2">
+                                <div className="col-12">
+                                  <label className="form-label mb-1">Descuento</label>
+                                  <select className="form-select" value={modoDescuento} onChange={(e) => setModoDescuento(e.target.value)}>
+                                    {descuentosActivos.map((opt) => <option key={opt.codigo} value={opt.codigo}>{opt.nombre}</option>)}
+                                  </select>
+                                </div>
+                                {descuentoSeleccionado?.permiteEditarMonto && (
+                                  <div className="col-12">
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="0.01"
+                                      className="form-control"
+                                      value={descuentoManual}
+                                      onChange={(e) => setDescuentoManual(e.target.value)}
+                                      placeholder="Monto descuento"
+                                    />
+                                  </div>
+                                )}
+                                {modoDescuento !== 'NINGUNO' && (
+                                  <div className="col-12">
+                                    <div className="small text-muted">Marca en cada linea de Consumo actual si aplica descuento a esa linea.</div>
+                                  </div>
+                                )}
+                              </div>
+                              <div className="row g-2 mb-2">
+                                <div className="col-12">
+                                  <label className="form-label mb-1">Impuesto</label>
+                                  <select className="form-select" value={modoImpuesto} onChange={(e) => setModoImpuesto(e.target.value)}>
+                                    {impuestosActivos.map((opt) => <option key={opt.codigo} value={opt.codigo}>{opt.nombre}</option>)}
+                                  </select>
+                                </div>
+                                {impuestoSeleccionado?.permiteEditarMonto && (
+                                  <div className="col-12">
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="0.01"
+                                      className="form-control"
+                                      value={impuestoManual}
+                                      onChange={(e) => setImpuestoManual(e.target.value)}
+                                      placeholder="Monto impuesto"
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                              {facturacionSar?.habilitadoCai && (
+                                <>
+                                  <div className={`alert py-2 ${facturacionSar.facturasRestantes > 0 ? 'alert-info' : 'alert-danger'}`}>
+                                    Facturas CAI restantes: <strong>{Number(facturacionSar.facturasRestantes || 0)}</strong>
+                                  </div>
+                                  <div className="form-check mb-2">
+                                    <input
+                                      className="form-check-input"
+                                      type="checkbox"
+                                      id="emitirFacturaMesa"
+                                      checked={emitirFactura}
+                                      onChange={(e) => setEmitirFactura(e.target.checked)}
+                                    />
+                                    <label className="form-check-label fw-semibold" htmlFor="emitirFacturaMesa">
+                                      Emitir factura CAI (datos del cliente abajo)
+                                    </label>
+                                  </div>
+                                  {emitirFactura && <FacturaCaiClienteForm idPrefix="mesa" value={facturaCliente} onChange={setFacturaCliente} />}
+                                </>
+                              )}
                             </div>
-                          </div>
-                        )}
-                        {facturacionSar?.habilitadoCai && (
-                          <div className="col-12">
-                            <div className="form-check">
-                              <input
-                                className="form-check-input"
-                                type="checkbox"
-                                id="emitirFacturaMesa"
-                                checked={emitirFactura}
-                                onChange={(e) => setEmitirFactura(e.target.checked)}
-                              />
-                              <label className="form-check-label" htmlFor="emitirFacturaMesa">
-                                Emitir factura CAI
-                              </label>
-                            </div>
-                          </div>
-                        )}
-                        <div className="col-12">
-                          <label className="form-label mb-1">Descuento</label>
-                          <select className="form-select" value={modoDescuento} onChange={(e) => setModoDescuento(e.target.value)}>
-                            {descuentosActivos.map((opt) => <option key={opt.codigo} value={opt.codigo}>{opt.nombre}</option>)}
-                          </select>
+                          </details>
                         </div>
-                        {descuentoSeleccionado?.permiteEditarMonto && (
-                          <div className="col-12">
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              className="form-control"
-                              value={descuentoManual}
-                              onChange={(e) => setDescuentoManual(e.target.value)}
-                              placeholder="Monto descuento"
-                            />
-                          </div>
-                        )}
-                        <div className="col-12">
-                          <label className="form-label mb-1">Impuesto</label>
-                          <select className="form-select" value={modoImpuesto} onChange={(e) => setModoImpuesto(e.target.value)}>
-                            {impuestosActivos.map((opt) => <option key={opt.codigo} value={opt.codigo}>{opt.nombre}</option>)}
-                          </select>
-                        </div>
-                        {impuestoSeleccionado?.permiteEditarMonto && (
-                          <div className="col-12">
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              className="form-control"
-                              value={impuestoManual}
-                              onChange={(e) => setImpuestoManual(e.target.value)}
-                              placeholder="Monto impuesto"
-                            />
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="bg-dark text-white rounded p-3 mb-3">
-                        <div className="d-flex justify-content-between"><span>Subtotal base</span><strong>L {subtotalBaseCuenta.toFixed(2)}</strong></div>
-                        <div className="d-flex justify-content-between"><span>Base descuento (lineas marcadas)</span><strong>L {subtotalDescuentoCuenta.toFixed(2)}</strong></div>
-                        <div className="d-flex justify-content-between"><span>Descuento</span><strong>L {descuentoNum.toFixed(2)}</strong></div>
-                        <div className="d-flex justify-content-between"><span>Impuesto</span><strong>L {impuestoNum.toFixed(2)}</strong></div>
-                        {impuestoIncluidoEnSubtotal && <div className="small text-warning">Impuesto incluido en precios (no se suma al total)</div>}
-                        <hr className="my-2" />
-                        <div className="d-flex justify-content-between"><span>Total</span><strong>L {totalCuenta.toFixed(2)}</strong></div>
                       </div>
 
                       <div className="d-grid gap-2 mesas-actions-bar">

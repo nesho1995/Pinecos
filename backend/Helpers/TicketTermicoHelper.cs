@@ -11,6 +11,15 @@ namespace Pinecos.Helpers
 
             sb.AppendLine("      PINECOS");
             sb.AppendLine(ticket.Sucursal);
+            if (ticket.EsAnulada)
+            {
+                sb.AppendLine("******************************");
+                sb.AppendLine("*** VENTA ANULADA SISTEMA ***");
+                if (!string.IsNullOrWhiteSpace(ticket.TextoBannerAnulacion))
+                    sb.AppendLine(ticket.TextoBannerAnulacion);
+                sb.AppendLine("******************************");
+            }
+
             sb.AppendLine("------------------------------");
             sb.AppendLine($"Ticket: {ticket.IdVenta}");
             sb.AppendLine($"Fecha: {ticket.Fecha:dd/MM/yyyy HH:mm}");

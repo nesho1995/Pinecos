@@ -62,5 +62,11 @@
         public decimal Isv18 { get; set; }
         public string TotalEnLetras { get; set; } = string.Empty;
         public List<TicketVentaDetalleDto> Detalles { get; set; } = new();
+
+        /// <summary>Venta marcada como anulada en sistema (sin valor comercial).</summary>
+        public bool EsAnulada { get; set; }
+
+        /// <summary>Texto para banner en ticket/HTML (motivo, referencia, fecha).</summary>
+        public string TextoBannerAnulacion { get; set; } = string.Empty;
     }
 }

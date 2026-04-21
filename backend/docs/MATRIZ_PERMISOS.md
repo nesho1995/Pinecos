@@ -16,6 +16,7 @@
 | Mesas y Cuentas | Si | Si |
 | Gastos | Si | Si (limitado a su sucursal) |
 | Reportes | Si | No |
+| Gestion de ventas (listado / anular) | Si | No |
 | Estado de Cuenta | Si | No |
 | Bitacora | Si | No |
 | Mesas (Administracion) | Si | No |
@@ -37,7 +38,7 @@
 | `api/Cajas/estado-cuenta/{id}` | Si | No | Solo admin |
 | `api/MovimientosCaja/*` | Si | Si | Cajero solo cajas de su sucursal |
 | `api/Ventas/*` crear | Si | Si | Venta en caja abierta de su sucursal |
-| `api/Ventas/*` reportes/anular | Si | No | Solo admin |
+| `api/Ventas` GET (listado) / `anular` POST | Si | No | Solo admin; anular requiere motivo en cuerpo |
 | `api/CuentasMesa/*` | Si | Si | Cajero solo su sucursal |
 | `api/Mesas/sucursal/{id}` | Si | Si | Cajero restringido a su sucursal |
 | `api/Mesas` crear/editar | Si | No | Solo admin |

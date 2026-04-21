@@ -14,5 +14,10 @@
         public string Metodo_Pago { get; set; } = string.Empty;
         public string Observacion { get; set; } = string.Empty;
         public string Estado { get; set; } = string.Empty;
+
+        public DateTime? Fecha_Anulacion { get; set; }
+        public int? Id_Usuario_Anulacion { get; set; }
+        public string? Motivo_Anulacion { get; set; }
+        public string? Referencia_Anulacion_Fiscal { get; set; }
     }
 }

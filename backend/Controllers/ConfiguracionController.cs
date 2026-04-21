@@ -22,14 +22,51 @@ namespace Pinecos.Controllers
             _env = env;
         }
 
-        [HttpGet]
-        public async Task<ActionResult> GetConfiguracion([FromQuery] int? idSucursal = null)
+        /// <summary>
+        /// Garantiza una fila base con Activo=true (BD nueva o tabla vacia tras TRUNCATE).
+        /// </summary>
+        private async Task<ConfiguracionNegocio> ObtenerOCrearConfiguracionBaseAsync()
         {
             var baseConfig = await _context.ConfiguracionNegocio
                 .FirstOrDefaultAsync(x => x.Activo);
 
-            if (baseConfig == null)
-                return NotFound(new { message = "No existe configuracion activa" });
+            if (baseConfig != null)
+                return baseConfig;
+
+            var inactiva = await _context.ConfiguracionNegocio
+                .OrderBy(x => x.Id_Configuracion)
+                .FirstOrDefaultAsync();
+
+            if (inactiva != null)
+            {
+                inactiva.Activo = true;
+                await _context.SaveChangesAsync();
+                return inactiva;
+            }
+
+            var nuevo = new ConfiguracionNegocio
+            {
+                Nombre_Negocio = "Mi negocio",
+                Direccion = string.Empty,
+                Telefono = string.Empty,
+                Rtn = string.Empty,
+                Mensaje_Ticket = "Gracias por su compra",
+                Ancho_Ticket = "80mm",
+                Logo_Url = string.Empty,
+                Moneda = "L",
+                Activo = true
+            };
+
+            _context.ConfiguracionNegocio.Add(nuevo);
+            await _context.SaveChangesAsync();
+
+            return nuevo;
+        }
+
+        [HttpGet]
+        public async Task<ActionResult> GetConfiguracion([FromQuery] int? idSucursal = null)
+        {
+            var baseConfig = await ObtenerOCrearConfiguracionBaseAsync();
 
             if (idSucursal.HasValue && idSucursal.Value > 0)
             {
@@ -45,11 +82,7 @@ namespace Pinecos.Controllers
         {
             var idUsuario = UserHelper.GetUserId(User);
 
-            var baseConfig = await _context.ConfiguracionNegocio
-                .FirstOrDefaultAsync(x => x.Activo);
-
-            if (baseConfig == null)
-                return NotFound(new { message = "No existe configuracion activa" });
+            var baseConfig = await ObtenerOCrearConfiguracionBaseAsync();
 
             if (idSucursal.HasValue && idSucursal.Value > 0)
             {

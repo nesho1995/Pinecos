@@ -126,6 +126,7 @@ namespace Pinecos.Controllers
                 Detalles = detalles
             };
 
+            VentaTicketAnulacionHelper.AplicarEstadoAnulacion(ticket, venta);
             return Ok(ticket);
         }
 
@@ -197,6 +198,7 @@ namespace Pinecos.Controllers
                 Detalles = detalles
             };
 
+            VentaTicketAnulacionHelper.AplicarEstadoAnulacion(ticket, venta);
             var document = new TicketVentaDocument(ticket);
             var pdfBytes = document.GeneratePdf();
 
@@ -275,6 +277,7 @@ namespace Pinecos.Controllers
                 Detalles = detalles
             };
 
+            VentaTicketAnulacionHelper.AplicarEstadoAnulacion(ticket, venta);
             var html = TicketHtmlHelper.Generar(
                 ticket,
                 config.Nombre_Negocio,
@@ -353,6 +356,7 @@ namespace Pinecos.Controllers
                 Detalles = detalles
             };
 
+            VentaTicketAnulacionHelper.AplicarEstadoAnulacion(ticket, venta);
             var texto = TicketTermicoHelper.Generar(ticket);
 
             return Ok(new { ticket = texto });

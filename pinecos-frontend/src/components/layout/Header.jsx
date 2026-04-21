@@ -10,6 +10,7 @@ const routeTitles = {
   '/mesas-admin': 'Administracion de Mesas',
   '/gastos': 'Gastos',
   '/reportes': 'Reportes',
+  '/gestion-ventas': 'Gestion de ventas',
   '/estado-cuenta': 'Estado de Cuenta',
   '/menu-sucursal': 'Precios por sucursal (POS)',
   '/productos': 'Productos',
@@ -18,7 +19,9 @@ const routeTitles = {
   '/sucursales': 'Sucursales',
   '/usuarios': 'Usuarios',
   '/configuracion': 'Configuracion',
-  '/bitacora': 'Bitacora'
+  '/bitacora': 'Bitacora',
+  '/inventario': 'Inventario',
+  '/proveedores': 'Proveedores'
 };
 
 function Header({ onToggleSidebar }) {
