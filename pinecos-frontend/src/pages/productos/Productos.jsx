@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../services/api';
 
@@ -16,6 +16,10 @@ function Productos() {
   });
   const [error, setError] = useState('');
   const [mensaje, setMensaje] = useState('');
+  const fileImportRef = useRef(null);
+  const [importandoExcel, setImportandoExcel] = useState(false);
+  const [crearCategoriasImport, setCrearCategoriasImport] = useState(true);
+  const [detalleImport, setDetalleImport] = useState(null);
 
   const cargarProductos = async () => {
     try {
@@ -48,6 +52,55 @@ function Productos() {
   const limpiarMensajes = () => {
     setError('');
     setMensaje('');
+    setDetalleImport(null);
+  };
+
+  const descargarPlantillaExcel = async () => {
+    limpiarMensajes();
+    try {
+      const response = await api.get('/Productos/excel/plantilla', { responseType: 'blob' });
+      const blob = new Blob([response.data], {
+        type:
+          response.headers['content-type'] ||
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'plantilla_productos_pinecos.xlsx';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      setMensaje('Plantilla descargada. Completa las filas y vuelve a subir el archivo aqui.');
+    } catch (err) {
+      setError(err?.response?.data?.message || 'No se pudo descargar la plantilla');
+    }
+  };
+
+  const importarDesdeExcel = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+
+    limpiarMensajes();
+    setImportandoExcel(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await api.post(
+        `/Productos/excel/importar?crearCategorias=${crearCategoriasImport ? 'true' : 'false'}`,
+        formData
+      );
+      setDetalleImport(res.data);
+      setMensaje(res.data?.message || 'Importacion finalizada');
+      await cargarCategorias();
+      await cargarProductos();
+    } catch (err) {
+      setError(err?.response?.data?.message || 'Error al importar el Excel');
+    } finally {
+      setImportandoExcel(false);
+    }
   };
 
   const limpiarFormulario = () => {
@@ -169,6 +222,78 @@ function Productos() {
         <Link className="btn btn-sm btn-outline-primary" to="/menu-sucursal">
           Ir a Precios por Sucursal
         </Link>
+      </div>
+
+      <div className="card shadow-sm mb-4">
+        <div className="card-body">
+          <h3 className="h6 mb-2">Importar catalogo desde Excel</h3>
+          <p className="small text-muted mb-3">
+            Formato: archivo <strong>.xlsx</strong>; se lee siempre la <strong>primera hoja</strong> del libro.
+            Fila 1 con encabezados: <strong>nombre</strong>, <strong>categoria</strong>, <strong>costo</strong> (tambien acepta name, category, cost en ingles).
+            Desde la fila 2, un producto por fila. El costo puede ser numero en celda o texto con punto o coma decimal. Limite 5000 filas de datos.
+            Si el nombre ya existe como producto activo, esa fila se omite. Opcional: crear categorias automaticamente si el nombre de categoria no existe aun.
+          </p>
+          <div className="d-flex flex-wrap gap-2 align-items-center mb-3">
+            <button type="button" className="btn btn-outline-primary btn-sm" onClick={descargarPlantillaExcel}>
+              Descargar plantilla Excel
+            </button>
+            <input
+              ref={fileImportRef}
+              type="file"
+              accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              className="d-none"
+              onChange={importarDesdeExcel}
+            />
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              disabled={importandoExcel}
+              onClick={() => fileImportRef.current?.click()}
+            >
+              {importandoExcel ? 'Importando...' : 'Subir Excel (.xlsx)'}
+            </button>
+            <div className="form-check mb-0 ms-md-2">
+              <input
+                className="form-check-input"
+                type="checkbox"
+                id="crearCatsImport"
+                checked={crearCategoriasImport}
+                onChange={(e) => setCrearCategoriasImport(e.target.checked)}
+              />
+              <label className="form-check-label small" htmlFor="crearCatsImport">
+                Crear categorias nuevas si no existen
+              </label>
+            </div>
+          </div>
+          {detalleImport && (
+            <div className="small border-top pt-3 mt-2">
+              {Array.isArray(detalleImport.errores) && detalleImport.errores.length > 0 && (
+                <div className="alert alert-warning py-2 mb-2">
+                  <div className="fw-semibold mb-1">Filas con error</div>
+                  <ul className="mb-0 ps-3">
+                    {detalleImport.errores.map((row, idx) => (
+                      <li key={idx}>
+                        Fila {row.fila}: {row.mensaje}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {Array.isArray(detalleImport.omitidos) && detalleImport.omitidos.length > 0 && (
+                <div className="alert alert-secondary py-2 mb-0">
+                  <div className="fw-semibold mb-1">Omitidos (sin crear)</div>
+                  <ul className="mb-0 ps-3">
+                    {detalleImport.omitidos.map((row, idx) => (
+                      <li key={idx}>
+                        Fila {row.fila} &quot;{row.nombre}&quot;: {row.razon}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="card shadow-sm mb-4">

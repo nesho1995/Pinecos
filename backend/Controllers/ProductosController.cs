@@ -1,7 +1,9 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Pinecos.Attributes;
 using Pinecos.Data;
+using Pinecos.Helpers;
 using Pinecos.Models;
 
 namespace Pinecos.Controllers
@@ -16,6 +18,54 @@ namespace Pinecos.Controllers
         public ProductosController(PinecosDbContext context)
         {
             _context = context;
+        }
+
+        [HttpGet("excel/plantilla")]
+        public IActionResult DescargarPlantillaExcel()
+        {
+            var bytes = ProductoExcelImportHelper.GenerarPlantilla();
+            return File(
+                bytes,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                ProductoExcelImportHelper.NombreArchivoPlantilla);
+        }
+
+        [HttpPost("excel/importar")]
+        [RequestSizeLimit(10_485_760)]
+        public async Task<ActionResult> ImportarExcel(
+            IFormFile? file,
+            [FromQuery] bool crearCategorias = true,
+            CancellationToken cancellationToken = default)
+        {
+            if (file == null || file.Length == 0)
+                return BadRequest(new { message = "Adjunta un archivo Excel (.xlsx)." });
+
+            var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+            if (ext != ".xlsx")
+                return BadRequest(new { message = "Solo se admite formato .xlsx (Excel)." });
+
+            await using var stream = file.OpenReadStream();
+            ProductoImportResult resultado;
+            try
+            {
+                resultado = await ProductoExcelImportHelper.ImportarAsync(
+                    stream,
+                    _context,
+                    crearCategorias,
+                    cancellationToken);
+            }
+            catch (Exception)
+            {
+                return BadRequest(new { message = "No se pudo leer el archivo. Verifica que sea un Excel valido (.xlsx)." });
+            }
+
+            return Ok(new
+            {
+                message = $"Importacion finalizada. Productos creados: {resultado.Creados}.",
+                creados = resultado.Creados,
+                errores = resultado.Errores.Select(e => new { fila = e.Fila, mensaje = e.Mensaje }),
+                omitidos = resultado.Omitidos.Select(o => new { fila = o.Fila, nombre = o.Nombre, razon = o.Razon })
+            });
         }
 
         [HttpGet]

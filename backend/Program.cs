@@ -11,7 +11,8 @@ using System.Threading.RateLimiting;
 var builder = WebApplication.CreateBuilder(args);
 builder.WebHost.ConfigureKestrel(options =>
 {
-    options.Limits.MaxRequestBodySize = 1_048_576; // 1 MB por request
+    // Permite importacion de Excel de productos (multipart) hasta 10 MB; el middleware sigue limitando el resto de /api a 1 MB salvo rutas de importacion.
+    options.Limits.MaxRequestBodySize = 10_485_760;
 });
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
@@ -184,12 +185,16 @@ app.Use(async (context, next) =>
 {
     if (context.Request.Path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase))
     {
-        var length = context.Request.ContentLength ?? 0;
-        if (length > 1_048_576)
+        var path = context.Request.Path.Value ?? string.Empty;
+        var esImportProductos = path.Contains("/Productos/excel/importar", StringComparison.OrdinalIgnoreCase);
+        var limite = esImportProductos ? 10_485_760L : 1_048_576L;
+        var length = context.Request.ContentLength;
+        if (length.HasValue && length.Value > limite)
         {
             context.Response.StatusCode = StatusCodes.Status413PayloadTooLarge;
             context.Response.ContentType = "application/json";
-            await context.Response.WriteAsJsonAsync(new { message = "El tamano del request excede el limite permitido (1 MB)." });
+            var mb = limite / 1_048_576.0;
+            await context.Response.WriteAsJsonAsync(new { message = $"El tamano del request excede el limite permitido ({mb:0.#} MB)." });
             return;
         }
     }
