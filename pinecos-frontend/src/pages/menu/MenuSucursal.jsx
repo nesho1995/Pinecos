@@ -175,34 +175,59 @@ function MenuSucursal() {
     }
   }, [sucursalSeleccionada]);
 
+  const nombreSucursalActiva = sucursales.find((s) => String(s.id_Sucursal) === String(sucursalSeleccionada))?.nombre;
+
   return (
     <div>
-      <h2 className="mb-2">Precios por sucursal</h2>
-      <p className="text-muted mb-2">
-        Aqui defines el precio de venta por sucursal. El costo y el alta masiva de productos estan en la pantalla{' '}
+      <h2 className="mb-2">Precios por sucursal (venta en POS)</h2>
+      <p className="text-muted mb-3">
+        El POS cobra segun el <strong>precio de venta</strong> configurado <strong>por cada sucursal</strong>. El costo interno y el catalogo estan en{' '}
         <Link to="/productos">Productos</Link>
-        {' '}(
-        <Link to={{ pathname: '/productos', hash: 'importar-productos-excel' }}>importar productos con Excel</Link>
-        ).
+        {' '}(tambien puedes{' '}
+        <Link to={{ pathname: '/productos', hash: 'importar-productos-excel' }}>importar con Excel</Link>
+        {' '}con costo y, si quieres, precio por sucursal).
       </p>
 
-      <div className="card shadow-sm mb-4">
+      <div className="card shadow-sm mb-4 border-0 bg-light">
         <div className="card-body">
-          <label className="form-label">Sucursal</label>
+          <h3 className="h6 mb-2">Guia rapida</h3>
+          <ol className="small mb-0 ps-3">
+            <li className="mb-2">
+              <strong>Producto simple</strong> (un solo precio, sin tamanos): arriba elige la sucursal, luego en &quot;Paso A&quot; asigna producto + precio. Listo para cobrar en esa sucursal.
+            </li>
+            <li className="mb-2">
+              <strong>Producto con tamanos</strong> (ej. grande/mediano): primero en &quot;Paso B&quot; une el producto con la presentacion (una sola vez, vale para todas las sucursales). Luego elige sucursal y en &quot;Paso C&quot; pon el precio de cada combinacion.
+            </li>
+            <li>
+              Usa la pestana <strong>Ver listado</strong> para comprobar que cada producto ya tiene precio en la sucursal elegida antes de abrir caja.
+            </li>
+          </ol>
+        </div>
+      </div>
+
+      <div className="card shadow-sm mb-4 border-primary border-2">
+        <div className="card-body">
+          <label className="form-label fw-semibold">1. Sucursal en la que vas a trabajar</label>
           <select
             className="form-select"
             value={sucursalSeleccionada}
             onChange={(e) => setSucursalSeleccionada(e.target.value)}
           >
-            <option value="">Seleccione</option>
+            <option value="">Seleccione sucursal</option>
             {sucursales.map((s) => (
               <option key={s.id_Sucursal} value={s.id_Sucursal}>
                 {s.nombre}
               </option>
             ))}
           </select>
-          {!sucursalSeleccionada && (
-            <small className="text-muted d-block mt-2">Primero selecciona sucursal para guardar precios.</small>
+          {sucursalSeleccionada ? (
+            <div className="mt-2 small text-success">
+              Precios que guardes abajo quedan en: <strong>{nombreSucursalActiva || 'sucursal seleccionada'}</strong>. Cambia la sucursal aqui para configurar otra tienda.
+            </div>
+          ) : (
+            <small className="text-muted d-block mt-2">
+              Debes elegir sucursal antes de guardar precios en los pasos A y C (el paso B no la necesita).
+            </small>
           )}
         </div>
       </div>
@@ -211,19 +236,25 @@ function MenuSucursal() {
       {error && <div className="alert alert-danger">{error}</div>}
       <div className="reports-tabs mb-3">
         <button className={`btn btn-sm ${vista === 'asignar' ? 'btn-dark' : 'btn-outline-secondary'}`} onClick={() => setVista('asignar')}>
-          Asignar precios
+          Dar precios de venta
         </button>
         <button className={`btn btn-sm ${vista === 'menu' ? 'btn-dark' : 'btn-outline-secondary'}`} onClick={() => setVista('menu')}>
-          Ver menu sucursal
+          Ver listado (como en POS)
         </button>
       </div>
 
       {vista === 'asignar' && (
       <div className="row g-4">
         <div className="col-md-4">
-          <div className="card shadow-sm">
+          <div className="card shadow-sm h-100">
             <div className="card-body">
-              <h5>Paso 1: Precio de producto normal</h5>
+              <div className="d-flex justify-content-between align-items-start gap-2 mb-2">
+                <h5 className="mb-0">Paso A: Precio de venta (producto simple)</h5>
+                <span className="badge text-bg-secondary text-wrap" style={{ maxWidth: '8rem' }}>Lo mas usual</span>
+              </div>
+              <p className="small text-muted mb-3">
+                Para productos que se venden <strong>sin elegir tamano</strong> (un solo precio). El mismo producto puede tener otro precio en otra sucursal: cambia la sucursal arriba y vuelve a guardar.
+              </p>
               <form onSubmit={handleAsignarProductoSucursal} className="row g-3">
                 <div className="col-12">
                   <select
@@ -244,11 +275,12 @@ function MenuSucursal() {
                 </div>
 
                 <div className="col-12">
+                  <label className="form-label small mb-0">Precio de venta (L)</label>
                   <input
                     type="number"
                     step="0.01"
                     className="form-control"
-                    placeholder="Precio"
+                    placeholder="Ej. 45.00"
                     value={formProductoSucursal.precio}
                     onChange={(e) =>
                       setFormProductoSucursal({ ...formProductoSucursal, precio: e.target.value })
@@ -259,7 +291,7 @@ function MenuSucursal() {
 
                 <div className="col-12">
                   <button className="btn btn-dark w-100" disabled={!sucursalSeleccionada}>
-                    Guardar precio
+                    Guardar precio en esta sucursal
                   </button>
                 </div>
               </form>
@@ -268,11 +300,14 @@ function MenuSucursal() {
         </div>
 
         <div className="col-md-4">
-          <div className="card shadow-sm">
+          <div className="card shadow-sm h-100">
             <div className="card-body">
-              <h5>Paso 2: Relacion producto-presentacion</h5>
+              <div className="d-flex justify-content-between align-items-start gap-2 mb-2">
+                <h5 className="mb-0">Paso B: Producto + presentacion (tamano)</h5>
+                <span className="badge text-bg-warning text-dark text-wrap" style={{ maxWidth: '8rem' }}>Solo si aplica</span>
+              </div>
               <small className="text-muted d-block mb-2">
-                Este paso es de catalogo global (se reutiliza en todas las sucursales).
+                Define que tu producto se puede vender en cierto tamano (ej. 12 oz). Es <strong>catalogo global</strong>: una vez creada la relacion, sirve para todas las sucursales. El precio por tamano lo pones en el Paso C.
               </small>
               <form onSubmit={handleAsignarProductoPresentacion} className="row g-3">
                 <div className="col-12">
@@ -364,9 +399,15 @@ function MenuSucursal() {
         </div>
 
         <div className="col-md-4">
-          <div className="card shadow-sm">
+          <div className="card shadow-sm h-100">
             <div className="card-body">
-              <h5>Paso 3: Precio por presentacion</h5>
+              <div className="d-flex justify-content-between align-items-start gap-2 mb-2">
+                <h5 className="mb-0">Paso C: Precio por tamano (en esta sucursal)</h5>
+                <span className="badge text-bg-warning text-dark text-wrap" style={{ maxWidth: '8rem' }}>Tras paso B</span>
+              </div>
+              <p className="small text-muted mb-3">
+                Solo aparecen las combinaciones que creaste en el Paso B. Cada sucursal puede tener precios distintos para la misma bebida en distinto tamano.
+              </p>
               <form onSubmit={handleAsignarPrecioPresentacion} className="row g-3">
                 <div className="col-12">
                   <select
@@ -393,11 +434,12 @@ function MenuSucursal() {
                 </div>
 
                 <div className="col-12">
+                  <label className="form-label small mb-0">Precio de venta (L)</label>
                   <input
                     type="number"
                     step="0.01"
                     className="form-control"
-                    placeholder="Precio"
+                    placeholder="Ej. 55.00"
                     value={formPrecioPresentacion.precio}
                     onChange={(e) =>
                       setFormPrecioPresentacion({ ...formPrecioPresentacion, precio: e.target.value })
@@ -408,7 +450,7 @@ function MenuSucursal() {
 
                 <div className="col-12">
                   <button className="btn btn-dark w-100" disabled={!sucursalSeleccionada}>
-                    Guardar precio
+                    Guardar precio en esta sucursal
                   </button>
                 </div>
               </form>
@@ -420,27 +462,38 @@ function MenuSucursal() {
 
       {vista === 'menu' && sucursalSeleccionada && (
         <div className="row g-4 mt-2">
+          <div className="col-12">
+            <p className="small text-muted mb-2">
+              Listado para <strong>{nombreSucursalActiva}</strong>. Si un precio sale en L 0.00, aun no lo configuraste para esta sucursal.
+            </p>
+          </div>
           <div className="col-md-6">
             <div className="card shadow-sm">
               <div className="card-body">
-                <h5>Productos normales</h5>
+                <h5 className="h6">Productos sin tamano (precio unico)</h5>
                 <div className="compact-table-wrap">
                   <table className="table table-bordered mb-0">
                     <thead>
                       <tr>
                         <th>Producto</th>
                         <th>Categoria</th>
-                        <th>Precio</th>
+                        <th>Precio venta</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {menu.normales?.map((item, index) => (
-                        <tr key={index}>
-                          <td>{item.producto}</td>
-                          <td>{item.categoria}</td>
-                          <td>L {Number(item.precio || 0).toFixed(2)}</td>
+                      {menu.normales?.length ? (
+                        menu.normales.map((item, index) => (
+                          <tr key={index}>
+                            <td>{item.producto}</td>
+                            <td>{item.categoria}</td>
+                            <td>L {Number(item.precio || 0).toFixed(2)}</td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={3} className="text-center text-muted">Sin productos en esta lista</td>
                         </tr>
-                      ))}
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -451,24 +504,30 @@ function MenuSucursal() {
           <div className="col-md-6">
             <div className="card shadow-sm">
               <div className="card-body">
-                <h5>Productos con presentacion</h5>
+                <h5 className="h6">Productos con tamano / presentacion</h5>
                 <div className="compact-table-wrap">
                   <table className="table table-bordered mb-0">
                     <thead>
                       <tr>
                         <th>Producto</th>
                         <th>Presentacion</th>
-                        <th>Precio</th>
+                        <th>Precio venta</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {menu.conPresentacion?.map((item, index) => (
-                        <tr key={index}>
-                          <td>{item.producto}</td>
-                          <td>{item.presentacion}</td>
-                          <td>L {Number(item.precio || 0).toFixed(2)}</td>
+                      {menu.conPresentacion?.length ? (
+                        menu.conPresentacion.map((item, index) => (
+                          <tr key={index}>
+                            <td>{item.producto}</td>
+                            <td>{item.presentacion}</td>
+                            <td>L {Number(item.precio || 0).toFixed(2)}</td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={3} className="text-center text-muted">Sin combinaciones con precio</td>
                         </tr>
-                      ))}
+                      )}
                     </tbody>
                   </table>
                 </div>

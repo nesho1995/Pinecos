@@ -11,7 +11,7 @@ const routeTitles = {
   '/gastos': 'Gastos',
   '/reportes': 'Reportes',
   '/estado-cuenta': 'Estado de Cuenta',
-  '/menu-sucursal': 'Precios por Sucursal',
+  '/menu-sucursal': 'Precios por sucursal (POS)',
   '/productos': 'Productos',
   '/categorias': 'Categorias',
   '/presentaciones': 'Presentaciones',

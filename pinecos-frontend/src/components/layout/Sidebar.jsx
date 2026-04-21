@@ -18,7 +18,7 @@ const sections = [
       { to: '/dashboard', label: 'Dashboard', roles: ['ADMIN'] },
       { to: '/reportes', label: 'Reportes', roles: ['ADMIN'] },
       { to: '/estado-cuenta', label: 'Estado de Cuenta', roles: ['ADMIN'] },
-      { to: '/menu-sucursal', label: 'Precios por Sucursal', roles: ['ADMIN'] },
+      { to: '/menu-sucursal', label: 'Precios por sucursal (POS)', roles: ['ADMIN'] },
       { to: '/mesas-admin', label: 'Mesas', roles: ['ADMIN'] },
       { to: '/proveedores', label: 'Proveedores', roles: ['ADMIN'] },
       { to: '/inventario', label: 'Inventario', roles: ['ADMIN'] },

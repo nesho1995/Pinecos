@@ -6,6 +6,8 @@ function Productos() {
   const location = useLocation();
   const [productos, setProductos] = useState([]);
   const [categorias, setCategorias] = useState([]);
+  const [sucursales, setSucursales] = useState([]);
+  const [precioVenta, setPrecioVenta] = useState({ id_Sucursal: '', precio: '' });
   const [mostrarInactivos, setMostrarInactivos] = useState(false);
   const [filtro, setFiltro] = useState('');
   const [editandoId, setEditandoId] = useState(null);
@@ -42,12 +44,22 @@ function Productos() {
     }
   };
 
+  const cargarSucursales = async () => {
+    try {
+      const response = await api.get('/Sucursales');
+      setSucursales(response.data || []);
+    } catch {
+      setSucursales([]);
+    }
+  };
+
   useEffect(() => {
     cargarProductos();
   }, [mostrarInactivos]);
 
   useEffect(() => {
     cargarCategorias();
+    cargarSucursales();
   }, []);
 
   useEffect(() => {
@@ -117,6 +129,7 @@ function Productos() {
       costo: 0,
       activo: true
     });
+    setPrecioVenta({ id_Sucursal: '', precio: '' });
     setEditandoId(null);
   };
 
@@ -135,6 +148,16 @@ function Productos() {
     if (!form.nombre.trim()) return setError('El nombre es requerido');
     if (!form.id_Categoria) return setError('Selecciona una categoria');
 
+    const pvn = Number(precioVenta.precio);
+    const idSucSel = precioVenta.id_Sucursal;
+    const tieneSucursal = idSucSel !== '' && idSucSel != null;
+    const tienePrecio = !Number.isNaN(pvn) && pvn > 0;
+    if (tieneSucursal !== tienePrecio) {
+      return setError(
+        'Precio de venta: elige sucursal y escribe un precio mayor a cero, o deja ambos vacios y configuralo despues en Precios por sucursal.'
+      );
+    }
+
     const payload = {
       nombre: form.nombre.trim(),
       id_Categoria: Number(form.id_Categoria),
@@ -143,13 +166,37 @@ function Productos() {
     };
 
     try {
+      let idProducto = editandoId;
+      let msg = '';
+
       if (editandoId) {
         await api.put(`/Productos/${editandoId}`, payload);
-        setMensaje('Producto actualizado correctamente');
+        msg = 'Producto actualizado correctamente.';
       } else {
-        await api.post('/Productos', payload);
-        setMensaje('Producto creado correctamente');
+        const res = await api.post('/Productos', payload);
+        const creado = res.data?.data;
+        idProducto = creado?.id_Producto ?? creado?.id_producto;
+        msg = 'Producto creado correctamente.';
+        if (tienePrecio && !idProducto) {
+          setError(
+            'El producto se guardo pero no se pudo leer el codigo para asignar precio. Asigna el precio en Precios por sucursal.'
+          );
+          await cargarProductos();
+          return;
+        }
       }
+
+      if (tienePrecio && tieneSucursal && idProducto) {
+        await api.post('/Menu/producto-sucursal', {
+          id_Producto: Number(idProducto),
+          id_Sucursal: Number(idSucSel),
+          precio: pvn,
+          activo: true
+        });
+        msg += ' Precio de venta asignado en la sucursal elegida.';
+      }
+
+      setMensaje(msg);
       limpiarFormulario();
       await cargarProductos();
     } catch (err) {
@@ -233,9 +280,8 @@ function Productos() {
           <h3 className="h5 mb-2 text-primary">Importar productos (Excel)</h3>
           <p className="small text-muted mb-3">
             Formato: archivo <strong>.xlsx</strong>; se lee siempre la <strong>primera hoja</strong> del libro.
-            Fila 1 con encabezados: <strong>nombre</strong>, <strong>categoria</strong>, <strong>costo</strong> (tambien acepta name, category, cost en ingles).
-            Desde la fila 2, un producto por fila. El costo puede ser numero en celda o texto con punto o coma decimal. Limite 5000 filas de datos.
-            Si el nombre ya existe como producto activo, esa fila se omite. Opcional: crear categorias automaticamente si el nombre de categoria no existe aun.
+            Fila 1: <strong>nombre</strong>, <strong>categoria</strong>, <strong>costo</strong> (obligatorios). Opcionales: <strong>precio</strong> y <strong>sucursal</strong> (nombre exacto de la sucursal) para asignar precio de venta en esa fila; las dos columnas deben ir juntas o vacias ambas.
+            Desde la fila 2, un producto por fila. Limite 5000 filas. Si el nombre ya existe activo, la fila se omite. Puedes crear categorias nuevas con la casilla de abajo.
           </p>
           <div className="d-flex flex-wrap gap-2 align-items-center mb-3">
             <button type="button" className="btn btn-outline-primary btn-sm" onClick={descargarPlantillaExcel}>
@@ -300,24 +346,47 @@ function Productos() {
         </div>
       </div>
 
-      <div className="alert alert-info d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
-        <span>
-          Aqui defines el catalogo y el costo interno. El precio de venta por sucursal se configura en &quot;Precios por Sucursal&quot;.
-        </span>
-        <Link className="btn btn-sm btn-outline-primary" to="/menu-sucursal">
-          Ir a Precios por Sucursal
-        </Link>
+      <div className="card shadow-sm mb-4 border-0 bg-light">
+        <div className="card-body">
+          <h3 className="h6 mb-2">Como funciona el catalogo</h3>
+          <ul className="small mb-3 ps-3">
+            <li>
+              <strong>Costo (L)</strong>: referencia interna (costo aproximado o valor de inventario). Una sola cifra por producto.
+            </li>
+            <li>
+              <strong>Precio de venta (L)</strong>: lo que paga el cliente en caja. En este sistema va <strong>por sucursal</strong>, porque cada tienda puede cobrar distinto.
+            </li>
+            <li>
+              Puedes poner el precio aqui abajo al guardar (una sucursal por vez) o mas tarde en &quot;Precios por sucursal&quot;. Si tienes varias sucursales, repite el guardado o usa esa pantalla.
+            </li>
+            <li>
+              Las <strong>categorias</strong> son maestro aparte: crea o edita en &quot;Categorias&quot; o deja que el Excel las cree si marcaste la opcion en la importacion.
+            </li>
+          </ul>
+          <div className="d-flex flex-wrap gap-2">
+            <Link className="btn btn-sm btn-outline-primary" to="/categorias">
+              Ir a Categorias
+            </Link>
+            <Link className="btn btn-sm btn-outline-primary" to="/menu-sucursal">
+              Ir a Precios por sucursal
+            </Link>
+          </div>
+        </div>
       </div>
 
       <div className="card shadow-sm mb-4">
         <div className="card-body">
+          <h3 className="h6 mb-3">Alta o edicion de producto</h3>
           <form onSubmit={guardarProducto} className="row g-3">
-            <div className="col-md-4">
+            <div className="col-lg-4 col-md-6">
               <label className="form-label">Nombre</label>
               <input type="text" className="form-control" name="nombre" value={form.nombre} onChange={handleChange} required />
             </div>
-            <div className="col-md-3">
-              <label className="form-label">Categoria</label>
+            <div className="col-lg-4 col-md-6">
+              <label className="form-label d-flex justify-content-between align-items-end gap-2">
+                <span>Categoria</span>
+                <Link to="/categorias" className="small">Administrar</Link>
+              </label>
               <select className="form-select" name="id_Categoria" value={form.id_Categoria} onChange={handleChange} required>
                 <option value="">Seleccione</option>
                 {categorias.map((cat) => (
@@ -325,21 +394,53 @@ function Productos() {
                 ))}
               </select>
             </div>
-            <div className="col-md-2">
-              <label className="form-label">Costo</label>
+            <div className="col-lg-2 col-md-4">
+              <label className="form-label">Costo interno (L)</label>
               <input type="number" min="0" step="0.01" className="form-control" name="costo" value={form.costo} onChange={handleChange} />
             </div>
-            <div className="col-md-1 d-flex align-items-end">
+            <div className="col-lg-2 col-md-4 d-flex align-items-end">
               <div className="form-check">
                 <input type="checkbox" className="form-check-input" name="activo" checked={form.activo} onChange={handleChange} />
                 <label className="form-check-label">Activo</label>
               </div>
             </div>
-            <div className="col-md-2 d-flex align-items-end">
-              <button className="btn btn-dark w-100" type="submit">{editandoId ? 'Actualizar' : 'Guardar'}</button>
+
+            <div className="col-12">
+              <hr className="my-2" />
+              <div className="fw-semibold small mb-2">Precio de venta en sucursal (opcional)</div>
+              <p className="small text-muted mb-2">
+                Si ya sabes cuanto cobraras en una sucursal, elige la sucursal y el precio. Se guarda junto con el producto. Deja vacio si prefieres configurarlo despues en &quot;Precios por sucursal&quot;.
+              </p>
             </div>
-            <div className="col-md-2 d-flex align-items-end">
-              <button className="btn btn-outline-secondary w-100" type="button" onClick={limpiarFormulario}>Limpiar</button>
+            <div className="col-md-4">
+              <label className="form-label">Sucursal para precio de venta</label>
+              <select
+                className="form-select"
+                value={precioVenta.id_Sucursal}
+                onChange={(e) => setPrecioVenta((p) => ({ ...p, id_Sucursal: e.target.value }))}
+              >
+                <option value="">(Ninguna — despues en Precios por sucursal)</option>
+                {sucursales.map((s) => (
+                  <option key={s.id_Sucursal} value={s.id_Sucursal}>{s.nombre}</option>
+                ))}
+              </select>
+            </div>
+            <div className="col-md-3">
+              <label className="form-label">Precio de venta (L)</label>
+              <input
+                type="number"
+                min="0.01"
+                step="0.01"
+                className="form-control"
+                placeholder="Ej. 45"
+                value={precioVenta.precio}
+                onChange={(e) => setPrecioVenta((p) => ({ ...p, precio: e.target.value }))}
+              />
+            </div>
+
+            <div className="col-md-5 d-flex align-items-end flex-wrap gap-2">
+              <button className="btn btn-dark" type="submit">{editandoId ? 'Actualizar' : 'Guardar'}</button>
+              <button className="btn btn-outline-secondary" type="button" onClick={limpiarFormulario}>Limpiar</button>
             </div>
           </form>
         </div>

@@ -61,8 +61,10 @@ namespace Pinecos.Controllers
 
             return Ok(new
             {
-                message = $"Importacion finalizada. Productos creados: {resultado.Creados}.",
+                message =
+                    $"Importacion finalizada. Productos creados: {resultado.Creados}. Precios de venta asignados: {resultado.PreciosAsignados}.",
                 creados = resultado.Creados,
+                preciosAsignados = resultado.PreciosAsignados,
                 errores = resultado.Errores.Select(e => new { fila = e.Fila, mensaje = e.Mensaje }),
                 omitidos = resultado.Omitidos.Select(o => new { fila = o.Fila, nombre = o.Nombre, razon = o.Razon })
             });

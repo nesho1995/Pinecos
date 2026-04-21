@@ -17,9 +17,13 @@ namespace Pinecos.Helpers
             ws.Cell(1, 1).Value = "nombre";
             ws.Cell(1, 2).Value = "categoria";
             ws.Cell(1, 3).Value = "costo";
+            ws.Cell(1, 4).Value = "precio";
+            ws.Cell(1, 5).Value = "sucursal";
             ws.Cell(2, 1).Value = "Cafe americano";
             ws.Cell(2, 2).Value = "Bebidas calientes";
             ws.Cell(2, 3).Value = 12.50m;
+            ws.Cell(2, 4).Value = 45.00m;
+            ws.Cell(2, 5).Value = "Nombre exacto de la sucursal";
             ws.Row(1).Style.Font.Bold = true;
             ws.Columns().AdjustToContents();
 
@@ -71,6 +75,8 @@ namespace Pinecos.Helpers
             int? colNombre = ResolverColumna(headerMap, "nombre", "name", "producto");
             int? colCategoria = ResolverColumna(headerMap, "categoria", "categoría", "category");
             int? colCosto = ResolverColumna(headerMap, "costo", "cost");
+            int? colPrecio = ResolverColumna(headerMap, "precio", "price", "precio_venta");
+            int? colSucursal = ResolverColumna(headerMap, "sucursal", "sucursal_nombre", "branch", "tienda");
 
             if (colNombre == null || colCategoria == null || colCosto == null)
             {
@@ -80,7 +86,16 @@ namespace Pinecos.Helpers
                 return resultado;
             }
 
+            if ((colPrecio == null) != (colSucursal == null))
+            {
+                resultado.Errores.Add(new ProductoImportLineaError(
+                    firstRow,
+                    "Si incluyes precio de venta, deben existir las columnas precio y sucursal (las dos). Opcional: omitelas todas."));
+                return resultado;
+            }
+
             var categorias = await context.Categorias.ToListAsync(cancellationToken);
+            var sucursales = await context.Sucursales.Where(s => s.Activo).ToListAsync(cancellationToken);
             var dataRows = lastRow - firstRow;
             if (dataRows > MaxFilas)
             {
@@ -153,19 +168,105 @@ namespace Pinecos.Helpers
                     continue;
                 }
 
-                context.Productos.Add(new Producto
+                int? idSucursalPrecio = null;
+                decimal? precioImport = null;
+                if (colPrecio != null && colSucursal != null)
+                {
+                    var nombreSuc = ws.Cell(r, colSucursal.Value).GetString().Trim();
+                    var precioCell = ws.Cell(r, colPrecio.Value);
+                    var precioVacio = precioCell.IsEmpty() && precioCell.DataType != XLDataType.Number;
+                    var sucursalVacia = string.IsNullOrEmpty(nombreSuc);
+
+                    if (precioVacio && sucursalVacia)
+                    {
+                        // Sin precio en esta fila (solo catalogo).
+                    }
+                    else if (precioVacio || sucursalVacia)
+                    {
+                        resultado.Errores.Add(new ProductoImportLineaError(r,
+                            "Columnas precio y sucursal: llena las dos en la fila, o deja las dos vacias."));
+                        continue;
+                    }
+                    else
+                    {
+                        decimal precioVenta;
+                        if (precioCell.DataType == XLDataType.Number && precioCell.TryGetValue(out double precioNum))
+                            precioVenta = (decimal)precioNum;
+                        else
+                        {
+                            var precioRaw = precioCell.GetString().Trim();
+                            if (!decimal.TryParse(precioRaw.Replace(',', '.'), System.Globalization.NumberStyles.Any,
+                                    System.Globalization.CultureInfo.InvariantCulture, out precioVenta) || precioVenta <= 0)
+                            {
+                                resultado.Errores.Add(new ProductoImportLineaError(r, $"Precio de venta invalido: '{precioRaw}'."));
+                                continue;
+                            }
+                        }
+
+                        var sucursal = sucursales.FirstOrDefault(s =>
+                            string.Equals(s.Nombre.Trim(), nombreSuc, StringComparison.OrdinalIgnoreCase));
+                        if (sucursal == null)
+                        {
+                            resultado.Errores.Add(new ProductoImportLineaError(r,
+                                $"Sucursal no encontrada o inactiva: '{nombreSuc}'."));
+                            continue;
+                        }
+
+                        idSucursalPrecio = sucursal.Id_Sucursal;
+                        precioImport = precioVenta;
+                    }
+                }
+
+                var nuevoProducto = new Producto
                 {
                     Nombre = nombre,
                     Id_Categoria = idCategoria.Value,
                     Costo = costo,
                     Activo = true
-                });
+                };
 
+                context.Productos.Add(nuevoProducto);
                 await context.SaveChangesAsync(cancellationToken);
                 resultado.Creados++;
+
+                if (precioImport.HasValue && idSucursalPrecio.HasValue)
+                {
+                    await UpsertProductoSucursalAsync(context, nuevoProducto.Id_Producto, idSucursalPrecio.Value,
+                        precioImport.Value, cancellationToken);
+                    resultado.PreciosAsignados++;
+                }
             }
 
             return resultado;
+        }
+
+        private static async Task UpsertProductoSucursalAsync(
+            PinecosDbContext context,
+            int idProducto,
+            int idSucursal,
+            decimal precio,
+            CancellationToken cancellationToken)
+        {
+            var existente = await context.ProductosSucursal.FirstOrDefaultAsync(x =>
+                x.Id_Producto == idProducto && x.Id_Sucursal == idSucursal, cancellationToken);
+
+            if (existente == null)
+            {
+                context.ProductosSucursal.Add(new ProductoSucursal
+                {
+                    Id_Producto = idProducto,
+                    Id_Sucursal = idSucursal,
+                    Precio = precio,
+                    Activo = true
+                });
+            }
+            else
+            {
+                existente.Precio = precio;
+                existente.Activo = true;
+            }
+
+            await context.SaveChangesAsync(cancellationToken);
         }
 
         private static string NormalizarEncabezado(string raw)
@@ -201,6 +302,7 @@ namespace Pinecos.Helpers
     public sealed class ProductoImportResult
     {
         public int Creados { get; set; }
+        public int PreciosAsignados { get; set; }
         public List<ProductoImportLineaError> Errores { get; } = new();
         public List<ProductoImportOmitido> Omitidos { get; } = new();
     }
