@@ -32,11 +32,19 @@ namespace Pinecos.Documents
                     column.Item().Text($"Método de pago: {_ticket.MetodoPago}");
                     if (_ticket.EsFacturaCai)
                     {
-                        column.Item().PaddingTop(5).Text("Documento Fiscal SAR").Bold();
-                        column.Item().Text($"Factura: {_ticket.NumeroFactura}");
-                        column.Item().Text($"CAI: {_ticket.Cai}");
-                        column.Item().Text($"Rango: {_ticket.RangoInicio} - {_ticket.RangoFin}");
-                        column.Item().Text($"Fecha límite: {(_ticket.FechaLimiteEmision.HasValue ? _ticket.FechaLimiteEmision.Value.ToString("dd/MM/yyyy") : "-")}");
+                        column.Item().PaddingTop(4).AlignCenter().Text("DOCUMENTO FISCAL (SAR)").Bold().FontSize(10);
+                        column.Item().AlignCenter().Text("FACTURA ORIGINAL — CLIENTE").FontSize(8);
+                        column.Item().PaddingTop(4).AlignCenter().Text($"No. CONTROL: {_ticket.NumeroFactura}").Bold().FontSize(12);
+                        column.Item().PaddingTop(6).Border(1).Padding(8).Column(fiscal =>
+                        {
+                            fiscal.Item().Text($"C.A.I. {_ticket.Cai}");
+                            fiscal.Item().Text($"Rango autorizado: {_ticket.RangoInicio} al {_ticket.RangoFin}");
+                            fiscal.Item().Text($"Fecha límite emisión: {(_ticket.FechaLimiteEmision.HasValue ? _ticket.FechaLimiteEmision.Value.ToString("dd/MM/yyyy") : "—")}");
+                        });
+                        if (!string.IsNullOrWhiteSpace(_ticket.LeyendaSar))
+                        {
+                            column.Item().PaddingTop(4).Border(1).BorderColor("#888888").Padding(6).Text(_ticket.LeyendaSar).FontSize(8);
+                        }
                     }
                 });
 

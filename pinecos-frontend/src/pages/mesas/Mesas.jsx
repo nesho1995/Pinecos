@@ -672,16 +672,32 @@ function Mesas() {
   };
 
   return (
-    <div>
-      <h2 className="mb-4">Mesas y Cuentas</h2>
+    <div className="mesas-page">
+      <div className="mesas-page-hero card border-0 shadow-sm mb-4 overflow-hidden">
+        <div className="card-body py-3 px-4">
+          <div className="d-flex flex-wrap justify-content-between align-items-start gap-3">
+            <div>
+              <h2 className="mb-1">Mesas y cuentas</h2>
+              <p className="text-muted small mb-0">
+                Toca una mesa para abrir o cobrar la cuenta. En tablet usa las pestañas <strong>Mesas</strong> y <strong>Cuenta y cobro</strong>.
+              </p>
+            </div>
+            <div className="d-flex flex-wrap gap-2 align-items-center">
+              <span className={`badge rounded-pill px-3 py-2 ${cajaActual?.abierta ? 'text-bg-success' : 'text-bg-warning text-dark'}`}>
+                {cargandoCaja ? 'Caja...' : cajaActual?.abierta ? `Caja #${cajaActual.id_Caja} abierta` : 'Caja cerrada'}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
       {mensaje && <div className="alert alert-success">{mensaje}</div>}
       {error && <div className="alert alert-danger">{error}</div>}
 
-      <div className="card shadow-sm mb-4">
-        <div className="card-body">
+      <div className="card shadow-sm mb-4 mesas-toolbar-card">
+        <div className="card-body py-3">
           <div className="row g-3 align-items-end">
             <div className="col-md-4">
-              <label className="form-label">Sucursal</label>
+              <label className="form-label fw-semibold">Sucursal</label>
               <select className="form-select" value={sucursalSeleccionada} onChange={(e) => setSucursalSeleccionada(e.target.value)} disabled={!esAdmin}>
                 <option value="">Seleccione</option>
                 {sucursales.map((s) => <option key={s.id_Sucursal} value={s.id_Sucursal}>{s.nombre}</option>)}
@@ -689,8 +705,8 @@ function Mesas() {
             </div>
             {esAdmin && (
               <div className="col-md-8">
-                <div className="alert alert-info mb-0">
-                  La configuracion de mesas se hace en Administracion {'>'} Mesas.
+                <div className="alert alert-info mb-0 py-2 small">
+                  El plano de mesas (posicion y forma) se configura en <strong>Administracion → Mesas</strong>.
                 </div>
               </div>
             )}

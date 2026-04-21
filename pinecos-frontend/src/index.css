@@ -506,6 +506,12 @@ body {
   min-height: 510px;
   max-height: calc(100dvh - 220px);
   overflow: auto;
+  background-color: #f8fafc;
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(148, 163, 184, 0.35) 1px, transparent 0);
+  background-size: 22px 22px;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
 }
 
 .mesas-pos-shell {
@@ -858,4 +864,33 @@ body {
     max-height: calc(100dvh - 215px);
     overflow-y: auto;
   }
+}
+
+/* Mesas: cabecera y plano */
+.mesas-page-hero {
+  background: linear-gradient(120deg, #ecfdf5 0%, #ffffff 45%, #eef2ff 100%);
+  border: 1px solid #d1fae5 !important;
+}
+
+.mesas-toolbar-card {
+  border-radius: 14px !important;
+}
+
+/* POS: cabecera */
+.pos-page-hero {
+  background: linear-gradient(120deg, #fffbeb 0%, #ffffff 50%, #ecfdf5 100%);
+  border: 1px solid #fde68a !important;
+}
+
+/* Configuracion SAR: vista previa factura */
+.factura-sar-preview-card {
+  top: 0.75rem;
+  border-radius: 14px !important;
+  max-height: calc(100dvh - 120px);
+  overflow-y: auto;
+}
+
+.factura-sar-preview-body {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
 }

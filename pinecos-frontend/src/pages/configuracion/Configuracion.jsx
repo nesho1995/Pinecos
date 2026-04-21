@@ -506,167 +506,253 @@ function Configuracion() {
       )}
 
       {tabConfig === 'sar' && (
-      <div className="card shadow-sm">
-        <div className="card-body reports-card-body">
-          <h5 className="mb-1">Facturacion SAR (CAI) por sucursal</h5>
-          <div className="small text-muted mb-3">
-            Editando: <strong>{sucursalActualNombre}</strong>
-          </div>
-          <form onSubmit={guardarFacturacionSar} className="row g-3">
-            <div className="col-md-4">
-              <label className="form-label">Sucursal SAR</label>
-              <select className="form-select" value={sucursalSar} onChange={(e) => setSucursalSar(e.target.value)}>
-                {sucursales.map((s) => <option key={s.id_Sucursal} value={s.id_Sucursal}>{s.nombre}</option>)}
-              </select>
-            </div>
+      <div>
+        <div className="alert alert-light border mb-3">
+          <strong>Factura fiscal SAR (Honduras):</strong> los datos del talonario CAI, correlativo, rangos, fecha limite, leyenda, imprenta y pie se usan al emitir factura desde POS o Mesas.
+          El PDF/HTML de factura ahora agrupa el CAI en recuadro, muestra <strong>No. CONTROL</strong> (correlativo emitido), leyenda aparte y pie al final, alineado a un formato de factura fisica tipo SAR.
+          Nombre, direccion y RTN del negocio en la factura salen de la pestana <strong>Negocio</strong> (misma sucursal).
+        </div>
 
-            <div className="col-12">
-              <div className="form-check form-switch">
-                <input
-                  className="form-check-input"
-                  type="checkbox"
-                  id="habilitadoCai"
-                  name="habilitadoCai"
-                  checked={sarForm.habilitadoCai}
-                  onChange={handleSarChange}
-                />
-                <label className="form-check-label" htmlFor="habilitadoCai">
-                  Habilitar facturacion con CAI
-                </label>
-              </div>
-            </div>
-
-            {sarForm.habilitadoCai && (
-              <div className="col-12">
-                <div className={`alert py-2 mb-0 ${sarForm.facturasRestantes > 0 && !sarForm.caiVencido ? 'alert-info' : 'alert-danger'}`}>
-                  Facturas CAI restantes: <strong>{sarForm.facturasRestantes}</strong>
-                  {sarForm.caiVencido && <span className="ms-2">| CAI vencido</span>}
+        <div className="row g-3 align-items-start">
+          <div className="col-lg-7">
+            <div className="card shadow-sm h-100">
+              <div className="card-body reports-card-body">
+                <h5 className="mb-1">Facturacion SAR (CAI)</h5>
+                <div className="small text-muted mb-3">
+                  Editando sucursal: <strong>{sucursalActualNombre}</strong>
                 </div>
+                <form onSubmit={guardarFacturacionSar} className="row g-3">
+                  <div className="col-12">
+                    <label className="form-label">Sucursal</label>
+                    <select className="form-select" value={sucursalSar} onChange={(e) => setSucursalSar(e.target.value)}>
+                      {sucursales.map((s) => <option key={s.id_Sucursal} value={s.id_Sucursal}>{s.nombre}</option>)}
+                    </select>
+                  </div>
+
+                  <div className="col-12">
+                    <div className="form-check form-switch">
+                      <input
+                        className="form-check-input"
+                        type="checkbox"
+                        id="habilitadoCai"
+                        name="habilitadoCai"
+                        checked={sarForm.habilitadoCai}
+                        onChange={handleSarChange}
+                      />
+                      <label className="form-check-label" htmlFor="habilitadoCai">
+                        Habilitar facturacion con CAI en esta sucursal
+                      </label>
+                    </div>
+                  </div>
+
+                  {sarForm.habilitadoCai && (
+                    <div className="col-12">
+                      <div className={`alert py-2 mb-0 ${sarForm.facturasRestantes > 0 && !sarForm.caiVencido ? 'alert-info' : 'alert-danger'}`}>
+                        Facturas CAI restantes en rango: <strong>{sarForm.facturasRestantes}</strong>
+                        {sarForm.caiVencido && <span className="ms-2">| Fecha limite vencida — actualiza en SAR</span>}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="col-12">
+                    <fieldset className="border rounded-3 p-3">
+                      <legend className="float-none w-auto px-2 fs-6 mb-0">Talonario CAI</legend>
+                      <div className="row g-3 mt-1">
+                        <div className="col-md-12">
+                          <label className="form-label">C.A.I.</label>
+                          <input type="text" className="form-control font-monospace" name="cai" value={sarForm.cai} onChange={handleSarChange} autoComplete="off" />
+                        </div>
+                        <div className="col-md-6">
+                          <label className="form-label">Rango autorizado — inicio</label>
+                          <input type="text" className="form-control font-monospace" name="rangoInicio" value={sarForm.rangoInicio} onChange={handleSarChange} placeholder="000-001-01-00000001" />
+                        </div>
+                        <div className="col-md-6">
+                          <label className="form-label">Rango autorizado — fin</label>
+                          <input type="text" className="form-control font-monospace" name="rangoFin" value={sarForm.rangoFin} onChange={handleSarChange} placeholder="000-001-01-00005000" />
+                        </div>
+                        <div className="col-md-6">
+                          <label className="form-label">Siguiente correlativo a emitir</label>
+                          <input type="number" className="form-control" name="siguienteCorrelativo" value={sarForm.siguienteCorrelativo} onChange={handleSarChange} min="1" />
+                          <small className="text-muted">Debe caer dentro del rango; al cobrar con factura se incrementa y se imprime como No. CONTROL.</small>
+                        </div>
+                        <div className="col-md-6">
+                          <label className="form-label">Fecha limite de emision (SAR)</label>
+                          <input type="date" className="form-control" name="fechaLimiteEmision" value={sarForm.fechaLimiteEmision} onChange={handleSarChange} />
+                        </div>
+                      </div>
+                    </fieldset>
+                  </div>
+
+                  <div className="col-12">
+                    <fieldset className="border rounded-3 p-3">
+                      <legend className="float-none w-auto px-2 fs-6 mb-0">Textos en el cuerpo de la factura</legend>
+                      <div className="row g-3 mt-1">
+                        <div className="col-12">
+                          <label className="form-label">Leyenda SAR (recuadro en factura)</label>
+                          <textarea className="form-control" rows={3} name="leyendaSar" value={sarForm.leyendaSar} onChange={handleSarChange} placeholder="Texto legal o de resolucion que debe verse en la factura..." />
+                        </div>
+                        <div className="col-12">
+                          <label className="form-label">Pie de factura (linea final)</label>
+                          <textarea className="form-control" rows={2} name="pieFactura" value={sarForm.pieFactura} onChange={handleSarChange} />
+                        </div>
+                        <div className="col-md-6">
+                          <label className="form-label">Ciudad (encabezado &quot;Lugar y fecha&quot;)</label>
+                          <input type="text" className="form-control" name="ciudadFechaFactura" value={sarForm.ciudadFechaFactura} onChange={handleSarChange} placeholder="Ej. Comayagua" />
+                          <small className="text-muted">La fecha de la venta se agrega automaticamente al imprimir.</small>
+                        </div>
+                        <div className="col-md-6">
+                          <label className="form-label">Correo del negocio en factura</label>
+                          <input type="text" className="form-control" name="correoNegocioFactura" value={sarForm.correoNegocioFactura} onChange={handleSarChange} />
+                        </div>
+                      </div>
+                    </fieldset>
+                  </div>
+
+                  <div className="col-12">
+                    <fieldset className="border rounded-3 p-3">
+                      <legend className="float-none w-auto px-2 fs-6 mb-0">Imprenta / autorizacion del formato</legend>
+                      <div className="row g-3 mt-1">
+                        <div className="col-md-4">
+                          <label className="form-label">Nombre imprenta</label>
+                          <input type="text" className="form-control" name="nombreImprenta" value={sarForm.nombreImprenta} onChange={handleSarChange} />
+                        </div>
+                        <div className="col-md-4">
+                          <label className="form-label">RTN imprenta</label>
+                          <input type="text" className="form-control" name="rtnImprenta" value={sarForm.rtnImprenta} onChange={handleSarChange} />
+                        </div>
+                        <div className="col-md-4">
+                          <label className="form-label">No. certificado / registro</label>
+                          <input type="text" className="form-control" name="numeroCertificadoImprenta" value={sarForm.numeroCertificadoImprenta} onChange={handleSarChange} />
+                        </div>
+                      </div>
+                    </fieldset>
+                  </div>
+
+                  <div className="col-12">
+                    <fieldset className="border rounded-3 p-3">
+                      <legend className="float-none w-auto px-2 fs-6 mb-0">Cliente por defecto (consumidor final)</legend>
+                      <div className="row g-3 mt-1">
+                        <div className="col-md-6">
+                          <label className="form-label">Nombre</label>
+                          <input type="text" className="form-control" name="clientePorDefecto" value={sarForm.clientePorDefecto} onChange={handleSarChange} />
+                        </div>
+                        <div className="col-md-3">
+                          <label className="form-label">RTN</label>
+                          <input type="text" className="form-control" name="rtnClientePorDefecto" value={sarForm.rtnClientePorDefecto} onChange={handleSarChange} />
+                        </div>
+                        <div className="col-md-3">
+                          <label className="form-label">Direccion</label>
+                          <input type="text" className="form-control" name="direccionClientePorDefecto" value={sarForm.direccionClientePorDefecto} onChange={handleSarChange} />
+                        </div>
+                      </div>
+                    </fieldset>
+                  </div>
+
+                  <div className="col-12">
+                    <div className="form-check">
+                      <input
+                        className="form-check-input"
+                        type="checkbox"
+                        id="permitirVentaSinFactura"
+                        name="permitirVentaSinFactura"
+                        checked={sarForm.permitirVentaSinFactura}
+                        onChange={handleSarChange}
+                      />
+                      <label className="form-check-label" htmlFor="permitirVentaSinFactura">
+                        Permitir ventas sin emitir factura CAI (ticket no fiscal)
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="col-12">
+                    <button className="btn btn-dark" type="submit">Guardar configuracion SAR</button>
+                  </div>
+                </form>
               </div>
-            )}
+            </div>
+          </div>
 
-            <div className="col-md-6">
-              <label className="form-label">CAI</label>
-              <input type="text" className="form-control" name="cai" value={sarForm.cai} onChange={handleSarChange} />
-            </div>
-
-            <div className="col-md-3">
-              <label className="form-label">Rango inicio</label>
-              <input type="text" className="form-control" name="rangoInicio" value={sarForm.rangoInicio} onChange={handleSarChange} placeholder="000-000-00-00000000" />
-            </div>
-
-            <div className="col-md-3">
-              <label className="form-label">Rango fin</label>
-              <input type="text" className="form-control" name="rangoFin" value={sarForm.rangoFin} onChange={handleSarChange} placeholder="000-000-00-00000000" />
-            </div>
-
-            <div className="col-md-3">
-              <label className="form-label">Siguiente correlativo</label>
-              <input type="number" className="form-control" name="siguienteCorrelativo" value={sarForm.siguienteCorrelativo} onChange={handleSarChange} min="1" />
-            </div>
-
-            <div className="col-md-3">
-              <label className="form-label">Fecha limite emision</label>
-              <input type="date" className="form-control" name="fechaLimiteEmision" value={sarForm.fechaLimiteEmision} onChange={handleSarChange} />
-            </div>
-
-            <div className="col-md-6">
-              <label className="form-label">Leyenda SAR</label>
-              <input type="text" className="form-control" name="leyendaSar" value={sarForm.leyendaSar} onChange={handleSarChange} />
-            </div>
-
-            <div className="col-md-4">
-              <label className="form-label">Nombre imprenta</label>
-              <input type="text" className="form-control" name="nombreImprenta" value={sarForm.nombreImprenta} onChange={handleSarChange} />
-            </div>
-            <div className="col-md-4">
-              <label className="form-label">RTN imprenta</label>
-              <input type="text" className="form-control" name="rtnImprenta" value={sarForm.rtnImprenta} onChange={handleSarChange} />
-            </div>
-            <div className="col-md-4">
-              <label className="form-label">No. certificado imprenta</label>
-              <input type="text" className="form-control" name="numeroCertificadoImprenta" value={sarForm.numeroCertificadoImprenta} onChange={handleSarChange} />
-            </div>
-            <div className="col-md-6">
-              <label className="form-label">Correo negocio (factura)</label>
-              <input type="text" className="form-control" name="correoNegocioFactura" value={sarForm.correoNegocioFactura} onChange={handleSarChange} />
-            </div>
-            <div className="col-md-6">
-              <label className="form-label">Ciudad y fecha factura</label>
-              <input type="text" className="form-control" name="ciudadFechaFactura" value={sarForm.ciudadFechaFactura} onChange={handleSarChange} placeholder="Comayagua" />
-            </div>
-            <div className="col-md-6">
-              <label className="form-label">Cliente por defecto</label>
-              <input type="text" className="form-control" name="clientePorDefecto" value={sarForm.clientePorDefecto} onChange={handleSarChange} />
-            </div>
-            <div className="col-md-3">
-              <label className="form-label">RTN cliente por defecto</label>
-              <input type="text" className="form-control" name="rtnClientePorDefecto" value={sarForm.rtnClientePorDefecto} onChange={handleSarChange} />
-            </div>
-            <div className="col-md-3">
-              <label className="form-label">Direccion cliente por defecto</label>
-              <input type="text" className="form-control" name="direccionClientePorDefecto" value={sarForm.direccionClientePorDefecto} onChange={handleSarChange} />
-            </div>
-            <div className="col-12">
-              <label className="form-label">Pie de factura</label>
-              <input type="text" className="form-control" name="pieFactura" value={sarForm.pieFactura} onChange={handleSarChange} />
-            </div>
-
-            <div className="col-12">
-              <div className="form-check">
-                <input
-                  className="form-check-input"
-                  type="checkbox"
-                  id="permitirVentaSinFactura"
-                  name="permitirVentaSinFactura"
-                  checked={sarForm.permitirVentaSinFactura}
-                  onChange={handleSarChange}
-                />
-                <label className="form-check-label" htmlFor="permitirVentaSinFactura">
-                  Permitir ventas sin emitir factura CAI
-                </label>
+          <div className="col-lg-5">
+            <div className="card border-secondary shadow-sm factura-sar-preview-card sticky-lg-top" style={{ zIndex: 2 }}>
+              <div className="card-header py-2 small fw-bold bg-body-secondary">
+                Vista previa del bloque fiscal (no es correlativo real hasta cobrar)
               </div>
-            </div>
-
-            <div className="col-12">
-              <button className="btn btn-outline-dark" type="submit">Guardar configuracion SAR</button>
-            </div>
-          </form>
-
-          <hr className="my-4" />
-          <h6>Resumen por sucursal</h6>
-          <div className="table-responsive">
-            <table className="table table-bordered align-middle">
-              <thead>
-                <tr>
-                  <th>Sucursal</th>
-                  <th>CAI habilitado</th>
-                  <th>CAI</th>
-                  <th>Siguiente</th>
-                  <th>Restantes</th>
-                  <th>Fecha limite</th>
-                </tr>
-              </thead>
-              <tbody>
-                {listaSar.map((x) => (
-                  <tr key={x.idSucursal}>
-                    <td>{nombreSucursalPorId(x.idSucursal)}</td>
-                    <td>{x.habilitadoCai ? 'SI' : 'NO'}</td>
-                    <td>{x.cai || '-'}</td>
-                    <td>{x.siguienteCorrelativo ?? '-'}</td>
-                    <td>
-                      <span className={`status-pill ${Number(x.facturasRestantes || 0) > 0 ? 'active' : 'inactive'}`}>
-                        {Number(x.facturasRestantes || 0)}
-                      </span>
-                    </td>
-                    <td>{x.fechaLimiteEmision ? String(x.fechaLimiteEmision).slice(0, 10) : '-'}</td>
-                  </tr>
-                ))}
-                {listaSar.length === 0 && (
-                  <tr><td colSpan="6" className="text-center">Sin configuraciones SAR guardadas</td></tr>
+              <div className="card-body small factura-sar-preview-body">
+                <div className="text-center fw-bold text-uppercase" style={{ letterSpacing: '0.06em', fontSize: '0.72rem' }}>Documento fiscal (SAR)</div>
+                <div className="text-center text-muted" style={{ fontSize: '0.68rem' }}>Factura original — cliente</div>
+                <div className="text-center font-monospace fw-bold my-2" style={{ fontSize: '0.95rem' }}>
+                  No. CONTROL: {sarForm.siguienteCorrelativo !== '' && sarForm.siguienteCorrelativo != null
+                    ? String(sarForm.siguienteCorrelativo)
+                    : '(guarda correlativo)'}
+                </div>
+                <div className="text-center text-muted" style={{ fontSize: '0.62rem' }}>Al cobrar se usa el correlativo emitido por el sistema.</div>
+                <div className="text-center fw-semibold">{form.nombre_Negocio || 'Nombre del negocio (pestaña Negocio)'}</div>
+                <div className="text-center text-muted" style={{ fontSize: '0.68rem' }}>{form.direccion || 'Direccion'}</div>
+                <div className="text-center text-muted" style={{ fontSize: '0.68rem' }}>
+                  RTN: {form.rtn || '—'} {form.telefono ? `| Tel: ${form.telefono}` : ''}
+                </div>
+                <hr className="my-2" />
+                <div className="border border-2 p-2 bg-light" style={{ fontSize: '0.68rem' }}>
+                  <div><span className="fw-bold">C.A.I.</span> {sarForm.cai || '—'}</div>
+                  <div><span className="fw-bold">Rango</span> {sarForm.rangoInicio || '—'} al {sarForm.rangoFin || '—'}</div>
+                  <div><span className="fw-bold">Limite</span> {sarForm.fechaLimiteEmision || '—'}</div>
+                </div>
+                {sarForm.leyendaSar ? (
+                  <div className="border border-dashed p-2 mt-2 text-justify" style={{ fontSize: '0.65rem', lineHeight: 1.35 }}>
+                    <div className="fw-bold text-uppercase mb-1" style={{ fontSize: '0.6rem', letterSpacing: '0.1em' }}>Leyenda</div>
+                    {sarForm.leyendaSar}
+                  </div>
+                ) : (
+                  <div className="text-muted fst-italic mt-2" style={{ fontSize: '0.65rem' }}>Sin leyenda SAR (opcional en recuadro)</div>
                 )}
-              </tbody>
-            </table>
+                <div className="border p-2 mt-2" style={{ fontSize: '0.65rem' }}>
+                  <div className="fw-bold mb-1">Imprenta</div>
+                  <div>{sarForm.nombreImprenta || '—'}</div>
+                  <div>RTN: {sarForm.rtnImprenta || '—'}</div>
+                  <div>Cert.: {sarForm.numeroCertificadoImprenta || '—'}</div>
+                </div>
+                <div className="text-center fw-semibold mt-3" style={{ fontSize: '0.68rem' }}>{sarForm.pieFactura || 'Pie de factura'}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="card shadow-sm mt-3">
+          <div className="card-body">
+            <h6 className="mb-3">Resumen por sucursal</h6>
+            <div className="table-responsive">
+              <table className="table table-bordered align-middle table-sm">
+                <thead className="table-light">
+                  <tr>
+                    <th>Sucursal</th>
+                    <th>CAI habilitado</th>
+                    <th>CAI</th>
+                    <th>Siguiente</th>
+                    <th>Restantes</th>
+                    <th>Fecha limite</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {listaSar.map((x) => (
+                    <tr key={x.idSucursal}>
+                      <td>{nombreSucursalPorId(x.idSucursal)}</td>
+                      <td>{x.habilitadoCai ? 'SI' : 'NO'}</td>
+                      <td className="font-monospace small">{x.cai || '-'}</td>
+                      <td>{x.siguienteCorrelativo ?? '-'}</td>
+                      <td>
+                        <span className={`status-pill ${Number(x.facturasRestantes || 0) > 0 ? 'active' : 'inactive'}`}>
+                          {Number(x.facturasRestantes || 0)}
+                        </span>
+                      </td>
+                      <td>{x.fechaLimiteEmision ? String(x.fechaLimiteEmision).slice(0, 10) : '-'}</td>
+                    </tr>
+                  ))}
+                  {listaSar.length === 0 && (
+                    <tr><td colSpan="6" className="text-center">Sin configuraciones SAR guardadas</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>

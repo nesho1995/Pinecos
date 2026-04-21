@@ -691,20 +691,29 @@ function VentasPOS() {
 
   return (
     <div className="pos-page">
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <div>
-          <h2 className="mb-1">POS Ventas</h2>
-          <div className="text-muted">
-            {cargandoCaja
-              ? 'Validando estado de caja...'
-              : cajaActual?.abierta
-                ? `Caja abierta #${cajaActual.id_Caja}`
-                : 'No hay caja abierta'}
+      <div className="pos-page-hero card border-0 shadow-sm mb-3">
+        <div className="card-body py-3 px-4">
+          <div className="d-flex flex-wrap justify-content-between align-items-center gap-3">
+            <div>
+              <h2 className="mb-1">POS ventas</h2>
+              <div className="text-muted small">
+                {cargandoCaja
+                  ? 'Validando estado de caja...'
+                  : cajaActual?.abierta
+                    ? `Listo para vender — caja #${cajaActual.id_Caja} abierta.`
+                    : 'Abre caja en el modulo Caja antes de registrar ventas.'}
+              </div>
+            </div>
+            <div className="d-flex flex-wrap align-items-center gap-2">
+              <span className={`badge rounded-pill px-3 py-2 ${cargandoCaja ? 'text-bg-secondary' : cajaActual?.abierta ? 'text-bg-success' : 'text-bg-warning text-dark'}`}>
+                {cargandoCaja ? 'Caja...' : cajaActual?.abierta ? 'Caja abierta' : 'Sin caja'}
+              </span>
+              <div className="compact-toolbar mb-0">
+                <button type="button" className="btn btn-outline-secondary btn-sm" onClick={limpiarCarrito}>Limpiar cuenta</button>
+                <button type="button" className="btn btn-dark btn-sm" onClick={imprimirTicket} disabled={!ultimaVentaId}>Reimprimir ticket</button>
+              </div>
+            </div>
           </div>
-        </div>
-        <div className="compact-toolbar">
-          <button className="btn btn-outline-secondary" onClick={limpiarCarrito}>Limpiar</button>
-          <button className="btn btn-outline-dark" onClick={imprimirTicket} disabled={!ultimaVentaId}>Ticket</button>
         </div>
       </div>
 
