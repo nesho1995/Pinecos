@@ -42,6 +42,8 @@ function Mesas() {
   const [asignacionDetalles, setAsignacionDetalles] = useState({});
   const [descuentoDetalles, setDescuentoDetalles] = useState({});
   const [vistaTablet, setVistaTablet] = useState('mesas');
+  /** Oculta plano de mesas y acordeon de consumo para ver solo cobro */
+  const [mesaVistaSoloCobro, setMesaVistaSoloCobro] = useState(false);
 
   const [menuItems, setMenuItems] = useState([]);
   const [cajaActual, setCajaActual] = useState(null);
@@ -636,6 +638,7 @@ function Mesas() {
       await cargarCuentasAbiertas();
       await cargarMesas(sucursalSeleccionada);
       setDetalleCuenta(null);
+      setMesaVistaSoloCobro(false);
       setModoDescuento('NINGUNO');
       setDescuentoManual('0');
       setModoImpuesto('INCLUIDO_15');
@@ -681,6 +684,7 @@ function Mesas() {
       await api.post(`/CuentasMesa/${detalleCuenta.cuenta.id_Cuenta_Mesa}/cancelar`);
       setMensaje('Cuenta cancelada y mesa liberada correctamente');
       setDetalleCuenta(null);
+      setMesaVistaSoloCobro(false);
       setFormAgregar({ id_Producto: '', id_Presentacion: '', es_Cortesia: false });
       setFiltroProducto('');
       setDividirCuenta(false);
@@ -717,6 +721,7 @@ function Mesas() {
     setDescuentoDetalles({});
     setFiltroProducto('');
     setVistaTablet('cuenta');
+    setMesaVistaSoloCobro(false);
     const cuenta = getCuentaMesa(mesa.id_Mesa);
     if (cuenta) await cargarCuentaDetalle(cuenta.id_Cuenta_Mesa);
   };
@@ -783,8 +788,12 @@ function Mesas() {
         </div>
       </div>
 
-      <div className="row g-3">
-        <div className={`col-12 col-xl-7 ${vistaTablet === 'mesas' ? '' : 'd-none d-xl-block'}`}>
+      <div className={`row g-3 ${mesaVistaSoloCobro && detalleCuenta ? 'mesas-layout-solo-cobro' : ''}`}>
+        <div
+          className={`col-12 col-xl-7 ${vistaTablet === 'mesas' ? '' : 'd-none d-xl-block'} ${
+            mesaVistaSoloCobro && detalleCuenta ? 'd-none' : ''
+          }`}
+        >
           <div className="card shadow-sm">
             <div className="card-body position-relative mesas-stage">
               {mesasActivas.map((mesa) => {
@@ -818,8 +827,12 @@ function Mesas() {
           </div>
         </div>
 
-        <div className={`col-12 col-xl-5 ${vistaTablet === 'cuenta' ? '' : 'd-none d-xl-block'}`}>
-          <div className="card shadow-sm mesas-panel-card mesas-pos-shell">
+        <div
+          className={`${mesaVistaSoloCobro && detalleCuenta ? 'col-12' : 'col-12 col-xl-5'} ${
+            vistaTablet === 'cuenta' ? '' : 'd-none d-xl-block'
+          }`}
+        >
+          <div className={`card shadow-sm mesas-panel-card mesas-pos-shell ${mesaVistaSoloCobro && detalleCuenta ? 'mesas-panel-cobro-full' : ''}`}>
             <div className="card-body mesas-panel-body">
               <div className="d-xl-none mb-2">
                 <button type="button" className="btn btn-outline-secondary btn-sm" onClick={() => setVistaTablet('mesas')}>
@@ -859,9 +872,35 @@ function Mesas() {
                             {cargandoCaja ? 'Validando caja...' : cajaActual?.abierta ? `Caja #${cajaActual.id_Caja} abierta` : 'Caja cerrada'}
                           </span>
                         </div>
-                        <div className="small text-muted">Agrega consumo, divide si hace falta, y cobra abajo con el total destacado.</div>
+                        <div className="d-flex flex-wrap gap-2 justify-content-between align-items-center">
+                          <div className="small text-muted mb-0">
+                            {mesaVistaSoloCobro ? 'Modo cobro ampliado — usa el boton para volver al consumo.' : 'Agrega consumo, divide si hace falta, y cobra con el total destacado.'}
+                          </div>
+                          <div className="btn-group btn-group-sm" role="group" aria-label="Vista cobro mesa">
+                            <button
+                              type="button"
+                              className={`btn ${mesaVistaSoloCobro ? 'btn-success' : 'btn-outline-success'}`}
+                              onClick={() => setMesaVistaSoloCobro(true)}
+                            >
+                              Solo cobro
+                            </button>
+                            <button
+                              type="button"
+                              className={`btn ${!mesaVistaSoloCobro ? 'btn-secondary' : 'btn-outline-secondary'}`}
+                              onClick={() => setMesaVistaSoloCobro(false)}
+                            >
+                              Ver consumo
+                            </button>
+                          </div>
+                        </div>
                       </div>
 
+                      <details className="mesas-consumo-details border rounded px-2 py-1 mb-3" open={!mesaVistaSoloCobro}>
+                        <summary className="fw-semibold py-2 user-select-none small px-1">
+                          Consumo y agregar productos
+                          {mesaVistaSoloCobro && <span className="text-muted fw-normal ms-1">— toca para expandir</span>}
+                        </summary>
+                        <div className="pt-2">
                       <div className="mesas-section-card mb-3">
                         <div className="mesas-section-title">Consumo actual</div>
                         <ul className="list-group mesas-detalle-list">
@@ -967,6 +1006,8 @@ function Mesas() {
                       </div>
                       <button className="btn btn-dark w-100 mb-3" onClick={agregarProducto} disabled={procesando}>Agregar a cuenta</button>
                       </div>
+                        </div>
+                      </details>
 
                       <div className="pro-checkout-total-hero mb-3">
                         <div className="pro-checkout-total-label">Total mesa</div>
@@ -1082,9 +1123,32 @@ function Mesas() {
                         <div className="col-12 mb-2">
                           <CheckoutServiceToggle value={tipoServicio} onChange={setTipoServicio} disabled={procesando} />
                         </div>
+                        {facturacionSar?.habilitadoCai && (
+                          <div className="col-12">
+                            <div className="border rounded p-3 mb-2 bg-body-secondary bg-opacity-25">
+                              <div className="fw-semibold small mb-2 text-muted">Factura fiscal (CAI)</div>
+                              <div className={`alert py-2 ${facturacionSar.facturasRestantes > 0 ? 'alert-info' : 'alert-danger'}`}>
+                                Facturas CAI restantes: <strong>{Number(facturacionSar.facturasRestantes || 0)}</strong>
+                              </div>
+                              <div className="form-check mb-2">
+                                <input
+                                  className="form-check-input"
+                                  type="checkbox"
+                                  id="emitirFacturaMesa"
+                                  checked={emitirFactura}
+                                  onChange={(e) => setEmitirFactura(e.target.checked)}
+                                />
+                                <label className="form-check-label fw-semibold" htmlFor="emitirFacturaMesa">
+                                  Emitir factura CAI (complete datos del adquirente abajo)
+                                </label>
+                              </div>
+                              {emitirFactura && <FacturaCaiClienteForm idPrefix="mesa" value={facturaCliente} onChange={setFacturaCliente} />}
+                            </div>
+                          </div>
+                        )}
                         <div className="col-12">
                           <details className="pro-checkout-advanced">
-                            <summary>Mas opciones — descuento, impuesto, factura CAI</summary>
+                            <summary>Mas opciones — descuento e impuesto</summary>
                             <div className="pt-2 mt-2 border-top">
                               <div className="row g-2 mb-2">
                                 <div className="col-12">
@@ -1133,26 +1197,6 @@ function Mesas() {
                                   </div>
                                 )}
                               </div>
-                              {facturacionSar?.habilitadoCai && (
-                                <>
-                                  <div className={`alert py-2 ${facturacionSar.facturasRestantes > 0 ? 'alert-info' : 'alert-danger'}`}>
-                                    Facturas CAI restantes: <strong>{Number(facturacionSar.facturasRestantes || 0)}</strong>
-                                  </div>
-                                  <div className="form-check mb-2">
-                                    <input
-                                      className="form-check-input"
-                                      type="checkbox"
-                                      id="emitirFacturaMesa"
-                                      checked={emitirFactura}
-                                      onChange={(e) => setEmitirFactura(e.target.checked)}
-                                    />
-                                    <label className="form-check-label fw-semibold" htmlFor="emitirFacturaMesa">
-                                      Emitir factura CAI (datos del cliente abajo)
-                                    </label>
-                                  </div>
-                                  {emitirFactura && <FacturaCaiClienteForm idPrefix="mesa" value={facturaCliente} onChange={setFacturaCliente} />}
-                                </>
-                              )}
                             </div>
                           </details>
                         </div>

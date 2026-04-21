@@ -38,6 +38,8 @@ function VentasPOS() {
   const [preCuentaHtmlUltima, setPreCuentaHtmlUltima] = useState('');
   const [preCuentaResumenUltima, setPreCuentaResumenUltima] = useState(null);
   const cobrarVentaRef = useRef(async () => {});
+  /** Oculta catalogo y acorta lista de lineas para ver cobro sin scroll excesivo */
+  const [vistaSoloCobro, setVistaSoloCobro] = useState(false);
 
   const cargarCajaActual = async () => {
     try {
@@ -568,6 +570,15 @@ function VentasPOS() {
     if (!emitirFactura) setFacturaCliente(facturaClienteVacio());
   }, [emitirFactura]);
 
+  useEffect(() => {
+    if (carrito.length === 0) setVistaSoloCobro(false);
+  }, [carrito.length]);
+
+  useEffect(() => {
+    if (preCuentaEstado === 'VIGENTE' && carrito.length > 0) setVistaSoloCobro(true);
+    if (preCuentaEstado === 'DESACTUALIZADA') setVistaSoloCobro(false);
+  }, [preCuentaEstado, carrito.length]);
+
   const cobrarVenta = async () => {
     limpiarMensajes();
     if (!cajaActual?.abierta) return setError('No hay caja abierta');
@@ -647,7 +658,13 @@ function VentasPOS() {
 
       const idVenta = response.data.data.id_Venta;
       setUltimaVentaId(idVenta);
-      setMensaje(`Venta registrada correctamente. Venta #${idVenta}`);
+      let mensajeOk = `Venta registrada correctamente. Venta #${idVenta}`;
+      try {
+        await imprimirTicketHtml(idVenta);
+      } catch (printErr) {
+        mensajeOk += ` — No se abrio la impresion: ${printErr?.message || 'error desconocido'}`;
+      }
+      setMensaje(mensajeOk);
       setCarrito([]);
       setModoDescuento('NINGUNO');
       setDescuentoManual('0');
@@ -768,7 +785,7 @@ function VentasPOS() {
               </span>
               <div className="compact-toolbar mb-0">
                 <button type="button" className="btn btn-outline-secondary btn-sm" onClick={limpiarCarrito}>Limpiar cuenta</button>
-                <button type="button" className="btn btn-dark btn-sm" onClick={imprimirTicket} disabled={!ultimaVentaId}>Reimprimir ticket</button>
+                <button type="button" className="btn btn-dark btn-sm" onClick={imprimirTicket} disabled={!ultimaVentaId}>Imprimir ticket</button>
               </div>
             </div>
           </div>
@@ -784,8 +801,8 @@ function VentasPOS() {
       ) : !cajaActual?.abierta ? (
         <div className="alert alert-warning">Debes abrir caja antes de vender.</div>
       ) : (
-        <div className="row g-3 pos-layout-row">
-          <div className="col-xl-6 col-lg-6">
+        <div className={`row g-3 pos-layout-row ${vistaSoloCobro ? 'pos-layout-solo-cobro' : ''}`}>
+          <div className={`col-xl-6 col-lg-6 ${vistaSoloCobro ? 'd-none' : ''}`}>
             <div className="card shadow-sm border-0 mb-3 pos-catalog-card pos-catalog-controls">
               <div className="card-body">
                 <div className="row g-3">
@@ -841,10 +858,30 @@ function VentasPOS() {
             </div>
           </div>
 
-          <div className="col-xl-6 col-lg-6">
+          <div className={vistaSoloCobro ? 'col-12' : 'col-xl-6 col-lg-6'}>
             <div className="card shadow-sm border-0 carrito-sticky pos-order-card">
               <div className="card-body">
-                <h5 className="mb-3">Cuenta actual</h5>
+                <div className="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">
+                  <h5 className="mb-0">Cuenta actual</h5>
+                  {carrito.length > 0 && (
+                    <div className="btn-group btn-group-sm" role="group" aria-label="Vista cobro">
+                      <button
+                        type="button"
+                        className={`btn ${vistaSoloCobro ? 'btn-success' : 'btn-outline-success'}`}
+                        onClick={() => setVistaSoloCobro(true)}
+                      >
+                        Solo cobro
+                      </button>
+                      <button
+                        type="button"
+                        className={`btn ${!vistaSoloCobro ? 'btn-secondary' : 'btn-outline-secondary'}`}
+                        onClick={() => setVistaSoloCobro(false)}
+                      >
+                        Ver catalogo
+                      </button>
+                    </div>
+                  )}
+                </div>
                 <div className="bg-white border rounded p-2 mb-3">
                   <div className="d-flex justify-content-between align-items-center">
                     <strong>Lineas: {carrito.length}</strong>
@@ -873,19 +910,24 @@ function VentasPOS() {
                     </div>
                   </div>
                 )}
-                <div className="small text-muted mb-2">
-                  Cada toque en Agregar crea una linea nueva. Usa "Quitar" para eliminar cualquier linea o "+ Igual" para duplicarla.
-                </div>
+                {!vistaSoloCobro && (
+                  <div className="small text-muted mb-2">
+                    Cada toque en Agregar crea una linea nueva. Usa "Quitar" para eliminar cualquier linea o "+ Igual" para duplicarla.
+                  </div>
+                )}
 
-                <div className="d-flex justify-content-between align-items-center mb-2">
-                  <strong>Productos en cobro ({carrito.length})</strong>
-                  <span className="small text-muted">Quitar elimina esa linea</span>
-                </div>
-
-                <div className="order-items-scroll pos-order-lines">
-                  {carrito.length === 0 ? (
-                    <div className="text-muted">No hay productos agregados.</div>
-                  ) : (
+                {carrito.length === 0 ? (
+                  <div className="text-muted mb-3">No hay productos agregados.</div>
+                ) : (
+                  <details className="pos-lineas-checkout-details border rounded px-2 py-1 mb-3" open={!vistaSoloCobro}>
+                    <summary className="fw-semibold py-2 user-select-none small">
+                      Lineas en cuenta ({carrito.length})
+                      {vistaSoloCobro && <span className="text-muted fw-normal ms-1">— toca para ver o editar</span>}
+                    </summary>
+                    <div className="d-flex justify-content-between align-items-center mb-2 mt-2">
+                      <span className="small text-muted">Quitar elimina esa linea</span>
+                    </div>
+                    <div className="order-items-scroll pos-order-lines">
                     <div className="table-responsive">
                       <table className="table table-sm align-middle mb-0">
                         <thead>
@@ -961,8 +1003,9 @@ function VentasPOS() {
                         </tbody>
                       </table>
                     </div>
-                  )}
-                </div>
+                    </div>
+                  </details>
+                )}
 
                 <div className="pro-checkout-steps mt-3 mb-2" aria-hidden="true">
                   <span className={`pro-checkout-step ${preCuentaEstado === 'VIGENTE' ? 'pro-checkout-step--ok' : ''}`}>1 Pre-cuenta</span>
@@ -1022,8 +1065,30 @@ function VentasPOS() {
                   <CheckoutServiceToggle value={tipoServicio} onChange={setTipoServicio} disabled={procesando} />
                 </div>
 
+                {facturacionSar?.habilitadoCai && (
+                  <div className="border rounded p-3 mb-2 bg-body-secondary bg-opacity-25">
+                    <div className="fw-semibold small mb-2 text-muted">Factura fiscal (CAI)</div>
+                    <div className={`alert py-2 ${facturacionSar.facturasRestantes > 0 ? 'alert-info' : 'alert-danger'}`}>
+                      Facturas CAI restantes: <strong>{Number(facturacionSar.facturasRestantes || 0)}</strong>
+                    </div>
+                    <div className="form-check mb-2">
+                      <input
+                        className="form-check-input"
+                        type="checkbox"
+                        id="emitirFacturaPos"
+                        checked={emitirFactura}
+                        onChange={(e) => setEmitirFactura(e.target.checked)}
+                      />
+                      <label className="form-check-label fw-semibold" htmlFor="emitirFacturaPos">
+                        Emitir factura CAI (complete datos del adquirente abajo)
+                      </label>
+                    </div>
+                    {emitirFactura && <FacturaCaiClienteForm idPrefix="pos" value={facturaCliente} onChange={setFacturaCliente} />}
+                  </div>
+                )}
+
                 <details className="pro-checkout-advanced">
-                  <summary>Mas opciones — descuento, impuesto, factura CAI</summary>
+                  <summary>Mas opciones — descuento e impuesto</summary>
                   <div className="pt-2 mt-2 border-top">
                     <div className="row g-2 mb-2">
                       <div className="col-12">
@@ -1066,27 +1131,6 @@ function VentasPOS() {
                         </div>
                       )}
                     </div>
-
-                    {facturacionSar?.habilitadoCai && (
-                      <>
-                        <div className={`alert py-2 ${facturacionSar.facturasRestantes > 0 ? 'alert-info' : 'alert-danger'}`}>
-                          Facturas CAI restantes: <strong>{Number(facturacionSar.facturasRestantes || 0)}</strong>
-                        </div>
-                        <div className="form-check mb-2">
-                          <input
-                            className="form-check-input"
-                            type="checkbox"
-                            id="emitirFacturaPos"
-                            checked={emitirFactura}
-                            onChange={(e) => setEmitirFactura(e.target.checked)}
-                          />
-                          <label className="form-check-label fw-semibold" htmlFor="emitirFacturaPos">
-                            Emitir factura CAI (datos del cliente abajo)
-                          </label>
-                        </div>
-                        {emitirFactura && <FacturaCaiClienteForm idPrefix="pos" value={facturaCliente} onChange={setFacturaCliente} />}
-                      </>
-                    )}
                   </div>
                 </details>
 

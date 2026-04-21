@@ -919,6 +919,42 @@ body {
   border: 1px solid #fde68a !important;
 }
 
+/* POS / Mesas: modo cobro ampliado (sin scroll horizontal a catalogo) */
+.pos-layout-solo-cobro .pos-order-card {
+  min-height: calc(100dvh - 200px);
+}
+
+.pos-lineas-checkout-details summary,
+.mesas-consumo-details summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.pos-lineas-checkout-details summary::-webkit-details-marker,
+.mesas-consumo-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.pos-lineas-checkout-details summary::before,
+.mesas-consumo-details summary::before {
+  content: "▸ ";
+  display: inline-block;
+  transition: transform 0.15s ease;
+}
+
+.pos-lineas-checkout-details[open] summary::before,
+.mesas-consumo-details[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.mesas-layout-solo-cobro .mesas-panel-cobro-full {
+  min-height: calc(100dvh - 260px);
+}
+
+.mesas-layout-solo-cobro .mesas-panel-cobro-full .mesas-panel-body {
+  max-height: none;
+}
+
 /* Configuracion SAR: vista previa factura */
 .factura-sar-preview-card {
   top: 0.75rem;
