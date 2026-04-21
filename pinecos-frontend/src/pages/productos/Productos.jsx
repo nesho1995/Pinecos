@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import api from '../../services/api';
 
 function Productos() {
+  const location = useLocation();
   const [productos, setProductos] = useState([]);
   const [categorias, setCategorias] = useState([]);
   const [mostrarInactivos, setMostrarInactivos] = useState(false);
@@ -48,6 +49,12 @@ function Productos() {
   useEffect(() => {
     cargarCategorias();
   }, []);
+
+  useEffect(() => {
+    if (location.hash !== '#importar-productos-excel') return;
+    const el = document.getElementById('importar-productos-excel');
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [location.pathname, location.hash]);
 
   const limpiarMensajes = () => {
     setError('');
@@ -213,20 +220,17 @@ function Productos() {
 
   return (
     <div>
-      <h2 className="mb-4">Productos</h2>
+      <h2 className="mb-3">Productos</h2>
 
-      <div className="alert alert-info d-flex flex-wrap justify-content-between align-items-center gap-2">
-        <span>
-          En esta pantalla defines catalogo y costo interno. El precio de venta final se configura por sucursal en "Precios por Sucursal".
-        </span>
-        <Link className="btn btn-sm btn-outline-primary" to="/menu-sucursal">
-          Ir a Precios por Sucursal
-        </Link>
-      </div>
+      {mensaje && <div className="alert alert-success mb-3">{mensaje}</div>}
+      {error && <div className="alert alert-danger mb-3">{error}</div>}
 
-      <div className="card shadow-sm mb-4">
+      <div
+        id="importar-productos-excel"
+        className="card shadow-sm mb-4 border border-primary border-2"
+      >
         <div className="card-body">
-          <h3 className="h6 mb-2">Importar catalogo desde Excel</h3>
+          <h3 className="h5 mb-2 text-primary">Importar productos (Excel)</h3>
           <p className="small text-muted mb-3">
             Formato: archivo <strong>.xlsx</strong>; se lee siempre la <strong>primera hoja</strong> del libro.
             Fila 1 con encabezados: <strong>nombre</strong>, <strong>categoria</strong>, <strong>costo</strong> (tambien acepta name, category, cost en ingles).
@@ -250,7 +254,7 @@ function Productos() {
               disabled={importandoExcel}
               onClick={() => fileImportRef.current?.click()}
             >
-              {importandoExcel ? 'Importando...' : 'Subir Excel (.xlsx)'}
+              {importandoExcel ? 'Importando...' : 'Importar productos desde archivo'}
             </button>
             <div className="form-check mb-0 ms-md-2">
               <input
@@ -296,6 +300,15 @@ function Productos() {
         </div>
       </div>
 
+      <div className="alert alert-info d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+        <span>
+          Aqui defines el catalogo y el costo interno. El precio de venta por sucursal se configura en &quot;Precios por Sucursal&quot;.
+        </span>
+        <Link className="btn btn-sm btn-outline-primary" to="/menu-sucursal">
+          Ir a Precios por Sucursal
+        </Link>
+      </div>
+
       <div className="card shadow-sm mb-4">
         <div className="card-body">
           <form onSubmit={guardarProducto} className="row g-3">
@@ -329,8 +342,6 @@ function Productos() {
               <button className="btn btn-outline-secondary w-100" type="button" onClick={limpiarFormulario}>Limpiar</button>
             </div>
           </form>
-          {mensaje && <div className="alert alert-success mt-3 mb-0">{mensaje}</div>}
-          {error && <div className="alert alert-danger mt-3 mb-0">{error}</div>}
         </div>
       </div>
 

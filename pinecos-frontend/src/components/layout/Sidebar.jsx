@@ -23,6 +23,12 @@ const sections = [
       { to: '/proveedores', label: 'Proveedores', roles: ['ADMIN'] },
       { to: '/inventario', label: 'Inventario', roles: ['ADMIN'] },
       { to: '/productos', label: 'Productos', roles: ['ADMIN'] },
+      {
+        to: { pathname: '/productos', hash: 'importar-productos-excel' },
+        label: 'Importar productos (Excel)',
+        roles: ['ADMIN'],
+        navKey: 'nav-importar-productos-excel'
+      },
       { to: '/categorias', label: 'Categorias', roles: ['ADMIN'] },
       { to: '/presentaciones', label: 'Presentaciones', roles: ['ADMIN'] },
       { to: '/sucursales', label: 'Sucursales', roles: ['ADMIN'] },
@@ -57,7 +63,12 @@ function Sidebar({ onNavigate }) {
           <div className="sidebar-section-title">{section.title}</div>
           <nav className="nav flex-column gap-1">
             {section.items.map((item) => (
-              <NavLink key={item.to} to={item.to} className="sidebar-link" onClick={onNavigate}>
+              <NavLink
+                key={item.navKey || (typeof item.to === 'string' ? item.to : item.label)}
+                to={item.to}
+                className="sidebar-link"
+                onClick={onNavigate}
+              >
                 {item.label}
               </NavLink>
             ))}

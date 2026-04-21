@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import api from '../../services/api';
 
 function MenuSucursal() {
@@ -177,8 +178,12 @@ function MenuSucursal() {
   return (
     <div>
       <h2 className="mb-2">Precios por sucursal</h2>
-      <p className="text-muted mb-4">
-        Aqui defines el precio de venta por sucursal. El costo se maneja en Productos.
+      <p className="text-muted mb-2">
+        Aqui defines el precio de venta por sucursal. El costo y el alta masiva de productos estan en la pantalla{' '}
+        <Link to="/productos">Productos</Link>
+        {' '}(
+        <Link to={{ pathname: '/productos', hash: 'importar-productos-excel' }}>importar productos con Excel</Link>
+        ).
       </p>
 
       <div className="card shadow-sm mb-4">
