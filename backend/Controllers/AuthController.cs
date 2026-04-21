@@ -138,6 +138,7 @@ namespace Pinecos.Controllers
             var jwtKey = _config["Jwt:Key"] ?? throw new Exception("Jwt:Key no esta configurado");
             var issuer = _config["Jwt:Issuer"] ?? throw new Exception("Jwt:Issuer no esta configurado");
             var audience = _config["Jwt:Audience"] ?? throw new Exception("Jwt:Audience no esta configurado");
+            var rolNormalizado = (user.Rol ?? string.Empty).Trim().ToUpperInvariant();
 
             var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
             var creds = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
@@ -146,10 +147,10 @@ namespace Pinecos.Controllers
             {
                 new Claim("id_usuario", user.Id_Usuario.ToString()),
                 new Claim("usuario", user.UsuarioLogin),
-                new Claim("rol", user.Rol),
+                new Claim("rol", rolNormalizado),
                 new Claim("id_sucursal", user.Id_Sucursal?.ToString() ?? ""),
                 new Claim(ClaimTypes.Name, user.UsuarioLogin),
-                new Claim(ClaimTypes.Role, user.Rol)
+                new Claim(ClaimTypes.Role, rolNormalizado)
             };
 
             var token = new JwtSecurityToken(

@@ -9,7 +9,7 @@ namespace Pinecos.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [AuthorizeRoles("ADMIN")]
+    [AuthorizeRoles("ADMIN", "CAJERO")]
     public class MenuController : ControllerBase
     {
         private readonly PinecosDbContext _context;
@@ -20,6 +20,7 @@ namespace Pinecos.Controllers
         }
 
         [HttpPost("producto-sucursal")]
+        [AuthorizeRoles("ADMIN")]
         public async Task<ActionResult> AsignarProductoSucursal([FromBody] ProductoSucursal model)
         {
             if (model.Precio <= 0)
@@ -54,6 +55,7 @@ namespace Pinecos.Controllers
         }
 
         [HttpPost("producto-presentacion")]
+        [AuthorizeRoles("ADMIN")]
         public async Task<ActionResult> AsignarPresentacionProducto([FromBody] ProductoPresentacion model)
         {
             var productoExiste = await _context.Productos.AnyAsync(x => x.Id_Producto == model.Id_Producto && x.Activo);
@@ -83,6 +85,7 @@ namespace Pinecos.Controllers
         }
 
         [HttpGet("producto-presentacion")]
+        [AuthorizeRoles("ADMIN")]
         public async Task<ActionResult> GetProductoPresentaciones()
         {
             var data = await (
@@ -106,6 +109,7 @@ namespace Pinecos.Controllers
         }
 
         [HttpDelete("producto-presentacion/{idProductoPresentacion:int}")]
+        [AuthorizeRoles("ADMIN")]
         public async Task<ActionResult> EliminarProductoPresentacion(int idProductoPresentacion)
         {
             var idUsuario = UserHelper.GetUserId(User);
@@ -150,6 +154,7 @@ namespace Pinecos.Controllers
         }
 
         [HttpPost("producto-presentacion-sucursal")]
+        [AuthorizeRoles("ADMIN")]
         public async Task<ActionResult> AsignarPrecioPresentacionSucursal([FromBody] ProductoPresentacionSucursal model)
         {
             if (model.Precio <= 0)
@@ -189,6 +194,17 @@ namespace Pinecos.Controllers
         [HttpGet("sucursal/{idSucursal}")]
         public async Task<ActionResult> GetMenuSucursal(int idSucursal)
         {
+            var rol = UserHelper.GetUserRole(User).Trim().ToUpperInvariant();
+            var idSucursalToken = UserHelper.GetSucursalId(User);
+
+            if (rol != "ADMIN")
+            {
+                if (!idSucursalToken.HasValue)
+                    return BadRequest(new { message = "El usuario no tiene sucursal asignada" });
+                if (idSucursalToken.Value != idSucursal)
+                    return Forbid();
+            }
+
             var productosNormales = await (
                 from ps in _context.ProductosSucursal
                 join p in _context.Productos on ps.Id_Producto equals p.Id_Producto
