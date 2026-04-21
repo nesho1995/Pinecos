@@ -53,3 +53,10 @@ export const getUserRole = () => {
 };
 
 export const isAdmin = () => getUserRole() === 'ADMIN';
+export const isCajero = () => getUserRole() === 'CAJERO';
+
+export const getDefaultRouteByRole = () => {
+  const role = getUserRole();
+  if (role === 'CAJERO') return '/caja';
+  return '/dashboard';
+};

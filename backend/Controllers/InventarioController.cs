@@ -10,7 +10,7 @@ namespace Pinecos.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [AuthorizeRoles("ADMIN", "CAJERO")]
+    [AuthorizeRoles("ADMIN")]
     public class InventarioController : ControllerBase
     {
         private readonly PinecosDbContext _context;

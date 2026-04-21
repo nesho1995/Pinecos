@@ -1,7 +1,7 @@
 ﻿import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { loginRequest, meRequest } from '../../services/authService';
-import { clearSession, isAuthenticated, setSession } from '../../utils/auth';
+import { clearSession, getDefaultRouteByRole, isAuthenticated, setSession } from '../../utils/auth';
 
 function Login() {
   const navigate = useNavigate();
@@ -22,7 +22,7 @@ function Login() {
 
       try {
         await meRequest();
-        if (activo) navigate('/dashboard', { replace: true });
+        if (activo) navigate(getDefaultRouteByRole(), { replace: true });
       } catch {
         clearSession();
       }
@@ -49,7 +49,7 @@ function Login() {
       setLoading(true);
       const data = await loginRequest(form.usuario, form.clave);
       setSession(data.token, data.usuario);
-      navigate('/dashboard', { replace: true });
+      navigate(getDefaultRouteByRole(), { replace: true });
     } catch (err) {
       const responseData = err?.response?.data;
       const backendMessage =

@@ -22,6 +22,11 @@ import Inventario from '../pages/inventario/Inventario';
 import Layout from '../components/layout/Layout';
 import ProtectedRoute from '../components/ProtectedRoute';
 import RoleRoute from '../components/RoleRoute';
+import { getDefaultRouteByRole } from '../utils/auth';
+
+function DefaultHomeRedirect() {
+  return <Navigate to={getDefaultRouteByRole()} replace />;
+}
 
 function AppRouter() {
   return (
@@ -37,8 +42,8 @@ function AppRouter() {
             </ProtectedRoute>
           }
         >
-          <Route index element={<Navigate to="/dashboard" replace />} />
-          <Route path="dashboard" element={<Dashboard />} />
+          <Route index element={<DefaultHomeRedirect />} />
+          <Route path="dashboard" element={<RoleRoute allowedRoles={['ADMIN']}><Dashboard /></RoleRoute>} />
           <Route path="categorias" element={<RoleRoute allowedRoles={['ADMIN']}><Categorias /></RoleRoute>} />
           <Route path="productos" element={<RoleRoute allowedRoles={['ADMIN']}><Productos /></RoleRoute>} />
           <Route path="presentaciones" element={<RoleRoute allowedRoles={['ADMIN']}><Presentaciones /></RoleRoute>} />
@@ -46,11 +51,11 @@ function AppRouter() {
           <Route path="sucursales" element={<RoleRoute allowedRoles={['ADMIN']}><Sucursales /></RoleRoute>} />
           <Route path="usuarios" element={<RoleRoute allowedRoles={['ADMIN']}><Usuarios /></RoleRoute>} />
           <Route path="configuracion" element={<RoleRoute allowedRoles={['ADMIN']}><Configuracion /></RoleRoute>} />
-          <Route path="caja" element={<Caja />} />
-          <Route path="movimientos-caja" element={<MovimientosCaja />} />
-          <Route path="gastos" element={<Gastos />} />
-          <Route path="ventas" element={<VentasPOS />} />
-          <Route path="mesas" element={<Mesas />} />
+          <Route path="caja" element={<RoleRoute allowedRoles={['ADMIN', 'CAJERO']}><Caja /></RoleRoute>} />
+          <Route path="movimientos-caja" element={<RoleRoute allowedRoles={['ADMIN', 'CAJERO']}><MovimientosCaja /></RoleRoute>} />
+          <Route path="gastos" element={<RoleRoute allowedRoles={['ADMIN', 'CAJERO']}><Gastos /></RoleRoute>} />
+          <Route path="ventas" element={<RoleRoute allowedRoles={['ADMIN', 'CAJERO']}><VentasPOS /></RoleRoute>} />
+          <Route path="mesas" element={<RoleRoute allowedRoles={['ADMIN', 'CAJERO']}><Mesas /></RoleRoute>} />
           <Route path="mesas-admin" element={<RoleRoute allowedRoles={['ADMIN']}><MesasAdmin /></RoleRoute>} />
           <Route path="reportes" element={<RoleRoute allowedRoles={['ADMIN']}><Reportes /></RoleRoute>} />
           <Route path="estado-cuenta" element={<RoleRoute allowedRoles={['ADMIN']}><EstadoCuenta /></RoleRoute>} />
@@ -59,7 +64,7 @@ function AppRouter() {
           <Route path="bitacora" element={<RoleRoute allowedRoles={['ADMIN']}><Bitacora /></RoleRoute>} />
         </Route>
 
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        <Route path="*" element={<DefaultHomeRedirect />} />
       </Routes>
     </BrowserRouter>
   );

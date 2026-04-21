@@ -1,49 +1,44 @@
 import { NavLink } from 'react-router-dom';
-import { isAdmin } from '../../utils/auth';
+import { getUserRole } from '../../utils/auth';
 
 const sections = [
   {
     title: 'Operacion',
     items: [
-      { to: '/dashboard', label: 'Dashboard' },
-      { to: '/caja', label: 'Caja' },
-      { to: '/movimientos-caja', label: 'Movimientos Caja' },
-      { to: '/ventas', label: 'POS Ventas' },
-      { to: '/mesas', label: 'Mesas y Cuentas' },
-      { to: '/gastos', label: 'Gastos' },
-      { to: '/reportes', label: 'Reportes' },
-      { to: '/estado-cuenta', label: 'Estado de Cuenta' }
+      { to: '/caja', label: 'Caja', roles: ['ADMIN', 'CAJERO'] },
+      { to: '/movimientos-caja', label: 'Movimientos Caja', roles: ['ADMIN', 'CAJERO'] },
+      { to: '/ventas', label: 'POS Ventas', roles: ['ADMIN', 'CAJERO'] },
+      { to: '/mesas', label: 'Mesas y Cuentas', roles: ['ADMIN', 'CAJERO'] },
+      { to: '/gastos', label: 'Gastos', roles: ['ADMIN', 'CAJERO'] }
     ]
   },
   {
     title: 'Administracion',
     items: [
-      { to: '/menu-sucursal', label: 'Precios por Sucursal' },
-      { to: '/mesas-admin', label: 'Mesas' },
-      { to: '/proveedores', label: 'Proveedores' },
-      { to: '/inventario', label: 'Inventario' },
-      { to: '/productos', label: 'Productos' },
-      { to: '/categorias', label: 'Categorias' },
-      { to: '/presentaciones', label: 'Presentaciones' },
-      { to: '/sucursales', label: 'Sucursales' },
-      { to: '/usuarios', label: 'Usuarios' },
-      { to: '/configuracion', label: 'Configuracion' },
-      { to: '/bitacora', label: 'Bitacora' }
+      { to: '/dashboard', label: 'Dashboard', roles: ['ADMIN'] },
+      { to: '/reportes', label: 'Reportes', roles: ['ADMIN'] },
+      { to: '/estado-cuenta', label: 'Estado de Cuenta', roles: ['ADMIN'] },
+      { to: '/menu-sucursal', label: 'Precios por Sucursal', roles: ['ADMIN'] },
+      { to: '/mesas-admin', label: 'Mesas', roles: ['ADMIN'] },
+      { to: '/proveedores', label: 'Proveedores', roles: ['ADMIN'] },
+      { to: '/inventario', label: 'Inventario', roles: ['ADMIN'] },
+      { to: '/productos', label: 'Productos', roles: ['ADMIN'] },
+      { to: '/categorias', label: 'Categorias', roles: ['ADMIN'] },
+      { to: '/presentaciones', label: 'Presentaciones', roles: ['ADMIN'] },
+      { to: '/sucursales', label: 'Sucursales', roles: ['ADMIN'] },
+      { to: '/usuarios', label: 'Usuarios', roles: ['ADMIN'] },
+      { to: '/configuracion', label: 'Configuracion', roles: ['ADMIN'] },
+      { to: '/bitacora', label: 'Bitacora', roles: ['ADMIN'] }
     ]
   }
 ];
 
 function Sidebar({ onNavigate }) {
-  const admin = isAdmin();
+  const role = getUserRole();
   const visibleSections = sections
     .map((section) => ({
       ...section,
-      items: section.items.filter((item) => {
-        if (admin) return true;
-        if (item.to === '/reportes' || item.to === '/estado-cuenta') return false;
-        if (section.title === 'Administracion') return false;
-        return true;
-      })
+      items: section.items.filter((item) => (item.roles || []).includes(role))
     }))
     .filter((section) => section.items.length > 0);
 
