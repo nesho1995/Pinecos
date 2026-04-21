@@ -28,21 +28,35 @@ namespace Pinecos.Helpers
 
             if (ticket.EsFacturaCai)
             {
+                var cult = System.Globalization.CultureInfo.GetCultureInfo("es-HN");
+                string L(decimal d) => d.ToString("N2", cult);
+
                 var ciudadFecha = string.IsNullOrWhiteSpace(ticket.CiudadFechaFactura)
-                    ? ticket.Fecha.ToString("dd/MM/yyyy")
-                    : $"{Esc(ticket.CiudadFechaFactura)}, {ticket.Fecha:dd/MM/yyyy}";
+                    ? ticket.Fecha.ToString("dd/MM/yyyy", cult)
+                    : $"{Esc(ticket.CiudadFechaFactura)}, {ticket.Fecha.ToString("dd/MM/yyyy", cult)}";
 
                 var fechaLimStr = ticket.FechaLimiteEmision.HasValue
-                    ? ticket.FechaLimiteEmision.Value.ToString("dd/MM/yyyy")
+                    ? ticket.FechaLimiteEmision.Value.ToString("dd/MM/yyyy", cult)
                     : "—";
 
                 var pieTexto = string.IsNullOrWhiteSpace(ticket.PieFactura)
-                    ? "La factura es beneficio de todos. Exijala."
+                    ? "La Factura es Beneficio de Todos. Exijala."
                     : ticket.PieFactura;
+
+                var pieFinal = pieTexto.Trim();
+                if (pieFinal.IndexOf("modalidad", StringComparison.OrdinalIgnoreCase) < 0)
+                {
+                    pieFinal = pieFinal.TrimEnd('.') + " | Modalidad: Impresión por imprenta.";
+                }
+
+                var fv = ticket.Fecha;
+                var esCredito = string.Equals(ticket.CondicionPago, "CREDITO", StringComparison.OrdinalIgnoreCase);
+                var chkCont = esCredito ? "\u2610" : "\u2611";
+                var chkCred = esCredito ? "\u2611" : "\u2610";
 
                 var leyendaBloque = string.IsNullOrWhiteSpace(ticket.LeyendaSar)
                     ? string.Empty
-                    : $@"<div class='cai-leyenda-sar'><div class='cai-leyenda-titulo'>LEYENDA</div><div>{Esc(ticket.LeyendaSar)}</div></div>";
+                    : $@"<div class='cai-leyenda-sar'><div class='cai-leyenda-titulo'>LEYENDA AUTORIZADA</div><div>{Esc(ticket.LeyendaSar)}</div></div>";
 
                 sb.Append($@"
 <!DOCTYPE html>
@@ -60,16 +74,19 @@ namespace Pinecos.Helpers
     th, td {{ border:1px solid #222; padding:4px 5px; vertical-align: top; }}
     .num {{ text-align: right; white-space: nowrap; }}
     .small {{ font-size: 10.5px; }}
-    .doc-fiscal {{ font-size: 11px; font-weight: 800; letter-spacing: 0.06em; }}
-    .doc-original {{ font-size: 10px; margin-top: 2px; color: #333; }}
-    .no-control {{ font-family: Consolas, 'Courier New', monospace; font-size: 15px; font-weight: 800; margin: 6px 0; letter-spacing: 0.02em; }}
+    .titulo-factura {{ font-size: 14px; font-weight: 900; letter-spacing: 0.12em; margin-top: 6px; }}
+    .no-factura {{ font-family: Consolas, 'Courier New', monospace; font-size: 13px; font-weight: 800; margin: 4px 0; }}
+    .cai-header {{ font-family: Consolas, 'Courier New', monospace; font-size: 10.5px; margin: 4px 0; }}
+    .fecha-emision {{ margin: 6px 0; font-size: 11px; }}
+    .pago-tipo {{ margin: 4px 0; font-size: 11px; }}
     .cai-caja {{ border: 2px solid #111; padding: 8px 10px; margin: 8px 0; background: #fafafa; }}
     .cai-caja .fila {{ margin: 3px 0; font-size: 10.5px; }}
-    .cai-caja .etq {{ font-weight: 700; display: inline-block; min-width: 9.2em; }}
+    .cai-caja .etq {{ font-weight: 700; display: inline-block; min-width: 10.5em; }}
     .cai-leyenda-sar {{ border: 1px dashed #444; padding: 6px 8px; margin: 8px 0; font-size: 10px; text-align: justify; line-height: 1.35; }}
     .cai-leyenda-titulo {{ font-weight: 800; font-size: 9px; letter-spacing: 0.12em; margin-bottom: 4px; color: #333; }}
     .imprenta-block {{ font-size: 10px; margin-top: 6px; padding: 6px; border: 1px solid #bbb; background: #fff; }}
     .pie-fiscal {{ margin-top: 10px; text-align: center; font-size: 10px; font-weight: 600; }}
+    .firma-linea {{ margin-top: 28px; border-top: 1px solid #222; width: 55%; margin-left: auto; margin-right: auto; padding-top: 4px; text-align: center; font-size: 10px; }}
     @media print {{
       @page {{ size: letter; margin: 8mm; }}
     }}
@@ -78,34 +95,34 @@ namespace Pinecos.Helpers
 <body>
   <div class='sheet'>
     {logoHtml}
-    <div class='center doc-fiscal'>DOCUMENTO FISCAL (SAR)</div>
-    <div class='center doc-original'>FACTURA ORIGINAL — CLIENTE</div>
-    <div class='center no-control'>No. CONTROL: {Esc(ticket.NumeroFactura)}</div>
     <div class='center'><strong>{Esc(ticket.NombreNegocio)}</strong></div>
     <div class='center small'>{Esc(ticket.DireccionNegocio)}</div>
-    <div class='center small'>RTN: {Esc(ticket.RtnNegocio)} | Tel: {Esc(ticket.TelefonoNegocio)} {(string.IsNullOrWhiteSpace(ticket.CorreoNegocio) ? "" : $"| Email: {Esc(ticket.CorreoNegocio)}")}</div>
+    <div class='center small'>R.T.N.: {Esc(ticket.RtnNegocio)} | Tel.: {Esc(ticket.TelefonoNegocio)}{(string.IsNullOrWhiteSpace(ticket.CorreoNegocio) ? "" : $" | E-mail: {Esc(ticket.CorreoNegocio)}")}</div>
+    <div class='center cai-header'><strong>C.A.I.:</strong> {Esc(ticket.Cai)}</div>
+    <div class='line'></div>
+    <div class='center titulo-factura'>FACTURA</div>
+    <div class='center no-factura'>N° {Esc(ticket.NumeroFactura)}</div>
+    <div class='fecha-emision center'><strong>Fecha de emisión:</strong> DÍA: {fv.Day} &nbsp; MES: {fv.Month:00} &nbsp; AÑO: {fv.Year}</div>
+    <div class='pago-tipo center'><strong>Forma de pago:</strong> {chkCont} CONTADO &nbsp;&nbsp; {chkCred} CRÉDITO</div>
     <div class='line'></div>
     <div class='row'>
-      <div><strong>Cliente:</strong> {Esc(ticket.NombreCliente)}</div>
-      <div><strong>CAI vigente</strong> (ver recuadro abajo)</div>
+      <div style='flex:1; min-width:48%'><strong>Cliente:</strong> {Esc(ticket.NombreCliente)}</div>
+      <div style='flex:1; min-width:48%'><strong>R.T.N.:</strong> {Esc(ticket.RtnCliente)}</div>
     </div>
     <div class='row'>
-      <div><strong>Direccion:</strong> {Esc(ticket.DireccionCliente)}</div>
-      <div><strong>RTN / Identidad:</strong> {Esc(string.IsNullOrWhiteSpace(ticket.RtnCliente) ? ticket.IdentidadCliente : ticket.RtnCliente)}</div>
+      <div style='flex:1; min-width:48%'><strong>Dirección:</strong> {Esc(ticket.DireccionCliente)}</div>
+      <div style='flex:1; min-width:48%'><strong>Tel.:</strong> {Esc(ticket.TelefonoCliente)}</div>
     </div>
-    <div class='row'>
-      <div><strong>Lugar y fecha de emision:</strong> {ciudadFecha}</div>
-      <div><strong>Condicion de pago:</strong> {Esc(ticket.CondicionPago)}</div>
-    </div>
+    <div class='small' style='margin-top:4px;'><strong>Lugar y fecha (ciudad):</strong> {ciudadFecha}</div>
     <div class='line'></div>
     <table>
       <thead>
         <tr>
-          <th>Cantidad</th>
-          <th>Descripcion</th>
-          <th class='num'>Precio Unitario</th>
-          <th class='num'>Descuentos / Rebajas</th>
-          <th class='num'>Total Lps.</th>
+          <th>CANTIDAD</th>
+          <th>DESCRIPCIÓN</th>
+          <th class='num'>PRECIO UNITARIO</th>
+          <th class='num'>DESC. Y REBAJAS OTORGADAS</th>
+          <th class='num'>TOTAL L.</th>
         </tr>
       </thead>
       <tbody>");
@@ -120,49 +137,50 @@ namespace Pinecos.Helpers
         <tr>
           <td class='num'>{item.Cantidad}</td>
           <td>{Esc(nombre)}</td>
-          <td class='num'>{item.PrecioUnitario:N2}</td>
-          <td class='num'>0.00</td>
-          <td class='num'>{item.Subtotal:N2}</td>
+          <td class='num'>L. {L(item.PrecioUnitario)}</td>
+          <td class='num'>L. 0.00</td>
+          <td class='num'>L. {L(item.Subtotal)}</td>
         </tr>");
                 }
 
                 sb.Append($@"
       </tbody>
     </table>
-    <div class='row' style='margin-top:8px;'>
-      <div style='width:60%;'>
+    <div class='row' style='margin-top:8px; align-items:flex-start;'>
+      <div style='flex:1; min-width:55%;'>
         <div><strong>Valor en letras:</strong> {Esc(ticket.TotalEnLetras)}</div>
-        <div class='small'><strong>Datos de exento/exonerado:</strong></div>
-        <div class='small'>N° Orden Compra Exenta: {Esc(ticket.NumeroOrdenCompraExenta)}</div>
-        <div class='small'>N° Constancia Registro Exonerado: {Esc(ticket.NumeroConstanciaRegistroExonerado)}</div>
-        <div class='small'>N° Registro SAG: {Esc(ticket.NumeroRegistroSag)}</div>
+        <div class='small' style='margin-top:8px;'><strong>Datos del adquiriente exonerado</strong></div>
+        <div class='small'>No. correlativo de orden de compra exenta: {Esc(ticket.NumeroOrdenCompraExenta)}</div>
+        <div class='small'>No. correlativo de constancia de registro exonerado: {Esc(ticket.NumeroConstanciaRegistroExonerado)}</div>
+        <div class='small'>No. identificativo del registro de la SAG: {Esc(ticket.NumeroRegistroSag)}</div>
       </div>
-      <div style='width:38%;'>
+      <div style='flex:1; min-width:38%; max-width:42%;'>
         <table>
-          <tr><td>Importe Exento</td><td class='num'>{ticket.ImporteExento:N2}</td></tr>
-          <tr><td>Importe Exonerado</td><td class='num'>{ticket.ImporteExonerado:N2}</td></tr>
-          <tr><td>Importe Gravado 15%</td><td class='num'>{ticket.ImporteGravado15:N2}</td></tr>
-          <tr><td>Importe Gravado 18%</td><td class='num'>{ticket.ImporteGravado18:N2}</td></tr>
-          <tr><td>ISV 15%</td><td class='num'>{ticket.Isv15:N2}</td></tr>
-          <tr><td>ISV 18%</td><td class='num'>{ticket.Isv18:N2}</td></tr>
-          <tr><td><strong>Total L.</strong></td><td class='num'><strong>{ticket.Total:N2}</strong></td></tr>
+          <tr><td>IMPORTE EXONERADO</td><td class='num'>L. {L(ticket.ImporteExonerado)}</td></tr>
+          <tr><td>IMPORTE EXENTO</td><td class='num'>L. {L(ticket.ImporteExento)}</td></tr>
+          <tr><td>IMPORTE GRAVADO 15%</td><td class='num'>L. {L(ticket.ImporteGravado15)}</td></tr>
+          <tr><td>IMPORTE GRAVADO 18%</td><td class='num'>L. {L(ticket.ImporteGravado18)}</td></tr>
+          <tr><td>I.S.V. 15%</td><td class='num'>L. {L(ticket.Isv15)}</td></tr>
+          <tr><td>I.S.V. 18%</td><td class='num'>L. {L(ticket.Isv18)}</td></tr>
+          <tr><td><strong>TOTAL</strong></td><td class='num'><strong>L. {L(ticket.Total)}</strong></td></tr>
         </table>
       </div>
     </div>
     <div class='line'></div>
     <div class='cai-caja'>
       <div class='fila'><span class='etq'>C.A.I.</span> {Esc(ticket.Cai)}</div>
-      <div class='fila'><span class='etq'>Rango autorizado</span> {Esc(ticket.RangoInicio)} <strong>al</strong> {Esc(ticket.RangoFin)}</div>
-      <div class='fila'><span class='etq'>Fecha limite emision</span> {fechaLimStr}</div>
+      <div class='fila'><span class='etq'>Rango autorizado</span> Del {Esc(ticket.RangoInicio)} Al {Esc(ticket.RangoFin)}</div>
+      <div class='fila'><span class='etq'>Fecha límite de emisión</span> {fechaLimStr}</div>
     </div>
     {leyendaBloque}
     <div class='imprenta-block'>
-      <div><strong>Datos de imprenta / autorizacion</strong></div>
+      <div><strong>Datos de imprenta / autorización</strong></div>
       <div class='small'>Nombre: {Esc(ticket.NombreImprenta)}</div>
-      <div class='small'>RTN imprenta: {Esc(ticket.RtnImprenta)}</div>
+      <div class='small'>R.T.N. imprenta: {Esc(ticket.RtnImprenta)}</div>
       <div class='small'>No. registro / certificado: {Esc(ticket.NumeroCertificadoImprenta)}</div>
     </div>
-    <div class='pie-fiscal'>{Esc(pieTexto)}</div>
+    <div class='pie-fiscal'>{Esc(pieFinal)}</div>
+    <div class='firma-linea'>FIRMA AUTORIZADA</div>
   </div>
 </body>
 </html>");
