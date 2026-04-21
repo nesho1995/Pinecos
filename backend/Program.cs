@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Pinecos;
 using Pinecos.Data;
+using System.Security.Claims;
 using System.Text;
 using System.Threading.RateLimiting;
 
@@ -69,8 +70,10 @@ builder.Services.AddAuthentication(options =>
                 return;
             }
 
-            var rolToken = context.Principal?.FindFirst("rol")?.Value ?? string.Empty;
-            if (!string.Equals(usuarioDb.Rol, rolToken, StringComparison.OrdinalIgnoreCase))
+            var rolDb = (usuarioDb.Rol ?? string.Empty).Trim();
+            var rolDbUpper = rolDb.ToUpperInvariant();
+            var rolToken = (context.Principal?.FindFirst("rol")?.Value ?? string.Empty).Trim();
+            if (!string.Equals(rolDb, rolToken, StringComparison.OrdinalIgnoreCase))
             {
                 context.Fail("Sesion invalida");
                 return;
@@ -81,6 +84,21 @@ builder.Services.AddAuthentication(options =>
             if (!string.Equals(sucursalToken, sucursalDb, StringComparison.Ordinal))
             {
                 context.Fail("Sesion invalida");
+                return;
+            }
+
+            // Refuerza compatibilidad de autorizacion por rol para tokens antiguos
+            // con valor de rol no normalizado (ejemplo: "Cajero" vs "CAJERO").
+            if (context.Principal?.Identity is ClaimsIdentity identity)
+            {
+                if (!context.Principal.HasClaim(c => c.Type == "rol" && string.Equals(c.Value, rolDbUpper, StringComparison.OrdinalIgnoreCase)))
+                    identity.AddClaim(new Claim("rol", rolDbUpper));
+
+                if (!context.Principal.HasClaim(c => c.Type == ClaimTypes.Role && string.Equals(c.Value, rolDbUpper, StringComparison.OrdinalIgnoreCase)))
+                    identity.AddClaim(new Claim(ClaimTypes.Role, rolDbUpper));
+
+                if (!context.Principal.HasClaim(c => c.Type == "id_sucursal" && string.Equals(c.Value, sucursalDb, StringComparison.Ordinal)))
+                    identity.AddClaim(new Claim("id_sucursal", sucursalDb));
             }
         }
     };
