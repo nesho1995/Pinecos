@@ -9,7 +9,7 @@ namespace Pinecos.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [AuthorizeRoles("ADMIN")]
+    [AuthorizeRoles("ADMIN", "CAJERO")]
     public class DashboardController : ControllerBase
     {
         private readonly PinecosDbContext _context;
@@ -20,6 +20,7 @@ namespace Pinecos.Controllers
         }
 
         [HttpGet("resumen")]
+        [AuthorizeRoles("ADMIN")]
         public async Task<ActionResult> GetResumen()
         {
             var rol = UserHelper.GetUserRole(User);
@@ -77,6 +78,7 @@ namespace Pinecos.Controllers
         }
 
         [HttpGet("ventas-del-dia")]
+        [AuthorizeRoles("ADMIN")]
         public async Task<ActionResult> GetVentasDelDia()
         {
             var rol = UserHelper.GetUserRole(User);
@@ -113,6 +115,7 @@ namespace Pinecos.Controllers
         }
 
         [HttpGet("gastos-del-dia")]
+        [AuthorizeRoles("ADMIN")]
         public async Task<ActionResult> GetGastosDelDia()
         {
             var rol = UserHelper.GetUserRole(User);
@@ -149,6 +152,7 @@ namespace Pinecos.Controllers
         }
 
         [HttpGet("caja-actual")]
+        [AuthorizeRoles("ADMIN", "CAJERO")]
         public async Task<ActionResult> GetCajaActual([FromQuery] int? idSucursal = null)
         {
             var rol = UserHelper.GetUserRole(User);

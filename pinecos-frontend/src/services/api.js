@@ -41,12 +41,18 @@ api.interceptors.response.use(
 
     try {
       const responseData = error?.response?.data;
+      const status = error?.response?.status;
       const baseMessage =
         typeof responseData === 'string'
           ? responseData
           : responseData?.message || responseData?.title || error?.message || '';
 
-      const sanitized = sanitizeBackendMessage(baseMessage) || genericErrorMessage;
+      const fallbackByStatus =
+        status === 401 ? 'Sesion expirada o credenciales invalidas.' :
+        status === 403 ? 'No tienes permisos para realizar esta accion.' :
+        genericErrorMessage;
+
+      const sanitized = sanitizeBackendMessage(baseMessage) || fallbackByStatus;
       error.message = sanitized;
 
       if (error?.response) {
