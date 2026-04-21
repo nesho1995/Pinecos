@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { clearSession } from '../utils/auth';
+import { getToken } from '../utils/auth';
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5152/api';
 const genericErrorMessage = 'Ocurrio un error interno. Intenta nuevamente o contacta al administrador.';
@@ -23,7 +24,7 @@ const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
+  const token = getToken();
 
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
