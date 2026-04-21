@@ -122,6 +122,21 @@ namespace Pinecos.Controllers
             if (relacion == null)
                 return NotFound(new { message = "Relacion producto-presentacion no encontrada" });
 
+            var tieneHistorial = await _context.DetalleVenta.AnyAsync(x =>
+                x.Id_Producto == relacion.Id_Producto &&
+                x.Id_Presentacion == relacion.Id_Presentacion)
+                || await _context.DetalleCuentaMesa.AnyAsync(x =>
+                    x.Id_Producto == relacion.Id_Producto &&
+                    x.Id_Presentacion == relacion.Id_Presentacion);
+
+            if (tieneHistorial)
+            {
+                return BadRequest(new
+                {
+                    message = "No se puede eliminar esta relacion porque tiene historial en ventas o cuentas. Inactiva sus precios por sucursal en su lugar."
+                });
+            }
+
             using var transaction = await _context.Database.BeginTransactionAsync();
 
             try
@@ -145,6 +160,14 @@ namespace Pinecos.Controllers
 
                 await transaction.CommitAsync();
                 return Ok(new { message = "Relacion eliminada correctamente" });
+            }
+            catch (DbUpdateException)
+            {
+                await transaction.RollbackAsync();
+                return BadRequest(new
+                {
+                    message = "No se pudo eliminar la relacion porque esta en uso por otros registros. Inactiva sus precios por sucursal."
+                });
             }
             catch
             {
