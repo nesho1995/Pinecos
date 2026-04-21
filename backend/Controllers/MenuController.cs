@@ -131,6 +131,18 @@ namespace Pinecos.Controllers
 
             if (tieneHistorial)
             {
+                var preciosActivosHistorial = await _context.ProductoPresentacionSucursales
+                    .Where(x => x.Id_Producto_Presentacion == idProductoPresentacion && x.Activo)
+                    .ToListAsync();
+
+                if (preciosActivosHistorial.Count > 0)
+                {
+                    foreach (var precio in preciosActivosHistorial)
+                        precio.Activo = false;
+
+                    await _context.SaveChangesAsync();
+                }
+
                 return BadRequest(new
                 {
                     message = "No se puede eliminar esta relacion porque tiene historial en ventas o cuentas. Inactiva sus precios por sucursal en su lugar."
@@ -171,9 +183,24 @@ namespace Pinecos.Controllers
             catch (DbUpdateException)
             {
                 await transaction.RollbackAsync();
-                return BadRequest(new
+
+                var preciosActivos = await _context.ProductoPresentacionSucursales
+                    .Where(x => x.Id_Producto_Presentacion == idProductoPresentacion && x.Activo)
+                    .ToListAsync();
+
+                if (preciosActivos.Count > 0)
                 {
-                    message = "No se pudo eliminar la relacion porque esta en uso por otros registros. Inactiva sus precios por sucursal."
+                    foreach (var precio in preciosActivos)
+                        precio.Activo = false;
+
+                    await _context.SaveChangesAsync();
+                }
+
+                return Ok(new
+                {
+                    message = "La relacion esta en uso y no se pudo eliminar fisicamente. Sus precios por sucursal quedaron inactivos.",
+                    eliminada = false,
+                    preciosInactivados = true
                 });
             }
             catch
