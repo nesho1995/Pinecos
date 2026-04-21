@@ -5,6 +5,7 @@ using Pinecos.Data;
 using Pinecos.Documents;
 using Pinecos.DTOs;
 using Pinecos.Helpers;
+using Pinecos.Models;
 using QuestPDF.Fluent;
 using QuestPDF.Infrastructure;
 
@@ -43,6 +44,10 @@ namespace Pinecos.Controllers
 
             var sucursal = await _context.Sucursales.FirstOrDefaultAsync(x => x.Id_Sucursal == venta.Id_Sucursal);
             var usuario = await _context.Usuarios.FirstOrDefaultAsync(x => x.Id_Usuario == venta.Id_Usuario);
+            var baseConfig = await _context.ConfiguracionNegocio.FirstOrDefaultAsync(x => x.Activo);
+            var config = baseConfig != null
+                ? ConfiguracionSucursalStore.GetMergedConfig(_env.ContentRootPath, venta.Id_Sucursal, baseConfig)
+                : new ConfiguracionNegocio();
 
             var detalles = await (
                 from d in _context.DetalleVenta
@@ -63,6 +68,8 @@ namespace Pinecos.Controllers
 
             var costoTotal = detalles.Sum(d => d.CostoUnitario * d.Cantidad);
             var facturaMeta = FacturaMetadataHelper.ParseFromObservacion(venta.Observacion);
+            var facturaClienteMeta = FacturaClienteMetadataHelper.ParseFromObservacion(venta.Observacion);
+            var resumenFiscal = FacturaResumenFiscalHelper.Calcular(venta.Subtotal, venta.Impuesto, facturaClienteMeta.TipoFacturaFiscal);
             var sarConfig = FacturacionSarStore.GetConfig(_env.ContentRootPath, venta.Id_Sucursal);
 
             var ticket = new TicketVentaDto
@@ -87,6 +94,35 @@ namespace Pinecos.Controllers
                 RangoFin = facturaMeta.RangoFin,
                 CaiHabilitadoSucursal = sarConfig.HabilitadoCai,
                 CaiSucursalConfigurado = sarConfig.Cai ?? "",
+                NombreNegocio = config.Nombre_Negocio ?? string.Empty,
+                DireccionNegocio = config.Direccion ?? string.Empty,
+                TelefonoNegocio = config.Telefono ?? string.Empty,
+                RtnNegocio = config.Rtn ?? string.Empty,
+                LeyendaSar = sarConfig.LeyendaSar ?? string.Empty,
+                CorreoNegocio = sarConfig.CorreoNegocioFactura ?? string.Empty,
+                CiudadFechaFactura = sarConfig.CiudadFechaFactura ?? string.Empty,
+                PieFactura = sarConfig.PieFactura ?? "La factura es beneficio de todos. Exijala.",
+                NombreImprenta = sarConfig.NombreImprenta ?? string.Empty,
+                RtnImprenta = sarConfig.RtnImprenta ?? string.Empty,
+                NumeroCertificadoImprenta = sarConfig.NumeroCertificadoImprenta ?? string.Empty,
+                TipoCliente = facturaClienteMeta.TipoCliente,
+                NombreCliente = string.IsNullOrWhiteSpace(facturaClienteMeta.NombreCliente) ? (sarConfig.ClientePorDefecto ?? "CONSUMIDOR FINAL") : facturaClienteMeta.NombreCliente,
+                RtnCliente = string.IsNullOrWhiteSpace(facturaClienteMeta.RtnCliente) ? (sarConfig.RtnClientePorDefecto ?? string.Empty) : facturaClienteMeta.RtnCliente,
+                IdentidadCliente = facturaClienteMeta.IdentidadCliente ?? string.Empty,
+                DireccionCliente = string.IsNullOrWhiteSpace(facturaClienteMeta.DireccionCliente) ? (sarConfig.DireccionClientePorDefecto ?? string.Empty) : facturaClienteMeta.DireccionCliente,
+                TelefonoCliente = facturaClienteMeta.TelefonoCliente ?? string.Empty,
+                CondicionPago = facturaClienteMeta.CondicionPago,
+                TipoFacturaFiscal = facturaClienteMeta.TipoFacturaFiscal,
+                NumeroOrdenCompraExenta = facturaClienteMeta.NumeroOrdenCompraExenta ?? string.Empty,
+                NumeroConstanciaRegistroExonerado = facturaClienteMeta.NumeroConstanciaRegistroExonerado ?? string.Empty,
+                NumeroRegistroSag = facturaClienteMeta.NumeroRegistroSag ?? string.Empty,
+                ImporteExento = resumenFiscal.ImporteExento,
+                ImporteExonerado = resumenFiscal.ImporteExonerado,
+                ImporteGravado15 = resumenFiscal.ImporteGravado15,
+                ImporteGravado18 = resumenFiscal.ImporteGravado18,
+                Isv15 = resumenFiscal.Isv15,
+                Isv18 = resumenFiscal.Isv18,
+                TotalEnLetras = NumeroALetrasHelper.ConvertirLempiras(venta.Total),
                 Detalles = detalles
             };
 

@@ -248,7 +248,13 @@ namespace Pinecos.Helpers
                 PermitirVentaSinFactura = source.PermitirVentaSinFactura,
                 NombreImprenta = source.NombreImprenta,
                 RtnImprenta = source.RtnImprenta,
-                NumeroCertificadoImprenta = source.NumeroCertificadoImprenta
+                NumeroCertificadoImprenta = source.NumeroCertificadoImprenta,
+                CorreoNegocioFactura = source.CorreoNegocioFactura,
+                ClientePorDefecto = source.ClientePorDefecto,
+                RtnClientePorDefecto = source.RtnClientePorDefecto,
+                DireccionClientePorDefecto = source.DireccionClientePorDefecto,
+                CiudadFechaFactura = source.CiudadFechaFactura,
+                PieFactura = source.PieFactura
             };
         }
 

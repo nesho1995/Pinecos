@@ -194,6 +194,13 @@ namespace Pinecos.Controllers
                 var observacionFinal = string.IsNullOrWhiteSpace(request.Observacion)
                     ? $"SERVICIO:{tipoServicio}"
                     : $"SERVICIO:{tipoServicio} | {request.Observacion}";
+                if (request.EmitirFactura)
+                {
+                    var facturaClienteToken = FacturaClienteMetadataHelper.BuildToken(request.FacturaCliente);
+                    observacionFinal = string.IsNullOrWhiteSpace(observacionFinal)
+                        ? facturaClienteToken
+                        : $"{observacionFinal} | {facturaClienteToken}";
+                }
                 var pagosToken = PagoVentaHelper.BuildPagosToken(pagosNormalizados);
                 if (!string.IsNullOrWhiteSpace(pagosToken))
                     observacionFinal = $"{observacionFinal} | {pagosToken}";

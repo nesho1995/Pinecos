@@ -5,6 +5,11 @@ namespace Pinecos.Helpers
 {
     public static class TicketHtmlHelper
     {
+        private static string Esc(string? value)
+        {
+            return System.Net.WebUtility.HtmlEncode(value ?? string.Empty);
+        }
+
         public static string Generar(
             TicketVentaDto ticket,
             string nombreNegocio,
@@ -20,6 +25,118 @@ namespace Pinecos.Helpers
             var logoHtml = string.IsNullOrWhiteSpace(logoUrl)
                 ? ""
                 : $"<div class='center'><img src='{logoUrl}' style='max-width:180px; max-height:80px;' /></div>";
+
+            if (ticket.EsFacturaCai)
+            {
+                var ciudadFecha = string.IsNullOrWhiteSpace(ticket.CiudadFechaFactura)
+                    ? ticket.Fecha.ToString("dd/MM/yyyy")
+                    : $"{Esc(ticket.CiudadFechaFactura)}, {ticket.Fecha:dd/MM/yyyy}";
+
+                sb.Append($@"
+<!DOCTYPE html>
+<html lang='es'>
+<head>
+  <meta charset='UTF-8'>
+  <title>Factura {Esc(ticket.NumeroFactura)}</title>
+  <style>
+    body {{ font-family: Arial, Helvetica, sans-serif; font-size: 12px; margin: 0; padding: 0; }}
+    .sheet {{ width: 210mm; margin: 0 auto; padding: 10mm; box-sizing: border-box; }}
+    .center {{ text-align: center; }}
+    .row {{ display:flex; justify-content:space-between; gap:12px; }}
+    .box {{ border: 1px solid #222; padding: 6px; }}
+    .line {{ border-top:1px solid #222; margin: 6px 0; }}
+    table {{ width:100%; border-collapse: collapse; }}
+    th, td {{ border:1px solid #222; padding:4px; vertical-align: top; }}
+    .num {{ text-align: right; white-space: nowrap; }}
+    .small {{ font-size: 11px; }}
+    @media print {{
+      @page {{ size: letter; margin: 8mm; }}
+    }}
+  </style>
+</head>
+<body>
+  <div class='sheet'>
+    {logoHtml}
+    <div class='center'><strong>{Esc(ticket.NombreNegocio)}</strong></div>
+    <div class='center small'>{Esc(ticket.DireccionNegocio)}</div>
+    <div class='center small'>RTN: {Esc(ticket.RtnNegocio)} | Tel: {Esc(ticket.TelefonoNegocio)} {(string.IsNullOrWhiteSpace(ticket.CorreoNegocio) ? "" : $"| Email: {Esc(ticket.CorreoNegocio)}")}</div>
+    <div class='line'></div>
+    <div class='row'>
+      <div><strong>Cliente:</strong> {Esc(ticket.NombreCliente)}</div>
+      <div><strong>Factura:</strong> {Esc(ticket.NumeroFactura)}</div>
+    </div>
+    <div class='row'>
+      <div><strong>Direccion:</strong> {Esc(ticket.DireccionCliente)}</div>
+      <div><strong>RTN/ID:</strong> {Esc(string.IsNullOrWhiteSpace(ticket.RtnCliente) ? ticket.IdentidadCliente : ticket.RtnCliente)}</div>
+    </div>
+    <div class='row'>
+      <div><strong>Lugar y fecha:</strong> {ciudadFecha}</div>
+      <div><strong>Pago:</strong> {Esc(ticket.CondicionPago)}</div>
+    </div>
+    <div class='line'></div>
+    <table>
+      <thead>
+        <tr>
+          <th>Cantidad</th>
+          <th>Descripcion</th>
+          <th class='num'>Precio Unitario</th>
+          <th class='num'>Descuentos / Rebajas</th>
+          <th class='num'>Total Lps.</th>
+        </tr>
+      </thead>
+      <tbody>");
+
+                foreach (var item in ticket.Detalles)
+                {
+                    var nombre = item.Producto;
+                    if (!string.IsNullOrWhiteSpace(item.Presentacion))
+                        nombre += $" ({item.Presentacion})";
+
+                    sb.Append($@"
+        <tr>
+          <td class='num'>{item.Cantidad}</td>
+          <td>{Esc(nombre)}</td>
+          <td class='num'>{item.PrecioUnitario:N2}</td>
+          <td class='num'>0.00</td>
+          <td class='num'>{item.Subtotal:N2}</td>
+        </tr>");
+                }
+
+                sb.Append($@"
+      </tbody>
+    </table>
+    <div class='row' style='margin-top:8px;'>
+      <div style='width:60%;'>
+        <div><strong>Valor en letras:</strong> {Esc(ticket.TotalEnLetras)}</div>
+        <div class='small'><strong>Datos de exento/exonerado:</strong></div>
+        <div class='small'>N° Orden Compra Exenta: {Esc(ticket.NumeroOrdenCompraExenta)}</div>
+        <div class='small'>N° Constancia Registro Exonerado: {Esc(ticket.NumeroConstanciaRegistroExonerado)}</div>
+        <div class='small'>N° Registro SAG: {Esc(ticket.NumeroRegistroSag)}</div>
+      </div>
+      <div style='width:38%;'>
+        <table>
+          <tr><td>Importe Exento</td><td class='num'>{ticket.ImporteExento:N2}</td></tr>
+          <tr><td>Importe Exonerado</td><td class='num'>{ticket.ImporteExonerado:N2}</td></tr>
+          <tr><td>Importe Gravado 15%</td><td class='num'>{ticket.ImporteGravado15:N2}</td></tr>
+          <tr><td>Importe Gravado 18%</td><td class='num'>{ticket.ImporteGravado18:N2}</td></tr>
+          <tr><td>ISV 15%</td><td class='num'>{ticket.Isv15:N2}</td></tr>
+          <tr><td>ISV 18%</td><td class='num'>{ticket.Isv18:N2}</td></tr>
+          <tr><td><strong>Total</strong></td><td class='num'><strong>{ticket.Total:N2}</strong></td></tr>
+        </table>
+      </div>
+    </div>
+    <div class='line'></div>
+    <div class='small'>CAI: {Esc(ticket.Cai)}</div>
+    <div class='small'>Rango autorizado: {Esc(ticket.RangoInicio)} al {Esc(ticket.RangoFin)}</div>
+    <div class='small'>Fecha limite de emision: {(ticket.FechaLimiteEmision.HasValue ? ticket.FechaLimiteEmision.Value.ToString("dd/MM/yyyy") : "-")}</div>
+    <div class='small'>Nombre Imprenta: {Esc(ticket.NombreImprenta)} | RTN: {Esc(ticket.RtnImprenta)} | Certificado: {Esc(ticket.NumeroCertificadoImprenta)}</div>
+    <div class='small center'>{Esc(string.IsNullOrWhiteSpace(ticket.LeyendaSar) ? ticket.PieFactura : ticket.LeyendaSar)}</div>
+  </div>
+</body>
+</html>");
+
+                return sb.ToString();
+            }
 
             sb.Append($@"
 <!DOCTYPE html>

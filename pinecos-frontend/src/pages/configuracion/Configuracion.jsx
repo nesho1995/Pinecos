@@ -24,6 +24,15 @@ function Configuracion() {
     fechaLimiteEmision: '',
     leyendaSar: '',
     permitirVentaSinFactura: true,
+    nombreImprenta: '',
+    rtnImprenta: '',
+    numeroCertificadoImprenta: '',
+    correoNegocioFactura: '',
+    clientePorDefecto: 'CONSUMIDOR FINAL',
+    rtnClientePorDefecto: '',
+    direccionClientePorDefecto: '',
+    ciudadFechaFactura: '',
+    pieFactura: 'La factura es beneficio de todos. Exijala.',
     facturasRestantes: 0,
     caiVencido: false
   });
@@ -103,6 +112,15 @@ function Configuracion() {
       fechaLimiteEmision: data.fechaLimiteEmision ? String(data.fechaLimiteEmision).slice(0, 10) : '',
       leyendaSar: data.leyendaSar || '',
       permitirVentaSinFactura: data.permitirVentaSinFactura ?? true,
+      nombreImprenta: data.nombreImprenta || '',
+      rtnImprenta: data.rtnImprenta || '',
+      numeroCertificadoImprenta: data.numeroCertificadoImprenta || '',
+      correoNegocioFactura: data.correoNegocioFactura || '',
+      clientePorDefecto: data.clientePorDefecto || 'CONSUMIDOR FINAL',
+      rtnClientePorDefecto: data.rtnClientePorDefecto || '',
+      direccionClientePorDefecto: data.direccionClientePorDefecto || '',
+      ciudadFechaFactura: data.ciudadFechaFactura || '',
+      pieFactura: data.pieFactura || 'La factura es beneficio de todos. Exijala.',
       facturasRestantes: Number(data.facturasRestantes || 0),
       caiVencido: !!data.caiVencido
     });
@@ -555,6 +573,43 @@ function Configuracion() {
             <div className="col-md-6">
               <label className="form-label">Leyenda SAR</label>
               <input type="text" className="form-control" name="leyendaSar" value={sarForm.leyendaSar} onChange={handleSarChange} />
+            </div>
+
+            <div className="col-md-4">
+              <label className="form-label">Nombre imprenta</label>
+              <input type="text" className="form-control" name="nombreImprenta" value={sarForm.nombreImprenta} onChange={handleSarChange} />
+            </div>
+            <div className="col-md-4">
+              <label className="form-label">RTN imprenta</label>
+              <input type="text" className="form-control" name="rtnImprenta" value={sarForm.rtnImprenta} onChange={handleSarChange} />
+            </div>
+            <div className="col-md-4">
+              <label className="form-label">No. certificado imprenta</label>
+              <input type="text" className="form-control" name="numeroCertificadoImprenta" value={sarForm.numeroCertificadoImprenta} onChange={handleSarChange} />
+            </div>
+            <div className="col-md-6">
+              <label className="form-label">Correo negocio (factura)</label>
+              <input type="text" className="form-control" name="correoNegocioFactura" value={sarForm.correoNegocioFactura} onChange={handleSarChange} />
+            </div>
+            <div className="col-md-6">
+              <label className="form-label">Ciudad y fecha factura</label>
+              <input type="text" className="form-control" name="ciudadFechaFactura" value={sarForm.ciudadFechaFactura} onChange={handleSarChange} placeholder="Comayagua" />
+            </div>
+            <div className="col-md-6">
+              <label className="form-label">Cliente por defecto</label>
+              <input type="text" className="form-control" name="clientePorDefecto" value={sarForm.clientePorDefecto} onChange={handleSarChange} />
+            </div>
+            <div className="col-md-3">
+              <label className="form-label">RTN cliente por defecto</label>
+              <input type="text" className="form-control" name="rtnClientePorDefecto" value={sarForm.rtnClientePorDefecto} onChange={handleSarChange} />
+            </div>
+            <div className="col-md-3">
+              <label className="form-label">Direccion cliente por defecto</label>
+              <input type="text" className="form-control" name="direccionClientePorDefecto" value={sarForm.direccionClientePorDefecto} onChange={handleSarChange} />
+            </div>
+            <div className="col-12">
+              <label className="form-label">Pie de factura</label>
+              <input type="text" className="form-control" name="pieFactura" value={sarForm.pieFactura} onChange={handleSarChange} />
             </div>
 
             <div className="col-12">

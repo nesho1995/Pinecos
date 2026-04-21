@@ -36,7 +36,10 @@
         public string RtnNegocio { get; set; } = string.Empty;
         public string DireccionNegocio { get; set; } = string.Empty;
         public string TelefonoNegocio { get; set; } = string.Empty;
+        public string CorreoNegocio { get; set; } = string.Empty;
+        public string CiudadFechaFactura { get; set; } = string.Empty;
         public string LeyendaSar { get; set; } = string.Empty;
+        public string PieFactura { get; set; } = string.Empty;
         public string NombreImprenta { get; set; } = string.Empty;
         public string RtnImprenta { get; set; } = string.Empty;
         public string NumeroCertificadoImprenta { get; set; } = string.Empty;

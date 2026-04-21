@@ -141,6 +141,13 @@ namespace Pinecos.Controllers
 
             try
             {
+                var recetasRelacionadas = await _context.RecetasProductoInsumo
+                    .Where(x => x.Id_Producto == relacion.Id_Producto && x.Id_Presentacion == relacion.Id_Presentacion)
+                    .ToListAsync();
+
+                if (recetasRelacionadas.Count > 0)
+                    _context.RecetasProductoInsumo.RemoveRange(recetasRelacionadas);
+
                 var preciosSucursal = await _context.ProductoPresentacionSucursales
                     .Where(x => x.Id_Producto_Presentacion == idProductoPresentacion)
                     .ToListAsync();

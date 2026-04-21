@@ -14,6 +14,12 @@ namespace Pinecos.DTOs
         public string NombreImprenta { get; set; } = string.Empty;
         public string RtnImprenta { get; set; } = string.Empty;
         public string NumeroCertificadoImprenta { get; set; } = string.Empty;
+        public string CorreoNegocioFactura { get; set; } = string.Empty;
+        public string ClientePorDefecto { get; set; } = "CONSUMIDOR FINAL";
+        public string RtnClientePorDefecto { get; set; } = string.Empty;
+        public string DireccionClientePorDefecto { get; set; } = string.Empty;
+        public string CiudadFechaFactura { get; set; } = string.Empty;
+        public string PieFactura { get; set; } = "La factura es beneficio de todos. Exijala.";
         public int? CorrelativoInicio { get; set; }
         public int? CorrelativoFin { get; set; }
         public int? CorrelativoActual { get; set; }
