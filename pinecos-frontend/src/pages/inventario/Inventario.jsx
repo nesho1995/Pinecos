@@ -47,6 +47,8 @@ function Inventario() {
     hasta: toLocalInput(new Date())
   });
   const [kardexData, setKardexData] = useState(null);
+  const [checklistData, setChecklistData] = useState(null);
+  const [checklistError, setChecklistError] = useState('');
   const [resumen, setResumen] = useState({ totalItems: 0, itemsStockBajo: 0, porcentajeBajo: 0 });
   const [itemForm, setItemForm] = useState(emptyItem);
   const [itemEditandoId, setItemEditandoId] = useState(null);
@@ -151,6 +153,23 @@ function Inventario() {
     setOrdenesCompra(res.data || []);
   };
 
+  const cargarChecklist = async () => {
+    setChecklistError('');
+    if (!sucursalFiltro) {
+      setChecklistData(null);
+      return;
+    }
+    try {
+      const res = await api.get('/Inventario/checklist-sucursal', {
+        params: { idSucursal: Number(sucursalFiltro) }
+      });
+      setChecklistData(res.data || null);
+    } catch (err) {
+      setChecklistData(null);
+      setChecklistError(err?.response?.data?.message || 'No se pudo cargar el checklist');
+    }
+  };
+
   const recargarTodo = async () => {
     try {
       await Promise.all([cargarItems(), cargarMovimientos(), cargarCompras(), cargarResumen(), cargarDashboardAvanzado(), cargarOrdenesCompra(), cargarProveedores(), cargarCatalogosReceta(), cargarRecetasProducto()]);
@@ -179,6 +198,11 @@ function Inventario() {
     if (!sucursalFiltro) return;
     cargarRecetasProducto();
   }, [sucursalFiltro, recetaForm.id_Producto]);
+
+  useEffect(() => {
+    if (!sucursalFiltro || tab !== 'checklist') return;
+    cargarChecklist();
+  }, [sucursalFiltro, tab]);
 
   const itemsFiltrados = useMemo(() => {
     const text = filtroItems.trim().toLowerCase();
@@ -491,6 +515,7 @@ function Inventario() {
       await api.put('/Inventario/recetas-producto', payload);
       setMensaje('Receta guardada correctamente');
       await cargarRecetasProducto();
+      if (sucursalFiltro) await cargarChecklist();
     } catch (err) {
       setError(err?.response?.data?.message || 'Error al guardar receta');
     }
@@ -502,6 +527,7 @@ function Inventario() {
       await api.post(`/Inventario/ordenes-compra/${idOrden}/aprobar`);
       setMensaje('Orden aprobada');
       await recargarTodo();
+      if (sucursalFiltro) await cargarChecklist();
     } catch (err) {
       setError(err?.response?.data?.message || 'Error al aprobar orden');
     }
@@ -513,6 +539,7 @@ function Inventario() {
       await api.post(`/Inventario/ordenes-compra/${idOrden}/recibir`);
       setMensaje('Orden recibida y stock actualizado');
       await recargarTodo();
+      if (sucursalFiltro) await cargarChecklist();
     } catch (err) {
       setError(err?.response?.data?.message || 'Error al recibir orden');
     }
@@ -525,6 +552,7 @@ function Inventario() {
       await api.post(`/Inventario/ordenes-compra/${idOrden}/cancelar`);
       setMensaje('Orden cancelada');
       await recargarTodo();
+      if (sucursalFiltro) await cargarChecklist();
     } catch (err) {
       setError(err?.response?.data?.message || 'Error al cancelar orden');
     }
@@ -648,6 +676,9 @@ function Inventario() {
             <li>
               <strong>Kardex:</strong> auditoria por insumo: entradas, salidas y saldo en el rango de fechas.
             </li>
+            <li>
+              <strong>Checklist:</strong> pestaña con pendientes de la sucursal: stock bajo, ordenes de compra sin recibir y productos en POS sin receta.
+            </li>
           </ol>
           <p className="small text-muted mb-0">
             <strong>Cobro POS:</strong> el stock baja solo si existe receta para ese producto (y presentacion si aplica). Sin receta, la venta no mueve inventario.
@@ -688,6 +719,7 @@ function Inventario() {
 
       <div className="reports-tabs inventario-tabs mb-3" role="tablist" aria-label="Secciones inventario">
         <button type="button" className={`btn btn-sm ${tab === 'resumen' ? 'btn-dark' : 'btn-outline-secondary'}`} onClick={() => setTab('resumen')}>Resumen</button>
+        <button type="button" className={`btn btn-sm ${tab === 'checklist' ? 'btn-dark' : 'btn-outline-secondary'}`} onClick={() => setTab('checklist')}>Checklist</button>
         <button type="button" className={`btn btn-sm ${tab === 'items' ? 'btn-dark' : 'btn-outline-secondary'}`} onClick={() => setTab('items')}>Insumos</button>
         <button type="button" className={`btn btn-sm ${tab === 'movimientos' ? 'btn-dark' : 'btn-outline-secondary'}`} onClick={() => setTab('movimientos')}>Movimientos</button>
         <button type="button" className={`btn btn-sm ${tab === 'compras' ? 'btn-dark' : 'btn-outline-secondary'}`} onClick={() => setTab('compras')}>Compras</button>
@@ -777,12 +809,12 @@ function Inventario() {
                   <table className="table table-bordered align-middle">
                     <thead>
                       <tr>
-                        <th>Codigo</th>
-                        <th>Insumo</th>
-                        <th>Stock actual</th>
-                        <th>Consumo diario</th>
-                        <th>Cobertura (dias)</th>
-                        <th>Nivel</th>
+                        <th title="Codigo interno del insumo">Codigo</th>
+                        <th title="Nombre del insumo en catalogo">Insumo</th>
+                        <th title="Saldo calculado con movimientos">Stock actual</th>
+                        <th title="Promedio de salidas ultimos 30 dias / 30">Consumo diario</th>
+                        <th title="Dias que alcanza el stock si sigue el ritmo de salida">Cobertura (dias)</th>
+                        <th title="CRITICO: bajo minimo o menos de 3 dias; ALERTA: menos de 7 dias">Nivel</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -809,6 +841,149 @@ function Inventario() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {tab === 'checklist' && (
+        <div className="row g-3">
+          {!sucursalFiltro ? (
+            <div className="col-12">
+              <div className="alert alert-warning mb-0">Elige una sucursal arriba para ver el checklist operativo.</div>
+            </div>
+          ) : (
+            <>
+              {checklistError && <div className="col-12 alert alert-danger py-2">{checklistError}</div>}
+              <div className="col-12 d-flex flex-wrap gap-2 align-items-center mb-1">
+                <button type="button" className="btn btn-outline-secondary btn-sm" onClick={() => cargarChecklist()}>
+                  Actualizar checklist
+                </button>
+                <span className="small text-muted">Misma sucursal que el selector superior.</span>
+              </div>
+              <div className="col-lg-4">
+                <div className="card shadow-sm border-danger border-opacity-25 h-100">
+                  <div className="card-body">
+                    <h5 className="h6 text-danger">Stock bajo o en minimo</h5>
+                    <div className="display-6 fs-4 fw-bold">{checklistData?.stockBajoCount ?? '—'}</div>
+                    <p className="small text-muted mb-2">Stock actual menor o igual al minimo configurado.</p>
+                    <div className="table-responsive" style={{ maxHeight: 320, overflowY: 'auto' }}>
+                      <table className="table table-sm table-bordered align-middle mb-0">
+                        <thead className="table-light sticky-top">
+                          <tr>
+                            <th title="Codigo del insumo">Cod.</th>
+                            <th title="Nombre del insumo">Insumo</th>
+                            <th title="Cantidad disponible hoy">Stock</th>
+                            <th title="Stock minimo de alerta">Min.</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(checklistData?.stockBajo || []).map((x) => (
+                            <tr key={x.id_Inventario_Item}>
+                              <td>{x.codigo}</td>
+                              <td>{x.nombre}</td>
+                              <td className="text-danger fw-semibold">{Number(x.stock_Actual || 0).toFixed(3)}</td>
+                              <td>{Number(x.stock_Minimo || 0).toFixed(3)}</td>
+                            </tr>
+                          ))}
+                          {checklistData && (checklistData.stockBajo || []).length === 0 && (
+                            <tr><td colSpan="4" className="text-center text-muted">Ninguno</td></tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                    <button type="button" className="btn btn-outline-primary btn-sm mt-2 w-100" onClick={() => setTab('items')}>
+                      Ir a Insumos
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div className="col-lg-4">
+                <div className="card shadow-sm border-warning border-opacity-50 h-100">
+                  <div className="card-body">
+                    <h5 className="h6 text-warning-emphasis">Ordenes de compra pendientes</h5>
+                    <div className="display-6 fs-4 fw-bold">{checklistData?.ordenesPendientesCount ?? '—'}</div>
+                    <p className="small text-muted mb-2">Estado BORRADOR o APROBADA (aun no RECIBIDA).</p>
+                    <div className="table-responsive" style={{ maxHeight: 320, overflowY: 'auto' }}>
+                      <table className="table table-sm table-bordered align-middle mb-0">
+                        <thead className="table-light sticky-top">
+                          <tr>
+                            <th title="Identificador interno">Id</th>
+                            <th title="Estado del flujo de la OC">Estado</th>
+                            <th title="Proveedor asociado">Proveedor</th>
+                            <th title="Monto total de la orden">Total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(checklistData?.ordenesPendientes || []).map((o) => (
+                            <tr key={o.id_Compra_Proveedor}>
+                              <td>{o.id_Compra_Proveedor}</td>
+                              <td>{o.estado}</td>
+                              <td>{o.proveedor}</td>
+                              <td>L {Number(o.total || 0).toFixed(2)}</td>
+                            </tr>
+                          ))}
+                          {checklistData && (checklistData.ordenesPendientes || []).length === 0 && (
+                            <tr><td colSpan="4" className="text-center text-muted">Ninguna</td></tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                    <button type="button" className="btn btn-outline-primary btn-sm mt-2 w-100" onClick={() => setTab('ordenes')}>
+                      Ir a Ordenes OC
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div className="col-lg-4">
+                <div className="card shadow-sm border-primary border-opacity-25 h-100">
+                  <div className="card-body">
+                    <h5 className="h6 text-primary">POS sin receta de inventario</h5>
+                    <div className="display-6 fs-4 fw-bold">{checklistData?.productosSinRecetaCount ?? '—'}</div>
+                    <p className="small text-muted mb-2">
+                      Tienen precio en esta sucursal pero no hay receta que aplique: al vender, <strong>no</strong> baja insumo.
+                    </p>
+                    <div className="table-responsive" style={{ maxHeight: 320, overflowY: 'auto' }}>
+                      <table className="table table-sm table-bordered align-middle mb-0">
+                        <thead className="table-light sticky-top">
+                          <tr>
+                            <th title="Producto en menu / POS">Producto</th>
+                            <th title="Presentacion en POS, vacio si es precio simple">Tamano</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(checklistData?.productosSinReceta || []).map((p, idx) => (
+                            <tr key={`${p.id_Producto}-${p.id_Presentacion ?? 'n'}-${idx}`}>
+                              <td>{p.producto}</td>
+                              <td>{p.presentacion || '—'}</td>
+                            </tr>
+                          ))}
+                          {checklistData && (checklistData.productosSinReceta || []).length === 0 && (
+                            <tr><td colSpan="2" className="text-center text-muted">Todos cubiertos</td></tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-outline-primary btn-sm mt-2 w-100"
+                      onClick={() => {
+                        const first = checklistData?.productosSinReceta?.[0];
+                        if (first?.id_Producto) {
+                          setRecetaForm((prev) => ({
+                            ...prev,
+                            id_Producto: String(first.id_Producto),
+                            id_Presentacion: first.id_Presentacion != null ? String(first.id_Presentacion) : ''
+                          }));
+                        }
+                        setTab('recetas');
+                      }}
+                    >
+                      Ir a Recetas
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       )}
 
@@ -880,13 +1055,13 @@ function Inventario() {
                   <table className="table table-bordered align-middle">
                     <thead>
                       <tr>
-                        <th>Codigo</th>
-                        <th>Nombre</th>
-                        <th>Stock</th>
-                        <th>Min</th>
-                        <th>Unidad</th>
-                        <th>Estado</th>
-                        <th>Acciones</th>
+                        <th title="Codigo interno o SKU">Codigo</th>
+                        <th title="Descripcion del insumo">Nombre</th>
+                        <th title="Stock actual calculado">Stock</th>
+                        <th title="Umbral para alertas de compra">Min</th>
+                        <th title="Unidad de medida (lb, unidad, etc.)">Unidad</th>
+                        <th title="Activo o inactivo en catalogo">Estado</th>
+                        <th title="Editar o inactivar">Acciones</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -982,12 +1157,12 @@ function Inventario() {
                   <table className="table table-bordered align-middle">
                     <thead>
                       <tr>
-                        <th>Fecha</th>
-                        <th>Item</th>
-                        <th>Tipo</th>
-                        <th>Cant.</th>
-                        <th>Costo</th>
-                        <th>Ref.</th>
+                        <th title="Fecha y hora del movimiento">Fecha</th>
+                        <th title="Insumo afectado">Item</th>
+                        <th title="ENTRADA, SALIDA, COMPRA, AJUSTE...">Tipo</th>
+                        <th title="Cantidad en unidad del insumo">Cant.</th>
+                        <th title="Costo unitario registrado">Costo</th>
+                        <th title="Texto libre de referencia">Ref.</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1086,10 +1261,10 @@ function Inventario() {
                   <table className="table table-bordered align-middle">
                     <thead>
                       <tr>
-                        <th>Fecha</th>
-                        <th>Proveedor</th>
-                        <th>Sucursal</th>
-                        <th>Total</th>
+                        <th title="Fecha de registro de la compra">Fecha</th>
+                        <th title="Proveedor de la factura">Proveedor</th>
+                        <th title="Sucursal que recibio el stock">Sucursal</th>
+                        <th title="Total Lempiras de la compra">Total</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1181,12 +1356,12 @@ function Inventario() {
                   <table className="table table-bordered align-middle">
                     <thead>
                       <tr>
-                        <th>Id</th>
-                        <th>Fecha</th>
-                        <th>Proveedor</th>
-                        <th>Estado</th>
-                        <th>Total</th>
-                        <th>Acciones</th>
+                        <th title="Numero interno de la orden">Id</th>
+                        <th title="Fecha de creacion">Fecha</th>
+                        <th title="Proveedor">Proveedor</th>
+                        <th title="BORRADOR, APROBADA, RECIBIDA, CANCELADA">Estado</th>
+                        <th title="Total estimado de la OC">Total</th>
+                        <th title="Aprobar, recibir o cancelar">Acciones</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1284,10 +1459,10 @@ function Inventario() {
                   <table className="table table-bordered align-middle">
                     <thead>
                       <tr>
-                        <th>Producto</th>
-                        <th>Presentacion</th>
-                        <th>Insumo</th>
-                        <th>Cantidad</th>
+                        <th title="Producto de venta en POS">Producto</th>
+                        <th title="Tamano si aplica; GENERAL si aplica a todos">Presentacion</th>
+                        <th title="Insumo que descuenta del stock">Insumo</th>
+                        <th title="Cantidad de insumo por 1 unidad vendida">Cantidad</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1359,13 +1534,13 @@ function Inventario() {
                     <table className="table table-bordered align-middle">
                       <thead>
                         <tr>
-                          <th>Fecha</th>
-                          <th>Tipo</th>
-                          <th>Entrada</th>
-                          <th>Salida</th>
-                          <th>Costo U.</th>
-                          <th>Saldo</th>
-                          <th>Referencia</th>
+                          <th title="Fecha del movimiento">Fecha</th>
+                          <th title="Tipo de movimiento de inventario">Tipo</th>
+                          <th title="Cantidad que entra al saldo">Entrada</th>
+                          <th title="Cantidad que sale del saldo">Salida</th>
+                          <th title="Costo unitario del movimiento">Costo U.</th>
+                          <th title="Saldo acumulado despues del movimiento">Saldo</th>
+                          <th title="Referencia o documento">Referencia</th>
                         </tr>
                       </thead>
                       <tbody>

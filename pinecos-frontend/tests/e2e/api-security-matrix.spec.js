@@ -108,6 +108,7 @@ test.describe.serial('API Security Matrix', () => {
       { id: 'cuentas-abiertas', path: '/api/CuentasMesa/abiertas', adminOnly: false },
       { id: 'ventas-lista', path: '/api/Ventas', adminOnly: true },
       { id: 'inventario-items', path: `/api/Inventario/items?idSucursal=${idSucursal}`, adminOnly: true },
+      { id: 'inventario-checklist', path: `/api/Inventario/checklist-sucursal?idSucursal=${idSucursal}`, adminOnly: true },
       { id: 'usuarios', path: '/api/Usuarios', adminOnly: true },
       { id: 'reportes-panel', path: `/api/Reportes/panel-negocio?idSucursal=${idSucursal}`, adminOnly: true },
       { id: 'bitacora', path: '/api/Bitacora?pagina=1&pageSize=20', adminOnly: true },

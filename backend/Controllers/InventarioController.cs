@@ -833,6 +833,165 @@ namespace Pinecos.Controllers
             });
         }
 
+        [HttpGet("checklist-sucursal")]
+        [AuthorizeRoles("ADMIN")]
+        public async Task<ActionResult> GetChecklistSucursal([FromQuery] int idSucursal)
+        {
+            if (idSucursal <= 0)
+                return BadRequest(new { message = "Sucursal requerida" });
+
+            if (!await _context.Sucursales.AnyAsync(x => x.Id_Sucursal == idSucursal && x.Activo))
+                return BadRequest(new { message = "Sucursal invalida" });
+
+            var idsItems = await _context.InventarioItems
+                .Where(x => x.Activo && x.Id_Sucursal == idSucursal)
+                .Select(x => x.Id_Inventario_Item)
+                .ToListAsync();
+
+            var stockDict = await CalcularStockPorItemsAsync(idsItems);
+            var itemsMeta = await _context.InventarioItems
+                .Where(x => x.Activo && x.Id_Sucursal == idSucursal)
+                .Select(x => new { x.Id_Inventario_Item, x.Codigo, x.Nombre, x.Stock_Minimo })
+                .ToListAsync();
+
+            var stockBajo = itemsMeta
+                .Select(i => new
+                {
+                    i.Id_Inventario_Item,
+                    i.Codigo,
+                    i.Nombre,
+                    Stock_Actual = stockDict.TryGetValue(i.Id_Inventario_Item, out var s) ? s : 0m,
+                    i.Stock_Minimo
+                })
+                .Where(x => x.Stock_Actual <= x.Stock_Minimo)
+                .OrderBy(x => x.Stock_Actual - x.Stock_Minimo)
+                .Take(100)
+                .ToList();
+
+            var ordenesPendientes = await (
+                from c in _context.ComprasProveedor
+                join p in _context.Proveedores on c.Id_Proveedor equals p.Id_Proveedor
+                where c.Id_Sucursal == idSucursal && (c.Estado == "BORRADOR" || c.Estado == "APROBADA")
+                orderby c.Fecha descending
+                select new
+                {
+                    c.Id_Compra_Proveedor,
+                    c.Fecha,
+                    c.Estado,
+                    c.Total,
+                    Proveedor = p.Nombre
+                }
+            ).Take(80).ToListAsync();
+
+            var recipeKeys = await _context.RecetasProductoInsumo
+                .Where(x => x.Activo && x.Id_Sucursal == idSucursal)
+                .Select(x => new { x.Id_Producto, x.Id_Presentacion })
+                .Distinct()
+                .ToListAsync();
+
+            var tieneReceta = new HashSet<string>();
+            foreach (var k in recipeKeys)
+            {
+                var presKey = k.Id_Presentacion.HasValue ? k.Id_Presentacion.Value.ToString() : "g";
+                tieneReceta.Add($"{k.Id_Producto}|{presKey}");
+            }
+
+            static bool CubiertoPorReceta(HashSet<string> set, int idProducto, int? idPresentacion)
+            {
+                if (idPresentacion.HasValue && set.Contains($"{idProducto}|{idPresentacion.Value}"))
+                    return true;
+                return set.Contains($"{idProducto}|g");
+            }
+
+            var idsProductoConPrecioPresentacion = await (
+                from pps in _context.ProductoPresentacionSucursales
+                join pp in _context.ProductoPresentaciones on pps.Id_Producto_Presentacion equals pp.Id_Producto_Presentacion
+                join p in _context.Productos on pp.Id_Producto equals p.Id_Producto
+                where pps.Id_Sucursal == idSucursal && pps.Activo && pps.Precio > 0 && p.Activo
+                select pp.Id_Producto
+            ).Distinct().ToListAsync();
+
+            var setPres = idsProductoConPrecioPresentacion.ToHashSet();
+
+            var idsNormalesMenu = await (
+                from ps in _context.ProductosSucursal
+                join p in _context.Productos on ps.Id_Producto equals p.Id_Producto
+                where ps.Id_Sucursal == idSucursal && ps.Activo && ps.Precio > 0 && p.Activo
+                select p.Id_Producto
+            ).Distinct().ToListAsync();
+
+            var menuPresentacion = await (
+                from pps in _context.ProductoPresentacionSucursales
+                join pp in _context.ProductoPresentaciones on pps.Id_Producto_Presentacion equals pp.Id_Producto_Presentacion
+                join p in _context.Productos on pp.Id_Producto equals p.Id_Producto
+                where pps.Id_Sucursal == idSucursal && pps.Activo && pps.Precio > 0 && p.Activo
+                select new { pp.Id_Producto, pp.Id_Presentacion }
+            ).Distinct().ToListAsync();
+
+            var nombresProducto = await _context.Productos
+                .Where(p => p.Activo)
+                .ToDictionaryAsync(p => p.Id_Producto, p => p.Nombre);
+
+            var nombresPresentacion = await _context.Presentaciones
+                .ToDictionaryAsync(p => p.Id_Presentacion, p => p.Nombre);
+
+            var sinReceta = new List<object>();
+            var vistosSinReceta = new HashSet<string>();
+
+            foreach (var idProd in idsNormalesMenu)
+            {
+                if (setPres.Contains(idProd))
+                    continue;
+
+                if (CubiertoPorReceta(tieneReceta, idProd, null))
+                    continue;
+
+                var key = $"{idProd}|n";
+                if (!vistosSinReceta.Add(key))
+                    continue;
+
+                nombresProducto.TryGetValue(idProd, out var nom);
+                sinReceta.Add(new
+                {
+                    id_Producto = idProd,
+                    id_Presentacion = (int?)null,
+                    producto = nom ?? $"#{idProd}",
+                    presentacion = (string?)null
+                });
+            }
+
+            foreach (var row in menuPresentacion)
+            {
+                if (CubiertoPorReceta(tieneReceta, row.Id_Producto, row.Id_Presentacion))
+                    continue;
+
+                var key = $"{row.Id_Producto}|p{row.Id_Presentacion}";
+                if (!vistosSinReceta.Add(key))
+                    continue;
+
+                nombresProducto.TryGetValue(row.Id_Producto, out var nom);
+                nombresPresentacion.TryGetValue(row.Id_Presentacion, out var presNom);
+                sinReceta.Add(new
+                {
+                    id_Producto = row.Id_Producto,
+                    id_Presentacion = (int?)row.Id_Presentacion,
+                    producto = nom ?? $"#{row.Id_Producto}",
+                    presentacion = presNom ?? $"#{row.Id_Presentacion}"
+                });
+            }
+
+            return Ok(new
+            {
+                id_Sucursal = idSucursal,
+                stockBajoCount = stockBajo.Count,
+                stockBajo,
+                ordenesPendientesCount = ordenesPendientes.Count,
+                ordenesPendientes,
+                productosSinRecetaCount = sinReceta.Count,
+                productosSinReceta = sinReceta
+            });
+        }
+
         [HttpGet("ordenes-compra")]
         [AuthorizeRoles("ADMIN")]
         public async Task<ActionResult> GetOrdenesCompra([FromQuery] int? idSucursal = null, [FromQuery] string? estado = null)
