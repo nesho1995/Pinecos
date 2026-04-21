@@ -11,6 +11,9 @@ namespace Pinecos.DTOs
         public DateTime? FechaLimiteEmision { get; set; }
         public string LeyendaSar { get; set; } = string.Empty;
         public bool PermitirVentaSinFactura { get; set; } = true;
+        public string NombreImprenta { get; set; } = string.Empty;
+        public string RtnImprenta { get; set; } = string.Empty;
+        public string NumeroCertificadoImprenta { get; set; } = string.Empty;
         public int? CorrelativoInicio { get; set; }
         public int? CorrelativoFin { get; set; }
         public int? CorrelativoActual { get; set; }
@@ -32,6 +35,7 @@ namespace Pinecos.DTOs
         public DateTime? FechaLimiteEmision { get; set; }
         public int FacturasRestantes { get; set; }
         public bool CaiVencido { get; set; }
+        public string NumeroCertificadoImprenta { get; set; } = string.Empty;
     }
 
     public class FacturaEmitidaDto

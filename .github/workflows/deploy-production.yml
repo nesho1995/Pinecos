@@ -28,6 +28,15 @@ jobs:
           dotnet restore
           dotnet build -c Release /p:UseAppHost=false
 
+      - name: Run backend tests (if present)
+        run: |
+          set -euo pipefail
+          if ls **/*Tests*.csproj >/dev/null 2>&1 || ls **/*.Tests.csproj >/dev/null 2>&1; then
+            dotnet test -c Release --no-build --verbosity minimal
+          else
+            echo "No se encontraron proyectos de prueba .NET, se omite dotnet test."
+          fi
+
       - name: Setup Node 20
         uses: actions/setup-node@v4
         with:
@@ -42,6 +51,18 @@ jobs:
           npm run lint
           npm run build
 
+      - name: Run frontend smoke E2E (optional)
+        if: ${{ secrets.E2E_ADMIN_PASS != '' }}
+        working-directory: pinecos-frontend
+        env:
+          E2E_ADMIN_PASS: ${{ secrets.E2E_ADMIN_PASS }}
+          E2E_ADMIN_USER: ${{ secrets.E2E_ADMIN_USER }}
+          E2E_API_URL: ${{ secrets.E2E_API_URL }}
+          E2E_FRONTEND_URL: ${{ secrets.E2E_FRONTEND_URL }}
+        run: |
+          npx playwright install --with-deps chromium
+          npm run e2e:smoke
+
   deploy:
     runs-on: ubuntu-latest
     needs: verify
@@ -53,10 +74,12 @@ jobs:
           PROD_PORT: ${{ secrets.PROD_PORT }}
           PROD_USER: ${{ secrets.PROD_USER }}
           PROD_SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
+          PROD_KNOWN_HOST: ${{ secrets.PROD_KNOWN_HOST }}
         run: |
           set -euo pipefail
           : "${PROD_HOST:?Secret PROD_HOST no configurado}"
           : "${PROD_SSH_KEY:?Secret PROD_SSH_KEY no configurado}"
+          : "${PROD_KNOWN_HOST:?Secret PROD_KNOWN_HOST no configurado}"
 
           PROD_PORT="${PROD_PORT:-22}"
           PROD_USER="${PROD_USER:-root}"
@@ -64,7 +87,7 @@ jobs:
           mkdir -p ~/.ssh
           printf '%s\n' "$PROD_SSH_KEY" > ~/.ssh/prod_key
           chmod 600 ~/.ssh/prod_key
-          ssh-keyscan -p "$PROD_PORT" -H "$PROD_HOST" >> ~/.ssh/known_hosts
+          printf '%s\n' "$PROD_KNOWN_HOST" >> ~/.ssh/known_hosts
 
           ssh -i ~/.ssh/prod_key -p "$PROD_PORT" "$PROD_USER@$PROD_HOST" 'bash -s' <<'EOF'
             set -euo pipefail

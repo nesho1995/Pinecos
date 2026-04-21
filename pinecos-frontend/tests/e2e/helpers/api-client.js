@@ -25,6 +25,11 @@ export const loginApi = async (apiContext, usuario, clave) => {
 };
 
 export const createAdminSession = async (apiContext) => {
+  expect(
+    Boolean(E2E_ENV.adminPass),
+    'Debes configurar E2E_ADMIN_PASS para ejecutar pruebas E2E.'
+  ).toBeTruthy();
+
   const maxAttempts = 4;
   let lastLogin = null;
 

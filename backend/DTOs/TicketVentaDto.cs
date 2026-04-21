@@ -32,6 +32,32 @@
         public string RangoFin { get; set; } = string.Empty;
         public bool CaiHabilitadoSucursal { get; set; }
         public string CaiSucursalConfigurado { get; set; } = string.Empty;
+        public string NombreNegocio { get; set; } = string.Empty;
+        public string RtnNegocio { get; set; } = string.Empty;
+        public string DireccionNegocio { get; set; } = string.Empty;
+        public string TelefonoNegocio { get; set; } = string.Empty;
+        public string LeyendaSar { get; set; } = string.Empty;
+        public string NombreImprenta { get; set; } = string.Empty;
+        public string RtnImprenta { get; set; } = string.Empty;
+        public string NumeroCertificadoImprenta { get; set; } = string.Empty;
+        public string TipoCliente { get; set; } = "CONSUMIDOR_FINAL";
+        public string NombreCliente { get; set; } = string.Empty;
+        public string RtnCliente { get; set; } = string.Empty;
+        public string IdentidadCliente { get; set; } = string.Empty;
+        public string DireccionCliente { get; set; } = string.Empty;
+        public string TelefonoCliente { get; set; } = string.Empty;
+        public string CondicionPago { get; set; } = "CONTADO";
+        public string TipoFacturaFiscal { get; set; } = "GRAVADO_15";
+        public string NumeroOrdenCompraExenta { get; set; } = string.Empty;
+        public string NumeroConstanciaRegistroExonerado { get; set; } = string.Empty;
+        public string NumeroRegistroSag { get; set; } = string.Empty;
+        public decimal ImporteExento { get; set; }
+        public decimal ImporteExonerado { get; set; }
+        public decimal ImporteGravado15 { get; set; }
+        public decimal ImporteGravado18 { get; set; }
+        public decimal Isv15 { get; set; }
+        public decimal Isv18 { get; set; }
+        public string TotalEnLetras { get; set; } = string.Empty;
         public List<TicketVentaDetalleDto> Detalles { get; set; } = new();
     }
 }

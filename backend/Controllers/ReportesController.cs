@@ -18,6 +18,14 @@ namespace Pinecos.Controllers
             _context = context;
         }
 
+        private ActionResult ErrorInternoReportes()
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, new
+            {
+                message = "No se pudo generar el reporte solicitado."
+            });
+        }
+
         private static string NormalizarTipoServicioDesdeObservacion(string? observacion)
         {
             return ObservacionVentaHelper.ObtenerTipoServicio(observacion);
@@ -76,8 +84,6 @@ namespace Pinecos.Controllers
 
         private async Task<object> ConstruirResumenPeriodo(DateTime fechaDesde, DateTime fechaHasta, int? idSucursal)
         {
-            try
-            {
                 var ventasQuery = _context.Ventas
                     .AsNoTracking()
                     .Where(x => x.Fecha >= fechaDesde && x.Fecha <= fechaHasta && x.Estado == "ACTIVA");
@@ -173,11 +179,6 @@ namespace Pinecos.Controllers
                         egresos
                     }
                 };
-            }
-            catch
-            {
-                return ConstruirResumenPeriodoVacio(fechaDesde, fechaHasta);
-            }
         }
 
         [HttpGet("panel-negocio")]
@@ -247,13 +248,7 @@ namespace Pinecos.Controllers
             }
             catch
             {
-                return Ok(new
-                {
-                    hoy = ConstruirResumenPeriodoVacio(hoyInicio, hoyFin),
-                    mesActual = ConstruirResumenPeriodoVacio(mesInicio, mesFin),
-                    tendencia7Dias = Array.Empty<object>(),
-                    movimientosHoy = Array.Empty<object>()
-                });
+                return ErrorInternoReportes();
             }
         }
 
@@ -292,16 +287,7 @@ namespace Pinecos.Controllers
             }
             catch
             {
-                return Ok(new
-                {
-                    cantidadVentas = 0,
-                    subtotal = 0m,
-                    descuento = 0m,
-                    impuesto = 0m,
-                    total = 0m,
-                    costoTotal = 0m,
-                    utilidadBruta = 0m
-                });
+                return ErrorInternoReportes();
             }
         }
 
@@ -328,11 +314,7 @@ namespace Pinecos.Controllers
             }
             catch
             {
-                return Ok(new
-                {
-                    cantidadGastos = 0,
-                    totalGastos = 0m
-                });
+                return ErrorInternoReportes();
             }
         }
 
@@ -375,14 +357,7 @@ namespace Pinecos.Controllers
             }
             catch
             {
-                return Ok(new
-                {
-                    ventaTotal = 0m,
-                    costoTotal = 0m,
-                    gastosTotal = 0m,
-                    utilidadBruta = 0m,
-                    utilidadNeta = 0m
-                });
+                return ErrorInternoReportes();
             }
         }
 
@@ -415,7 +390,7 @@ namespace Pinecos.Controllers
             }
             catch
             {
-                return Ok(Array.Empty<object>());
+                return ErrorInternoReportes();
             }
         }
 
@@ -468,7 +443,7 @@ namespace Pinecos.Controllers
             }
             catch
             {
-                return Ok(Array.Empty<object>());
+                return ErrorInternoReportes();
             }
         }
 
@@ -510,7 +485,7 @@ namespace Pinecos.Controllers
             }
             catch
             {
-                return Ok(Array.Empty<object>());
+                return ErrorInternoReportes();
             }
         }
 
@@ -622,7 +597,7 @@ namespace Pinecos.Controllers
             }
             catch
             {
-                return Ok(Array.Empty<object>());
+                return ErrorInternoReportes();
             }
         }
 
@@ -656,7 +631,7 @@ namespace Pinecos.Controllers
             }
             catch
             {
-                return Ok(Array.Empty<object>());
+                return ErrorInternoReportes();
             }
         }
 
@@ -690,7 +665,7 @@ namespace Pinecos.Controllers
             }
             catch
             {
-                return Ok(Array.Empty<object>());
+                return ErrorInternoReportes();
             }
         }
     }

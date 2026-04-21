@@ -16,11 +16,15 @@ namespace Pinecos
             if (existe)
                 return;
 
+            var adminPassword = Environment.GetEnvironmentVariable("PINECOS_ADMIN_PASSWORD");
+            if (string.IsNullOrWhiteSpace(adminPassword))
+                throw new InvalidOperationException("PINECOS_ADMIN_PASSWORD no esta configurado. No se puede crear el usuario admin.");
+
             var admin = new Usuario
             {
                 Nombre = "Administrador",
                 UsuarioLogin = "admin",
-                Clave = BCrypt.Net.BCrypt.HashPassword(Environment.GetEnvironmentVariable("PINECOS_ADMIN_PASSWORD") ?? "1234"),
+                Clave = BCrypt.Net.BCrypt.HashPassword(adminPassword),
                 Rol = "ADMIN",
                 Id_Sucursal = 1,
                 Activo = true

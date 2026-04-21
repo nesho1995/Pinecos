@@ -117,7 +117,8 @@ namespace Pinecos.Helpers
                         SiguienteCorrelativo = kv.Value.SiguienteCorrelativo,
                         FechaLimiteEmision = kv.Value.FechaLimiteEmision,
                         FacturasRestantes = CalcularFacturasRestantes(kv.Value),
-                        CaiVencido = kv.Value.FechaLimiteEmision.HasValue && kv.Value.FechaLimiteEmision.Value.Date < DateTime.Now.Date
+                        CaiVencido = kv.Value.FechaLimiteEmision.HasValue && kv.Value.FechaLimiteEmision.Value.Date < DateTime.Now.Date,
+                        NumeroCertificadoImprenta = kv.Value.NumeroCertificadoImprenta ?? string.Empty
                     })
                     .OrderBy(x => x.IdSucursal)
                     .ToList();
@@ -244,7 +245,10 @@ namespace Pinecos.Helpers
                 SiguienteCorrelativo = source.SiguienteCorrelativo,
                 FechaLimiteEmision = source.FechaLimiteEmision,
                 LeyendaSar = source.LeyendaSar,
-                PermitirVentaSinFactura = source.PermitirVentaSinFactura
+                PermitirVentaSinFactura = source.PermitirVentaSinFactura,
+                NombreImprenta = source.NombreImprenta,
+                RtnImprenta = source.RtnImprenta,
+                NumeroCertificadoImprenta = source.NumeroCertificadoImprenta
             };
         }
 

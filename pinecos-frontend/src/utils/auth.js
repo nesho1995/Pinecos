@@ -1,3 +1,6 @@
+const sessionStore = window.sessionStorage;
+const legacyStore = window.localStorage;
+
 const safeParseJwtPayload = (token) => {
   try {
     const parts = String(token || '').split('.');
@@ -20,28 +23,34 @@ const isTokenExpired = (token) => {
 };
 
 export const getToken = () => {
-  const token = localStorage.getItem('token');
+  const token = sessionStore.getItem('token');
   if (!token) return null;
   if (isTokenExpired(token)) {
-    localStorage.removeItem('token');
-    localStorage.removeItem('usuario');
+    sessionStore.removeItem('token');
+    sessionStore.removeItem('usuario');
+    legacyStore.removeItem('token');
+    legacyStore.removeItem('usuario');
     return null;
   }
   return token;
 };
 
 export const setSession = (token, usuario) => {
-  localStorage.setItem('token', token);
-  localStorage.setItem('usuario', JSON.stringify(usuario));
+  sessionStore.setItem('token', token);
+  sessionStore.setItem('usuario', JSON.stringify(usuario));
+  legacyStore.removeItem('token');
+  legacyStore.removeItem('usuario');
 };
 
 export const clearSession = () => {
-  localStorage.removeItem('token');
-  localStorage.removeItem('usuario');
+  sessionStore.removeItem('token');
+  sessionStore.removeItem('usuario');
+  legacyStore.removeItem('token');
+  legacyStore.removeItem('usuario');
 };
 
 export const getUsuario = () => {
-  const data = localStorage.getItem('usuario');
+  const data = sessionStore.getItem('usuario');
   return data ? JSON.parse(data) : null;
 };
 

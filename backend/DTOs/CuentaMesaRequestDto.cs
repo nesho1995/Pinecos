@@ -32,6 +32,7 @@ namespace Pinecos.DTOs
         public string Metodo_Pago { get; set; } = string.Empty;
         public string Tipo_Servicio { get; set; } = "COMER_AQUI";
         public string Observacion { get; set; } = string.Empty;
+        public FacturaClienteRequestDto? FacturaCliente { get; set; }
         public List<PagoVentaRequestDto> Pagos { get; set; } = new();
     }
 }
