@@ -196,7 +196,7 @@ function MenuSucursal() {
               <strong>Producto simple</strong> (un solo precio, sin tamanos): arriba elige la sucursal, luego en &quot;Paso A&quot; asigna producto + precio. Listo para cobrar en esa sucursal.
             </li>
             <li className="mb-2">
-              <strong>Producto con tamanos</strong> (ej. grande/mediano): primero en &quot;Paso B&quot; une el producto con la presentacion (una sola vez, vale para todas las sucursales). Luego elige sucursal y en &quot;Paso C&quot; pon el precio de cada combinacion.
+              <strong>Producto con tamanos</strong> (ej. 8/12/16 oz): en &quot;Paso B&quot; une el producto con cada presentacion (vale para todas las sucursales). Luego elige sucursal y en &quot;Paso C&quot; pon el precio de cada combinacion. En el POS, si ya hay precios activos por presentacion en esa sucursal, <strong>no</strong> se muestra tambien el precio &quot;simple&quot; del mismo producto (solo las lineas por tamano).
             </li>
             <li>
               Usa la pestana <strong>Ver listado</strong> para comprobar que cada producto ya tiene precio en la sucursal elegida antes de abrir caja.

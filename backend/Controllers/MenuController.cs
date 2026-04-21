@@ -169,16 +169,7 @@ namespace Pinecos.Controllers
 
                 _context.ProductoPresentaciones.Remove(relacion);
                 await _context.SaveChangesAsync();
-
-                await BitacoraHelper.RegistrarAsync(
-                    _context,
-                    idUsuario.Value,
-                    "MENU",
-                    "ELIMINAR_RELACION",
-                    $"Relacion producto-presentacion #{idProductoPresentacion} eliminada");
-
                 await transaction.CommitAsync();
-                return Ok(new { message = "Relacion eliminada correctamente" });
             }
             catch (DbUpdateException)
             {
@@ -203,11 +194,31 @@ namespace Pinecos.Controllers
                     preciosInactivados = true
                 });
             }
-            catch
+            catch (Exception ex)
             {
                 await transaction.RollbackAsync();
-                throw;
+                return BadRequest(new
+                {
+                    message = "No se pudo eliminar la relacion. Si el producto ya se vendio con esta presentacion, el sistema bloquea el borrado.",
+                    detalle = ex.InnerException?.Message ?? ex.Message
+                });
             }
+
+            try
+            {
+                await BitacoraHelper.RegistrarAsync(
+                    _context,
+                    idUsuario.Value,
+                    "MENU",
+                    "ELIMINAR_RELACION",
+                    $"Relacion producto-presentacion #{idProductoPresentacion} eliminada");
+            }
+            catch
+            {
+                // El borrado ya quedo confirmado; no devolver 500 solo por bitacora.
+            }
+
+            return Ok(new { message = "Relacion eliminada correctamente" });
         }
 
         [HttpPost("producto-presentacion-sucursal")]
@@ -262,11 +273,18 @@ namespace Pinecos.Controllers
                     return Forbid();
             }
 
+            // Evita duplicar en el POS: si ya hay precio activo por presentacion en esta sucursal,
+            // el producto solo debe listarse en "conPresentacion", no tambien como precio "normal".
             var productosNormales = await (
                 from ps in _context.ProductosSucursal
                 join p in _context.Productos on ps.Id_Producto equals p.Id_Producto
                 join c in _context.Categorias on p.Id_Categoria equals c.Id_Categoria
                 where ps.Id_Sucursal == idSucursal && ps.Activo && p.Activo
+                      && !_context.ProductoPresentacionSucursales.Any(pps =>
+                          pps.Id_Sucursal == idSucursal && pps.Activo &&
+                          _context.ProductoPresentaciones.Any(pp =>
+                              pp.Id_Producto_Presentacion == pps.Id_Producto_Presentacion &&
+                              pp.Id_Producto == p.Id_Producto))
                 select new
                 {
                     Tipo = "NORMAL",
