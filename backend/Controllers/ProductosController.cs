@@ -21,13 +21,17 @@ namespace Pinecos.Controllers
         }
 
         [HttpGet("excel/plantilla")]
-        public IActionResult DescargarPlantillaExcel()
+        public IActionResult DescargarPlantillaExcel([FromQuery] string formato = "basico")
         {
-            var bytes = ProductoExcelImportHelper.GenerarPlantilla();
+            var formatoNorm = (formato ?? string.Empty).Trim().ToLowerInvariant();
+            var bytes = ProductoExcelImportHelper.GenerarPlantilla(formatoNorm);
+            var fileName = formatoNorm == "presentacion"
+                ? ProductoExcelImportHelper.NombreArchivoPlantillaConPresentacion
+                : ProductoExcelImportHelper.NombreArchivoPlantilla;
             return File(
                 bytes,
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                ProductoExcelImportHelper.NombreArchivoPlantilla);
+                fileName);
         }
 
         [HttpPost("excel/importar")]
@@ -35,6 +39,7 @@ namespace Pinecos.Controllers
         public async Task<ActionResult> ImportarExcel(
             IFormFile? file,
             [FromQuery] bool crearCategorias = true,
+            [FromQuery] string formato = "basico",
             CancellationToken cancellationToken = default)
         {
             if (file == null || file.Length == 0)
@@ -52,6 +57,7 @@ namespace Pinecos.Controllers
                     stream,
                     _context,
                     crearCategorias,
+                    formato,
                     cancellationToken);
             }
             catch (Exception)

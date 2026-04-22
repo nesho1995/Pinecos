@@ -34,6 +34,7 @@ namespace Pinecos.Data
         public DbSet<CompraProveedorDetalle> ComprasProveedorDetalle { get; set; }
         public DbSet<RecetaProductoInsumo> RecetasProductoInsumo { get; set; }
         public DbSet<FacturacionSarCorrelativoEvento> FacturacionSarCorrelativoEventos { get; set; }
+        public DbSet<ProductoPendiente> ProductoPendientes { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<Usuario>().ToTable("usuarios");
@@ -58,6 +59,7 @@ namespace Pinecos.Data
             modelBuilder.Entity<CompraProveedorDetalle>().ToTable("compras_proveedor_detalle");
             modelBuilder.Entity<RecetaProductoInsumo>().ToTable("receta_producto_insumo");
             modelBuilder.Entity<FacturacionSarCorrelativoEvento>().ToTable("facturacion_sar_correlativo_eventos");
+            modelBuilder.Entity<ProductoPendiente>().ToTable("productos_pendientes");
 
             modelBuilder.Entity<Usuario>().HasKey(x => x.Id_Usuario);
             modelBuilder.Entity<Categoria>().HasKey(x => x.Id_Categoria);
@@ -81,6 +83,7 @@ namespace Pinecos.Data
             modelBuilder.Entity<CompraProveedorDetalle>().HasKey(x => x.Id_Compra_Proveedor_Detalle);
             modelBuilder.Entity<RecetaProductoInsumo>().HasKey(x => x.Id_Receta_Producto_Insumo);
             modelBuilder.Entity<FacturacionSarCorrelativoEvento>().HasKey(x => x.Id_Facturacion_Sar_Correlativo_Evento);
+            modelBuilder.Entity<ProductoPendiente>().HasKey(x => x.Id_Producto_Pendiente);
 
             modelBuilder.Entity<Usuario>().Property(x => x.Id_Usuario).HasColumnName("id_usuario");
             modelBuilder.Entity<Usuario>().Property(x => x.Nombre).HasColumnName("nombre");
@@ -271,6 +274,18 @@ namespace Pinecos.Data
             modelBuilder.Entity<FacturacionSarCorrelativoEvento>().Property(x => x.Fecha_Revision).HasColumnName("fecha_revision");
             modelBuilder.Entity<FacturacionSarCorrelativoEvento>().Property(x => x.Fecha_Creacion).HasColumnName("fecha_creacion");
             modelBuilder.Entity<FacturacionSarCorrelativoEvento>().Property(x => x.Fecha_Actualizacion).HasColumnName("fecha_actualizacion");
+            modelBuilder.Entity<ProductoPendiente>().Property(x => x.Id_Producto_Pendiente).HasColumnName("id_producto_pendiente");
+            modelBuilder.Entity<ProductoPendiente>().Property(x => x.Nombre).HasColumnName("nombre");
+            modelBuilder.Entity<ProductoPendiente>().Property(x => x.Precio_Sugerido).HasColumnName("precio_sugerido");
+            modelBuilder.Entity<ProductoPendiente>().Property(x => x.Id_Sucursal).HasColumnName("id_sucursal");
+            modelBuilder.Entity<ProductoPendiente>().Property(x => x.Id_Usuario_Solicita).HasColumnName("id_usuario_solicita");
+            modelBuilder.Entity<ProductoPendiente>().Property(x => x.Nota_Solicitud).HasColumnName("nota_solicitud");
+            modelBuilder.Entity<ProductoPendiente>().Property(x => x.Estado).HasColumnName("estado");
+            modelBuilder.Entity<ProductoPendiente>().Property(x => x.Comentario_Revision).HasColumnName("comentario_revision");
+            modelBuilder.Entity<ProductoPendiente>().Property(x => x.Id_Usuario_Revision).HasColumnName("id_usuario_revision");
+            modelBuilder.Entity<ProductoPendiente>().Property(x => x.Id_Producto_Creado).HasColumnName("id_producto_creado");
+            modelBuilder.Entity<ProductoPendiente>().Property(x => x.Fecha_Creacion).HasColumnName("fecha_creacion");
+            modelBuilder.Entity<ProductoPendiente>().Property(x => x.Fecha_Revision).HasColumnName("fecha_revision");
             modelBuilder.Entity<Mesa>().ToTable("mesas");
             modelBuilder.Entity<CuentaMesa>().ToTable("cuentas_mesa");
             modelBuilder.Entity<DetalleCuentaMesa>().ToTable("detalle_cuenta_mesa");

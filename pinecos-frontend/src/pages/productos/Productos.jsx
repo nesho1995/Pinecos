@@ -25,6 +25,7 @@ function Productos() {
   const fileImportRef = useRef(null);
   const [importandoExcel, setImportandoExcel] = useState(false);
   const [crearCategoriasImport, setCrearCategoriasImport] = useState(true);
+  const [formatoImport, setFormatoImport] = useState('basico');
   const [detalleImport, setDetalleImport] = useState(null);
 
   const cargarProductos = async () => {
@@ -88,7 +89,10 @@ function Productos() {
   const descargarPlantillaExcel = async () => {
     limpiarMensajes();
     try {
-      const response = await api.get('/Productos/excel/plantilla', { responseType: 'blob' });
+      const response = await api.get('/Productos/excel/plantilla', {
+        params: { formato: formatoImport },
+        responseType: 'blob'
+      });
       const blob = new Blob([response.data], {
         type:
           response.headers['content-type'] ||
@@ -97,7 +101,10 @@ function Productos() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'plantilla_productos_pinecos.xlsx';
+      a.download =
+        formatoImport === 'presentacion'
+          ? 'plantilla_productos_con_presentacion_pinecos.xlsx'
+          : 'plantilla_productos_pinecos.xlsx';
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -119,7 +126,7 @@ function Productos() {
       const formData = new FormData();
       formData.append('file', file);
       const res = await api.post(
-        `/Productos/excel/importar?crearCategorias=${crearCategoriasImport ? 'true' : 'false'}`,
+        `/Productos/excel/importar?crearCategorias=${crearCategoriasImport ? 'true' : 'false'}&formato=${formatoImport}`,
         formData
       );
       setDetalleImport(res.data);
@@ -292,14 +299,36 @@ function Productos() {
       >
         <div className="card-body">
           <h3 className="h5 mb-2 text-primary">Importar productos (Excel)</h3>
-          <p className="small text-muted mb-3">
+          <p className="small text-muted mb-2">
             Formato: archivo <strong>.xlsx</strong>; se lee siempre la <strong>primera hoja</strong> del libro.
-            Fila 1: <strong>nombre</strong>, <strong>categoria</strong>, <strong>costo</strong> (obligatorios). Opcionales: <strong>precio</strong> y <strong>sucursal</strong> (nombre exacto de la sucursal) para asignar precio de venta en esa fila; las dos columnas deben ir juntas o vacias ambas.
-            Desde la fila 2, un producto por fila. Limite 5000 filas. Si el nombre ya existe activo, la fila se omite. Puedes crear categorias nuevas con la casilla de abajo.
+            Desde la fila 2, un producto por fila. Limite 5000 filas.
           </p>
+          <ul className="small text-muted ps-3 mb-3">
+            <li>
+              <strong>Formato basico</strong>: <strong>nombre</strong>, <strong>categoria</strong>, <strong>costo</strong>, <strong>precio</strong> y <strong>sucursal</strong>.
+            </li>
+            <li>
+              <strong>Formato con presentacion</strong>: agrega <strong>presentacion</strong> (ej. 8 OZ, 12 OZ, 16 OZ) y tambien incluye <strong>precio</strong> + <strong>sucursal</strong>.
+            </li>
+            <li>
+              Regla unica para ambos formatos: <strong>precio y sucursal son requeridos en cada fila</strong>, porque la carga se gestiona por sucursal.
+            </li>
+            <li>
+              Si el nombre ya existe activo, la fila actualiza/activa el precio en la sucursal indicada. Puedes crear categorias nuevas con la casilla de abajo.
+            </li>
+          </ul>
           <div className="d-flex flex-wrap gap-2 align-items-center mb-3">
+            <select
+              className="form-select"
+              style={{ maxWidth: 320 }}
+              value={formatoImport}
+              onChange={(e) => setFormatoImport(e.target.value)}
+            >
+              <option value="basico">Formato basico (sin presentacion)</option>
+              <option value="presentacion">Formato con presentacion</option>
+            </select>
             <button type="button" className="btn btn-outline-primary btn-sm" onClick={descargarPlantillaExcel}>
-              Descargar plantilla Excel
+              Descargar plantilla
             </button>
             <input
               ref={fileImportRef}

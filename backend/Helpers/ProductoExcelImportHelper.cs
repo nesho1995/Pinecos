@@ -9,21 +9,43 @@ namespace Pinecos.Helpers
     {
         public const int MaxFilas = 5000;
         public const string NombreArchivoPlantilla = "plantilla_productos_pinecos.xlsx";
+        public const string NombreArchivoPlantillaConPresentacion = "plantilla_productos_con_presentacion_pinecos.xlsx";
 
-        public static byte[] GenerarPlantilla()
+        public static byte[] GenerarPlantilla(string formato = "basico")
         {
+            var formatoNorm = (formato ?? string.Empty).Trim().ToLowerInvariant();
             using var wb = new XLWorkbook();
             var ws = wb.Worksheets.Add("Productos");
-            ws.Cell(1, 1).Value = "nombre";
-            ws.Cell(1, 2).Value = "categoria";
-            ws.Cell(1, 3).Value = "costo";
-            ws.Cell(1, 4).Value = "precio";
-            ws.Cell(1, 5).Value = "sucursal";
-            ws.Cell(2, 1).Value = "Cafe americano";
-            ws.Cell(2, 2).Value = "Bebidas calientes";
-            ws.Cell(2, 3).Value = 12.50m;
-            ws.Cell(2, 4).Value = 45.00m;
-            ws.Cell(2, 5).Value = "Nombre exacto de la sucursal";
+
+            if (formatoNorm == "presentacion")
+            {
+                ws.Cell(1, 1).Value = "nombre";
+                ws.Cell(1, 2).Value = "categoria";
+                ws.Cell(1, 3).Value = "costo";
+                ws.Cell(1, 4).Value = "presentacion";
+                ws.Cell(1, 5).Value = "precio";
+                ws.Cell(1, 6).Value = "sucursal";
+                ws.Cell(2, 1).Value = "Cafe latte";
+                ws.Cell(2, 2).Value = "Bebidas calientes";
+                ws.Cell(2, 3).Value = 25.00m;
+                ws.Cell(2, 4).Value = "12 OZ";
+                ws.Cell(2, 5).Value = 80.00m;
+                ws.Cell(2, 6).Value = "Nombre exacto de la sucursal";
+            }
+            else
+            {
+                ws.Cell(1, 1).Value = "nombre";
+                ws.Cell(1, 2).Value = "categoria";
+                ws.Cell(1, 3).Value = "costo";
+                ws.Cell(1, 4).Value = "precio";
+                ws.Cell(1, 5).Value = "sucursal";
+                ws.Cell(2, 1).Value = "Cafe americano";
+                ws.Cell(2, 2).Value = "Bebidas calientes";
+                ws.Cell(2, 3).Value = 12.50m;
+                ws.Cell(2, 4).Value = 45.00m;
+                ws.Cell(2, 5).Value = "Nombre exacto de la sucursal";
+            }
+
             ws.Row(1).Style.Font.Bold = true;
             ws.Columns().AdjustToContents();
 
@@ -36,8 +58,10 @@ namespace Pinecos.Helpers
             Stream stream,
             PinecosDbContext context,
             bool crearCategoriasFaltantes,
+            string formato = "basico",
             CancellationToken cancellationToken = default)
         {
+            var formatoNorm = (formato ?? string.Empty).Trim().ToLowerInvariant();
             var resultado = new ProductoImportResult();
             using var wb = new XLWorkbook(stream);
             var ws = wb.Worksheets.FirstOrDefault();
@@ -77,6 +101,7 @@ namespace Pinecos.Helpers
             int? colCosto = ResolverColumna(headerMap, "costo", "cost");
             int? colPrecio = ResolverColumna(headerMap, "precio", "price", "precio_venta");
             int? colSucursal = ResolverColumna(headerMap, "sucursal", "sucursal_nombre", "branch", "tienda");
+            int? colPresentacion = ResolverColumna(headerMap, "presentacion", "presentación", "size");
 
             if (colNombre == null || colCategoria == null || colCosto == null)
             {
@@ -86,16 +111,25 @@ namespace Pinecos.Helpers
                 return resultado;
             }
 
-            if ((colPrecio == null) != (colSucursal == null))
+            if (colPrecio == null || colSucursal == null)
             {
                 resultado.Errores.Add(new ProductoImportLineaError(
                     firstRow,
-                    "Si incluyes precio de venta, deben existir las columnas precio y sucursal (las dos). Opcional: omitelas todas."));
+                    "Debes incluir columnas precio y sucursal (las dos). La importacion se gestiona por sucursal."));
+                return resultado;
+            }
+
+            if (formatoNorm == "presentacion" && colPresentacion == null)
+            {
+                resultado.Errores.Add(new ProductoImportLineaError(
+                    firstRow,
+                    "Para formato con presentacion se requiere la columna presentacion."));
                 return resultado;
             }
 
             var categorias = await context.Categorias.ToListAsync(cancellationToken);
             var sucursales = await context.Sucursales.Where(s => s.Activo).ToListAsync(cancellationToken);
+            var presentaciones = await context.Presentaciones.ToListAsync(cancellationToken);
             var dataRows = lastRow - firstRow;
             if (dataRows > MaxFilas)
             {
@@ -164,6 +198,28 @@ namespace Pinecos.Helpers
 
                 int? idSucursalPrecio = null;
                 decimal? precioImport = null;
+                int? idPresentacionImport = null;
+                if (formatoNorm == "presentacion")
+                {
+                    var presentacionNombre = ws.Cell(r, colPresentacion!.Value).GetString().Trim();
+                    if (string.IsNullOrWhiteSpace(presentacionNombre))
+                    {
+                        resultado.Errores.Add(new ProductoImportLineaError(r, "Presentacion vacia."));
+                        continue;
+                    }
+
+                    var presentacion = presentaciones.FirstOrDefault(p =>
+                        string.Equals(p.Nombre.Trim(), presentacionNombre.Trim(), StringComparison.OrdinalIgnoreCase));
+                    if (presentacion == null)
+                    {
+                        resultado.Errores.Add(new ProductoImportLineaError(r,
+                            $"Presentacion no encontrada: '{presentacionNombre}'."));
+                        continue;
+                    }
+
+                    idPresentacionImport = presentacion.Id_Presentacion;
+                }
+
                 if (colPrecio != null && colSucursal != null)
                 {
                     var nombreSuc = ws.Cell(r, colSucursal.Value).GetString().Trim();
@@ -171,14 +227,10 @@ namespace Pinecos.Helpers
                     var precioVacio = precioCell.IsEmpty() && precioCell.DataType != XLDataType.Number;
                     var sucursalVacia = string.IsNullOrEmpty(nombreSuc);
 
-                    if (precioVacio && sucursalVacia)
-                    {
-                        // Sin precio en esta fila (solo catalogo).
-                    }
-                    else if (precioVacio || sucursalVacia)
+                    if (precioVacio || sucursalVacia)
                     {
                         resultado.Errores.Add(new ProductoImportLineaError(r,
-                            "Columnas precio y sucursal: llena las dos en la fila, o deja las dos vacias."));
+                            "Columnas precio y sucursal: llena las dos en la fila."));
                         continue;
                     }
                     else
@@ -213,20 +265,46 @@ namespace Pinecos.Helpers
 
                 if (productoExistente != null)
                 {
-                    // Caso clave negocio: el producto ya existe, pero queremos asignar/actualizar precio
-                    // para otra sucursal sin duplicar catálogo global.
-                    if (precioImport.HasValue && idSucursalPrecio.HasValue)
+                    if (formatoNorm == "presentacion")
                     {
-                        await UpsertProductoSucursalAsync(context, productoExistente.Id_Producto, idSucursalPrecio.Value,
-                            precioImport.Value, cancellationToken);
+                        if (!precioImport.HasValue || !idSucursalPrecio.HasValue || !idPresentacionImport.HasValue)
+                        {
+                            resultado.Errores.Add(new ProductoImportLineaError(r,
+                                "En formato con presentacion se requieren precio, sucursal y presentacion por fila."));
+                            continue;
+                        }
+
+                        var idProductoPresentacion = await UpsertProductoPresentacionAsync(
+                            context,
+                            productoExistente.Id_Producto,
+                            idPresentacionImport.Value,
+                            cancellationToken);
+
+                        await UpsertProductoPresentacionSucursalAsync(
+                            context,
+                            idProductoPresentacion,
+                            idSucursalPrecio.Value,
+                            precioImport.Value,
+                            cancellationToken);
                         resultado.PreciosAsignados++;
                     }
                     else
                     {
-                        resultado.Omitidos.Add(new ProductoImportOmitido(
-                            r,
-                            nombre,
-                            "Ya existe un producto activo con ese nombre. Para usarlo en otra sucursal, llena precio y sucursal en la fila."));
+                        // Caso clave negocio: el producto ya existe, pero queremos asignar/actualizar precio
+                        // para otra sucursal sin duplicar catálogo global.
+                        if (precioImport.HasValue && idSucursalPrecio.HasValue)
+                        {
+                            await UpsertProductoSucursalAsync(context, productoExistente.Id_Producto, idSucursalPrecio.Value,
+                                precioImport.Value, cancellationToken);
+                            resultado.PreciosAsignados++;
+                        }
+                        else
+                        {
+                            resultado.Omitidos.Add(new ProductoImportOmitido(
+                                r,
+                                nombre,
+                                "Ya existe un producto activo con ese nombre. Para usarlo en otra sucursal, llena precio y sucursal en la fila."));
+                        }
                     }
                     continue;
                 }
@@ -243,7 +321,30 @@ namespace Pinecos.Helpers
                 await context.SaveChangesAsync(cancellationToken);
                 resultado.Creados++;
 
-                if (precioImport.HasValue && idSucursalPrecio.HasValue)
+                if (formatoNorm == "presentacion")
+                {
+                    if (!precioImport.HasValue || !idSucursalPrecio.HasValue || !idPresentacionImport.HasValue)
+                    {
+                        resultado.Errores.Add(new ProductoImportLineaError(r,
+                            "En formato con presentacion se requieren precio, sucursal y presentacion por fila."));
+                        continue;
+                    }
+
+                    var idProductoPresentacion = await UpsertProductoPresentacionAsync(
+                        context,
+                        nuevoProducto.Id_Producto,
+                        idPresentacionImport.Value,
+                        cancellationToken);
+
+                    await UpsertProductoPresentacionSucursalAsync(
+                        context,
+                        idProductoPresentacion,
+                        idSucursalPrecio.Value,
+                        precioImport.Value,
+                        cancellationToken);
+                    resultado.PreciosAsignados++;
+                }
+                else if (precioImport.HasValue && idSucursalPrecio.HasValue)
                 {
                     await UpsertProductoSucursalAsync(context, nuevoProducto.Id_Producto, idSucursalPrecio.Value,
                         precioImport.Value, cancellationToken);
@@ -269,6 +370,57 @@ namespace Pinecos.Helpers
                 context.ProductosSucursal.Add(new ProductoSucursal
                 {
                     Id_Producto = idProducto,
+                    Id_Sucursal = idSucursal,
+                    Precio = precio,
+                    Activo = true
+                });
+            }
+            else
+            {
+                existente.Precio = precio;
+                existente.Activo = true;
+            }
+
+            await context.SaveChangesAsync(cancellationToken);
+        }
+
+        private static async Task<int> UpsertProductoPresentacionAsync(
+            PinecosDbContext context,
+            int idProducto,
+            int idPresentacion,
+            CancellationToken cancellationToken)
+        {
+            var existente = await context.ProductoPresentaciones.FirstOrDefaultAsync(x =>
+                x.Id_Producto == idProducto && x.Id_Presentacion == idPresentacion, cancellationToken);
+
+            if (existente != null)
+                return existente.Id_Producto_Presentacion;
+
+            var nueva = new ProductoPresentacion
+            {
+                Id_Producto = idProducto,
+                Id_Presentacion = idPresentacion
+            };
+            context.ProductoPresentaciones.Add(nueva);
+            await context.SaveChangesAsync(cancellationToken);
+            return nueva.Id_Producto_Presentacion;
+        }
+
+        private static async Task UpsertProductoPresentacionSucursalAsync(
+            PinecosDbContext context,
+            int idProductoPresentacion,
+            int idSucursal,
+            decimal precio,
+            CancellationToken cancellationToken)
+        {
+            var existente = await context.ProductoPresentacionSucursales.FirstOrDefaultAsync(x =>
+                x.Id_Producto_Presentacion == idProductoPresentacion && x.Id_Sucursal == idSucursal, cancellationToken);
+
+            if (existente == null)
+            {
+                context.ProductoPresentacionSucursales.Add(new ProductoPresentacionSucursal
+                {
+                    Id_Producto_Presentacion = idProductoPresentacion,
                     Id_Sucursal = idSucursal,
                     Precio = precio,
                     Activo = true

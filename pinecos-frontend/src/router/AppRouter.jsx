@@ -20,6 +20,7 @@ import Bitacora from '../pages/bitacora/Bitacora';
 import EstadoCuenta from '../pages/estadocuenta/EstadoCuenta';
 import Proveedores from '../pages/proveedores/Proveedores';
 import Inventario from '../pages/inventario/Inventario';
+import ProductosPendientes from '../pages/productospendientes/ProductosPendientes';
 import Layout from '../components/layout/Layout';
 import ProtectedRoute from '../components/ProtectedRoute';
 import RoleRoute from '../components/RoleRoute';
@@ -56,6 +57,7 @@ function AppRouter() {
           <Route path="movimientos-caja" element={<RoleRoute allowedRoles={['ADMIN', 'CAJERO']}><MovimientosCaja /></RoleRoute>} />
           <Route path="gastos" element={<RoleRoute allowedRoles={['ADMIN', 'CAJERO']}><Gastos /></RoleRoute>} />
           <Route path="ventas" element={<RoleRoute allowedRoles={['ADMIN', 'CAJERO']}><VentasPOS /></RoleRoute>} />
+          <Route path="productos-pendientes" element={<RoleRoute allowedRoles={['ADMIN', 'CAJERO']}><ProductosPendientes /></RoleRoute>} />
           <Route path="mesas" element={<RoleRoute allowedRoles={['ADMIN', 'CAJERO']}><Mesas /></RoleRoute>} />
           <Route path="mesas-admin" element={<RoleRoute allowedRoles={['ADMIN']}><MesasAdmin /></RoleRoute>} />
           <Route path="reportes" element={<RoleRoute allowedRoles={['ADMIN']}><Reportes /></RoleRoute>} />

@@ -1,4 +1,5 @@
 ﻿import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import { descargarTicketPdf, imprimirHtmlDirecto, imprimirTicketHtml } from '../../utils/printTicket';
 import { getUsuario } from '../../utils/auth';
@@ -8,6 +9,7 @@ import CheckoutPayMethodChips from '../../components/checkout/CheckoutPayMethodC
 import CheckoutServiceToggle from '../../components/checkout/CheckoutServiceToggle';
 
 function VentasPOS() {
+  const navigate = useNavigate();
   const usuario = getUsuario();
   const idSucursalUsuario = usuario?.id_Sucursal ?? usuario?.id_sucursal ?? null;
 
@@ -883,6 +885,19 @@ function VentasPOS() {
           <div className={`col-xl-6 col-lg-6 ${vistaSoloCobro ? 'd-none' : ''}`}>
             <div className="card shadow-sm border-0 mb-3 pos-catalog-card pos-catalog-controls">
               <div className="card-body">
+                <div className="alert alert-info py-2 small mb-3">
+                  Si un cliente pide un producto que no existe en el catalogo, registralo en
+                  {' '}
+                  <button
+                    type="button"
+                    className="btn btn-link p-0 align-baseline"
+                    onClick={() => navigate('/productos-pendientes')}
+                  >
+                    Productos faltantes
+                  </button>
+                  {' '}
+                  para que administracion lo apruebe sin frenar la operacion.
+                </div>
                 <div className="row g-3">
                   <div className="col-md-4">
                     <label className="form-label">Categoria</label>

@@ -20,6 +20,7 @@ Este paquete acompana los cambios de backend/frontend implementados.
 - `2026-04-22_ventas_observacion_longtext.sql`: ajusta longitud de observacion en ventas para metadatos extensos.
 - `2026-04-22_facturacion_sar_correlativo_eventos.sql`: crea bitacora fiscal de correlativos (`RESERVADO/EMITIDO/FALLIDO`) y campos de revision.
 - `2026-04-22_facturacion_sar_correlativo_eventos_revision_columns.sql`: solo para instancias donde la tabla de eventos ya existia sin campos de revision.
+- `2026-04-22_productos_pendientes.sql`: crea flujo de solicitudes de productos faltantes (caja) con aprobacion/rechazo (administracion).
 - `2026-04-22_indices_rendimiento_reportes_caja.sql`: indices adicionales para reportes avanzados, caja y movimientos.
 
 ## Recomendacion de orden (upgrade completo)
@@ -36,14 +37,15 @@ Este paquete acompana los cambios de backend/frontend implementados.
 ### Fase 2 - Flujo fiscal y auditoria
 7. `2026-04-22_facturacion_sar_correlativo_eventos.sql`
 8. `2026-04-22_facturacion_sar_correlativo_eventos_revision_columns.sql` (solo para ambientes que ya tenian la tabla previa)
+9. `2026-04-22_productos_pendientes.sql`
 
 ### Fase 3 - Rendimiento
-9. `2026-04-17_reportes_performance_indexes.sql`
-10. `2026-04-22_indices_rendimiento_reportes_caja.sql`
+10. `2026-04-17_reportes_performance_indexes.sql`
+11. `2026-04-22_indices_rendimiento_reportes_caja.sql`
 
 ### Fase 4 - Despliegue aplicacion y post chequeo
-11. Desplegar API + frontend
-12. `2026-04-14_postdeploy_checks.sql`
+12. Desplegar API + frontend
+13. `2026-04-14_postdeploy_checks.sql`
 
 ## Idempotencia de scripts (2026-04-22)
 - `2026-04-22_facturacion_sar_correlativo_eventos_revision_columns.sql` ya incluye validaciones por `information_schema` para no fallar en re-ejecucion.

@@ -9,6 +9,7 @@ const sections = [
     titleClass: 'sidebar-section-title--primary',
     items: [
       { to: '/ventas', label: 'Punto de venta (POS)', roles: ['ADMIN', 'CAJERO'] },
+      { to: '/productos-pendientes', label: 'Productos faltantes', roles: ['ADMIN', 'CAJERO'] },
       { to: '/mesas', label: 'Mesas y cuentas', roles: ['ADMIN', 'CAJERO'] },
       { to: '/caja', label: 'Caja', roles: ['ADMIN', 'CAJERO'] },
       { to: '/movimientos-caja', label: 'Movimientos de caja', roles: ['ADMIN', 'CAJERO'] },
