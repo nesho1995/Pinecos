@@ -246,6 +246,7 @@ namespace Pinecos.Helpers
                         context.Presentaciones.Add(presentacion);
                         await context.SaveChangesAsync(cancellationToken);
                         presentaciones.Add(presentacion);
+                        resultado.PresentacionesCreadas++;
                     }
 
                     idPresentacionImport = presentacion.Id_Presentacion;
@@ -500,6 +501,7 @@ namespace Pinecos.Helpers
     {
         public int Creados { get; set; }
         public int PreciosAsignados { get; set; }
+        public int PresentacionesCreadas { get; set; }
         public List<ProductoImportLineaError> Errores { get; } = new();
         public List<ProductoImportOmitido> Omitidos { get; } = new();
     }

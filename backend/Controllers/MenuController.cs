@@ -335,6 +335,17 @@ namespace Pinecos.Controllers
                 }
             ).ToListAsync();
 
+            // Regla UX/negocio: si existe el mismo producto con el mismo precio en formato normal
+            // y con presentacion, se prioriza la linea con presentacion para evitar duplicados visuales.
+            var clavesConPresentacion = new HashSet<string>(
+                productosConPresentacion.Select(x =>
+                    $"{x.Id_Producto}|{Math.Round(x.Precio, 2):0.00}"),
+                StringComparer.Ordinal);
+            productosNormales = productosNormales
+                .Where(x => !clavesConPresentacion.Contains(
+                    $"{x.Id_Producto}|{Math.Round(x.Precio, 2):0.00}"))
+                .ToList();
+
             return Ok(new
             {
                 normales = productosNormales,
