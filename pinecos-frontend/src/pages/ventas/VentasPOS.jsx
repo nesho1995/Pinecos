@@ -43,6 +43,13 @@ function VentasPOS() {
   /** Oculta catalogo y acorta lista de lineas para ver cobro sin scroll excesivo */
   const [vistaSoloCobro, setVistaSoloCobro] = useState(false);
 
+  const formatearTipoServicio = (value) => {
+    const normalized = String(value || '').trim().toUpperCase();
+    if (normalized === 'COMER_AQUI') return 'Comer aqui';
+    if (normalized === 'LLEVAR') return 'Para llevar';
+    return value || '-';
+  };
+
   const cargarCajaActual = async () => {
     try {
       setCargandoCaja(true);
@@ -544,7 +551,7 @@ function VentasPOS() {
   <div class="ticket">
     <div class="center"><strong>PRE-CUENTA</strong></div>
     <div class="center muted">Cafe Pinecos</div>
-    <div class="center muted">Caja #${escaparHtml(cajaActual?.id_Caja || '-')} | ${escaparHtml(tipoServicio)}</div>
+    <div class="center muted">Caja #${escaparHtml(cajaActual?.id_Caja || '-')} | ${escaparHtml(formatearTipoServicio(tipoServicio))}</div>
     <div class="center muted">${escaparHtml(fecha.toLocaleString())}</div>
     <div class="linea"></div>
     <table>
@@ -567,6 +574,7 @@ function VentasPOS() {
     </div>
     <div class="linea"></div>
     <div class="center muted">Documento informativo - No es comprobante fiscal</div>
+    <div class="center muted">Plataforma empresarial por NesSys</div>
   </div>
 </body>
 </html>`;

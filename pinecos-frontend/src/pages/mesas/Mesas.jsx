@@ -77,7 +77,7 @@ function Mesas() {
     const data = [
       {
         id_Sucursal: Number(idSucursalUsuario),
-        nombre: `Sucursal #${idSucursalUsuario}`
+        nombre: 'Sucursal asignada'
       }
     ];
     setSucursales(data);
@@ -664,7 +664,7 @@ function Mesas() {
     const cantidad = Math.max(1, Number(personasDivision || 1));
     const nombreSucursalActual =
       sucursales.find((s) => String(s.id_Sucursal) === String(sucursalSeleccionada))?.nombre ||
-      (sucursalSeleccionada ? `Sucursal #${sucursalSeleccionada}` : 'Sucursal');
+      'Sucursal';
 
     const personas = Array.from({ length: cantidad }, (_, idx) => {
       const pago = pagosMixtos[idx] || {};

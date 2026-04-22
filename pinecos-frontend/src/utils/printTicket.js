@@ -8,6 +8,22 @@ const escapeHtml = (value) =>
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
 
+const formatTipoServicio = (value) => {
+  const normalized = String(value || '').trim().toUpperCase();
+  if (normalized === 'COMER_AQUI') return 'Comer aqui';
+  if (normalized === 'LLEVAR') return 'Para llevar';
+  return value || '-';
+};
+
+const formatMetodoPago = (value) => {
+  const normalized = String(value || '').trim().toUpperCase();
+  if (normalized === 'EFECTIVO') return 'Efectivo';
+  if (normalized === 'TARJETA' || normalized === 'TARJETA_POS' || normalized === 'POS') return 'Tarjeta';
+  if (normalized === 'TRANSFERENCIA') return 'Transferencia';
+  if (normalized === 'MIXTO') return 'Mixto';
+  return value || 'Sin metodo';
+};
+
 const imprimirEnMismaPantalla = (html) =>
   new Promise((resolve, reject) => {
     const iframe = document.createElement('iframe');
@@ -242,14 +258,14 @@ const construirHtmlTicketPersona = ({
   <div class="shell">
     <div class="meta">
       <div><strong>Venta:</strong> #${idVenta} | <strong>Mesa:</strong> ${escapeHtml(mesa || '-')} | <strong>Cuenta:</strong> ${escapeHtml(cuenta || '-')}</div>
-      <div><strong>Sucursal:</strong> ${escapeHtml(sucursal || '-')} | <strong>Servicio:</strong> ${escapeHtml(tipoServicio || '-')}</div>
+      <div><strong>Sucursal:</strong> ${escapeHtml(sucursal || '-')} | <strong>Servicio:</strong> ${escapeHtml(formatTipoServicio(tipoServicio))}</div>
       <div><strong>Division:</strong> Persona ${indicePersona} de ${totalPersonas}</div>
     </div>
     <div class="ticket-card">
       <div class="ticket-head">
         <div>
           <div class="ticket-title">${escapeHtml(persona?.nombre || `Persona ${indicePersona}`)}</div>
-          <div class="ticket-sub">${escapeHtml(persona?.metodoPago || 'SIN METODO')}</div>
+          <div class="ticket-sub">${escapeHtml(formatMetodoPago(persona?.metodoPago))}</div>
         </div>
         <div class="ticket-total">${moneda} ${Number(persona?.total || 0).toFixed(2)}</div>
       </div>
@@ -260,6 +276,7 @@ const construirHtmlTicketPersona = ({
         <tbody>${rows}</tbody>
       </table>
       <div class="foot">Total persona: ${moneda} ${Number(persona?.total || 0).toFixed(2)}</div>
+      <div class="foot">Plataforma empresarial por NesSys</div>
     </div>
   </div>
 </body>

@@ -209,7 +209,7 @@ namespace Pinecos.Controllers
                     return Ok(new
                     {
                         message =
-                            "La relacion no se pudo borrar por restriccion en base de datos (otra tabla o regla la referencia). Los precios por sucursal activos quedaron inactivos.",
+                            "La relacion no se pudo borrar por una restriccion de integridad. Los precios por sucursal activos quedaron inactivos.",
                         eliminada = false,
                         preciosInactivados = true
                     });
@@ -218,7 +218,7 @@ namespace Pinecos.Controllers
                 {
                     return BadRequest(new
                     {
-                        message = "No se pudo completar la operacion (ni borrar ni inactivar precios). Revisa restricciones en la base de datos.",
+                        message = "No se pudo completar la operacion (ni borrar ni inactivar precios). Revisa reglas de integridad y dependencias.",
                         detalle = inner.InnerException?.Message ?? inner.Message,
                         detalleOriginal = ex.InnerException?.Message ?? ex.Message
                     });

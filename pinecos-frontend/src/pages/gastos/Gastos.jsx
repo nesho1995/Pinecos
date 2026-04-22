@@ -80,10 +80,10 @@ function Gastos() {
     if (!gastos.length) return;
     exportToExcelCsv(
       'gastos.csv',
-      esAdmin ? ['Codigo', 'Fecha', 'Categoria', 'Descripcion', 'Monto', 'Usuario'] : ['Codigo', 'Fecha', 'Categoria', 'Descripcion', 'Monto'],
+      esAdmin ? ['No.', 'Fecha', 'Categoria', 'Descripcion', 'Monto', 'Usuario'] : ['No.', 'Fecha', 'Categoria', 'Descripcion', 'Monto'],
       gastos.map((x) => (
         esAdmin
-          ? [x.id_Gasto, x.fecha ? new Date(x.fecha).toLocaleString('es-HN') : '', x.categoria_Gasto, x.descripcion, Number(x.monto || 0).toFixed(2), x.usuario || x.id_Usuario]
+          ? [x.id_Gasto, x.fecha ? new Date(x.fecha).toLocaleString('es-HN') : '', x.categoria_Gasto, x.descripcion, Number(x.monto || 0).toFixed(2), x.usuario || 'Sin dato']
           : [x.id_Gasto, x.fecha ? new Date(x.fecha).toLocaleString('es-HN') : '', x.categoria_Gasto, x.descripcion, Number(x.monto || 0).toFixed(2)]
       ))
     );
@@ -173,7 +173,7 @@ function Gastos() {
             <table className="table table-bordered align-middle mb-0">
               <thead>
                 <tr>
-                  <th>Codigo</th>
+                  <th>No.</th>
                   <th>Fecha</th>
                   <th>Categoria</th>
                   <th>Descripcion</th>
@@ -189,7 +189,7 @@ function Gastos() {
                     <td>{item.categoria_Gasto}</td>
                     <td>{item.descripcion}</td>
                     <td>L {Number(item.monto || 0).toFixed(2)}</td>
-                    {esAdmin && <td>{item.usuario || item.id_Usuario}</td>}
+                    {esAdmin && <td>{item.usuario || 'Sin dato'}</td>}
                   </tr>
                 ))}
                 {gastos.length === 0 && (

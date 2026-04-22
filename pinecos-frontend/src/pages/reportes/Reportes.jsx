@@ -12,6 +12,22 @@ const now = new Date();
 const inicioHoy = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
 const finHoy = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 0);
 
+const formatearTipoServicio = (value) => {
+  const normalized = String(value || '').trim().toUpperCase();
+  if (normalized === 'COMER_AQUI') return 'Comer aqui';
+  if (normalized === 'LLEVAR') return 'Para llevar';
+  return value || '-';
+};
+
+const formatearMetodoPago = (value) => {
+  const normalized = String(value || '').trim().toUpperCase();
+  if (normalized === 'EFECTIVO') return 'Efectivo';
+  if (normalized === 'TARJETA' || normalized === 'TARJETA_POS' || normalized === 'POS') return 'Tarjeta';
+  if (normalized === 'TRANSFERENCIA') return 'Transferencia';
+  if (normalized === 'MIXTO') return 'Mixto';
+  return value || '-';
+};
+
 function Reportes() {
   const [sucursales, setSucursales] = useState([]);
   const [form, setForm] = useState({
@@ -61,7 +77,7 @@ function Reportes() {
     exportToExcelCsv(
       'reporte_ventas_tipo_servicio.csv',
       ['Tipo servicio', 'Cantidad', 'Total'],
-      ventasTipoServicio.map((x) => [x.tipoServicio, x.cantidad, Number(x.total || 0).toFixed(2)])
+      ventasTipoServicio.map((x) => [formatearTipoServicio(x.tipoServicio), x.cantidad, Number(x.total || 0).toFixed(2)])
     );
 
   const exportarVentasDetalle = () =>
@@ -72,10 +88,10 @@ function Reportes() {
         x.fecha ? new Date(x.fecha).toLocaleString('es-HN') : '',
         x.id_Venta,
         x.sucursal,
-        x.tipoServicio,
+        formatearTipoServicio(x.tipoServicio),
         x.atendio,
         x.cobro,
-        x.metodo_Pago,
+        formatearMetodoPago(x.metodo_Pago),
         Number(x.total || 0).toFixed(2)
       ])
     );
@@ -436,7 +452,7 @@ function Reportes() {
                     <thead><tr><th>Tipo</th><th>Cantidad</th><th>Total</th></tr></thead>
                     <tbody>
                       {ventasTipoServicio.map((item, idx) => (
-                        <tr key={idx}><td>{item.tipoServicio}</td><td>{item.cantidad}</td><td>L {Number(item.total || 0).toFixed(2)}</td></tr>
+                        <tr key={idx}><td>{formatearTipoServicio(item.tipoServicio)}</td><td>{item.cantidad}</td><td>L {Number(item.total || 0).toFixed(2)}</td></tr>
                       ))}
                       {ventasTipoServicio.length === 0 && <tr><td colSpan="3" className="text-center">Sin datos</td></tr>}
                     </tbody>
@@ -462,10 +478,10 @@ function Reportes() {
                           <td>{formatDateTimeHN(item.fecha) || '-'}</td>
                           <td>#{item.id_Venta}</td>
                           <td>{item.sucursal}</td>
-                          <td>{item.tipoServicio}</td>
+                          <td>{formatearTipoServicio(item.tipoServicio)}</td>
                           <td>{item.atendio}</td>
                           <td>{item.cobro}</td>
-                          <td>{item.metodo_Pago}</td>
+                          <td>{formatearMetodoPago(item.metodo_Pago)}</td>
                           <td>{formatCurrencyHNL(item.total)}</td>
                         </tr>
                       ))}

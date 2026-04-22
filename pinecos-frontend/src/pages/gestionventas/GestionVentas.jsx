@@ -196,7 +196,7 @@ function GestionVentas() {
             <table className="table table-sm table-hover align-middle mb-0">
               <thead className="table-light">
                 <tr>
-                  <th>ID</th>
+                  <th>No. venta</th>
                   <th>Fecha</th>
                   <th>Sucursal</th>
                   <th className="text-end">Total</th>

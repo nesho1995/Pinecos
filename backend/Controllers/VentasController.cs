@@ -451,9 +451,9 @@ namespace Pinecos.Controllers
 
             return Ok(new
             {
-                message = "Venta anulada correctamente en el sistema.",
+                message = "Venta anulada correctamente.",
                 advertenciaCai = meta.EsFacturaCai
-                    ? "Esta venta tenia factura CAI. El correlativo no se reclama en el sistema; documente la anulacion fiscal (p. ej. nota de credito) segun normativa y contador."
+                    ? "Esta venta tenia factura CAI. El correlativo no se reclama en la plataforma; documente la anulacion fiscal (p. ej. nota de credito) segun normativa y contador."
                     : (string?)null
             });
         }

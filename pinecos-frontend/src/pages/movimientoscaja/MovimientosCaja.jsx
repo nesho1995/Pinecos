@@ -117,8 +117,8 @@ function MovimientosCaja() {
   const exportarExcel = () => {
     if (!movimientos.length) return;
     exportToExcelCsv(
-      `movimientos_caja_${cajaActual?.id_Caja || 'actual'}.csv`,
-      ['Codigo', 'Fecha', 'Tipo', 'Descripcion', 'Monto'],
+      `movimientos-caja-${cajaActual?.id_Caja || 'actual'}.csv`,
+      ['No.', 'Fecha', 'Tipo', 'Descripcion', 'Monto'],
       movimientos.map((x) => [
         x.id_Movimiento_Caja,
         x.fecha ? new Date(x.fecha).toLocaleString('es-HN') : '',
@@ -242,7 +242,7 @@ function MovimientosCaja() {
                 <table className="table table-bordered align-middle mb-0">
                 <thead>
                   <tr>
-                    <th>Codigo</th>
+                    <th>No.</th>
                     <th>Fecha</th>
                     <th>Tipo</th>
                     <th>Descripción</th>

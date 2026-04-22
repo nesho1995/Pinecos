@@ -243,7 +243,7 @@ function Caja() {
             <form onSubmit={abrirCaja} className="row g-3">
               <div className="col-md-4">
                 <label className="form-label">Usuario de sesion</label>
-                <input type="text" className="form-control" value={usuario?.nombre || usuario?.usuario || `Usuario #${idUsuario || ''}`} readOnly />
+                <input type="text" className="form-control" value={usuario?.nombre || usuario?.usuario || 'Usuario de caja'} readOnly />
               </div>
               <div className="col-md-4">
                 <label className="form-label">Monto inicial</label>
@@ -271,7 +271,7 @@ function Caja() {
                 <h5>Caja abierta</h5>
                 <p><strong>Caja:</strong> {cajaActual.id_Caja}</p>
                 <p><strong>Sucursal:</strong> {cajaActual.id_Sucursal}</p>
-                <p><strong>Abierta por:</strong> {cajaActual.usuarioAperturaNombre || `Usuario #${cajaActual.id_Usuario_Apertura}`}</p>
+                <p><strong>Abierta por:</strong> {cajaActual.usuarioAperturaNombre || 'Usuario de caja'}</p>
                 <p><strong>Turno apertura:</strong> {cajaActual.turnoApertura || 'N/D'}</p>
                 <p><strong>Fecha apertura:</strong> {formatDateTimeHN(cajaActual.fecha_Apertura)}</p>
                 <p><strong>Monto inicial:</strong> {formatCurrencyHNL(cajaActual.monto_Inicial)}</p>
