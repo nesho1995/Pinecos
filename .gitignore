@@ -23,3 +23,8 @@ backend/App_Data/
 # OS
 Thumbs.db
 .DS_Store
+
+# Local scratch / agent test files (repo root)
+_echo_test.txt
+_gitv.txt
+_git_out.txt
