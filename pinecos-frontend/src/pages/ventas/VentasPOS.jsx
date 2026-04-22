@@ -501,22 +501,28 @@ function VentasPOS() {
 <html lang="es">
 <head>
   <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Pre-cuenta</title>
   <style>
     * { box-sizing: border-box; font-family: "Segoe UI", Tahoma, sans-serif; }
-    body { margin: 0; color: #111827; background: #fff; font-size: 12px; }
-    .ticket { width: 80mm; margin: 0 auto; padding: 8px; }
+    html, body { margin: 0; padding: 0; overflow-x: hidden; max-width: 100%; }
+    body { color: #111827; background: #fff; font-size: 11px; }
+    .ticket { width: 100%; max-width: 56mm; margin: 0 auto; padding: 2.5mm 2mm; }
     .center { text-align: center; }
-    .muted { color: #4b5563; font-size: 11px; }
+    .muted { color: #4b5563; font-size: 9.5px; }
     .linea { border-top: 1px dashed #9ca3af; margin: 6px 0; }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { padding: 4px 0; vertical-align: top; }
-    th { font-size: 11px; color: #374151; text-align: left; border-bottom: 1px solid #e5e7eb; }
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    th, td { padding: 3px 2px; vertical-align: top; overflow-wrap: anywhere; word-break: break-word; }
+    th { font-size: 9px; color: #374151; text-align: left; border-bottom: 1px solid #e5e7eb; }
     td.num, th.num { text-align: right; white-space: nowrap; }
+    th:nth-child(1), td:nth-child(1) { width: 43%; }
+    th:nth-child(2), td:nth-child(2) { width: 15%; }
+    th:nth-child(3), td:nth-child(3) { width: 21%; }
+    th:nth-child(4), td:nth-child(4) { width: 21%; }
     .totales .row { display: flex; justify-content: space-between; margin: 2px 0; }
     .total-final { font-size: 14px; font-weight: 800; }
     @media print {
-      @page { size: 80mm auto; margin: 4mm; }
+      @page { size: 58mm auto; margin: 0.8mm 1mm; }
       body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     }
   </style>

@@ -28,16 +28,46 @@ namespace Pinecos.Helpers
                     resumen.ImporteExonerado = baseAfecta;
                     break;
                 case "GRAVADO_18":
+                    AsignarMontosGravados(ref baseAfecta, ref impuestoAfecta, 0.18m);
                     resumen.ImporteGravado18 = baseAfecta;
                     resumen.Isv18 = impuestoAfecta;
                     break;
                 default:
+                    AsignarMontosGravados(ref baseAfecta, ref impuestoAfecta, 0.15m);
                     resumen.ImporteGravado15 = baseAfecta;
                     resumen.Isv15 = impuestoAfecta;
                     break;
             }
 
             return resumen;
+        }
+
+        /// <summary>
+        /// Normaliza montos gravados cuando una de las dos partes no fue enviada.
+        /// - Si hay base y no hay ISV: calcula ISV por tasa.
+        /// - Si hay ISV y no hay base: calcula base por tasa.
+        /// </summary>
+        private static void AsignarMontosGravados(ref decimal baseAfecta, ref decimal impuestoAfecta, decimal tasa)
+        {
+            if (tasa <= 0) return;
+
+            if (baseAfecta > 0 && impuestoAfecta <= 0)
+            {
+                impuestoAfecta = Math.Round(baseAfecta * tasa, 2, MidpointRounding.AwayFromZero);
+                return;
+            }
+
+            if (baseAfecta <= 0 && impuestoAfecta > 0)
+            {
+                baseAfecta = Math.Round(impuestoAfecta / tasa, 2, MidpointRounding.AwayFromZero);
+                return;
+            }
+
+            if (baseAfecta > 0 && impuestoAfecta > 0)
+            {
+                baseAfecta = Math.Round(baseAfecta, 2, MidpointRounding.AwayFromZero);
+                impuestoAfecta = Math.Round(impuestoAfecta, 2, MidpointRounding.AwayFromZero);
+            }
         }
     }
 }

@@ -53,8 +53,9 @@ namespace Pinecos.Helpers
             sb.AppendLine($"TOTAL: {ticket.Total:N2}");
             sb.AppendLine("------------------------------");
 
-            if (!string.IsNullOrWhiteSpace(ticket.Observacion))
-                sb.AppendLine($"Obs: {ticket.Observacion}");
+            var observacionPublica = ObservacionVentaHelper.ObtenerObservacionPublica(ticket.Observacion);
+            if (!string.IsNullOrWhiteSpace(observacionPublica))
+                sb.AppendLine($"Obs: {observacionPublica}");
 
             sb.AppendLine("");
             sb.AppendLine("  Gracias por su compra");

@@ -458,9 +458,10 @@ namespace Pinecos.Helpers
 ");
             }
 
-            if (!string.IsNullOrWhiteSpace(ticket.Observacion))
+            var observacionPublica = ObservacionVentaHelper.ObtenerObservacionPublica(ticket.Observacion);
+            if (!string.IsNullOrWhiteSpace(observacionPublica))
             {
-                sb.Append($"<div class='small'>Obs: {ticket.Observacion}</div>");
+                sb.Append($"<div class='small'>Obs: {Esc(observacionPublica)}</div>");
             }
 
             sb.Append("<div class='line'></div>");

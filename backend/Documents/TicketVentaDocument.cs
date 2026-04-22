@@ -1,4 +1,5 @@
 ﻿using Pinecos.DTOs;
+using Pinecos.Helpers;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
@@ -105,9 +106,10 @@ namespace Pinecos.Documents
                     column.Item().AlignRight().Text($"Impuesto: {_ticket.Impuesto:N2}");
                     column.Item().AlignRight().Text($"Total: {_ticket.Total:N2}").Bold().FontSize(14);
 
-                    if (!string.IsNullOrWhiteSpace(_ticket.Observacion))
+                    var observacionPublica = ObservacionVentaHelper.ObtenerObservacionPublica(_ticket.Observacion);
+                    if (!string.IsNullOrWhiteSpace(observacionPublica))
                     {
-                        column.Item().PaddingTop(8).Text($"Observación: {_ticket.Observacion}");
+                        column.Item().PaddingTop(8).Text($"Observación: {observacionPublica}");
                     }
                 });
 
