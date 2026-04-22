@@ -86,7 +86,7 @@ function VentasPOS() {
       setMetodosPago([
         { codigo: 'EFECTIVO', nombre: 'Efectivo', categoria: 'EFECTIVO', activo: true },
         { codigo: 'TARJETA', nombre: 'Tarjeta', categoria: 'POS', activo: true },
-        { codigo: 'TRANSFERENCIA', nombre: 'Transferencia', categoria: 'OTRO', activo: true }
+        { codigo: 'TRANSFERENCIA', nombre: 'Transferencia', categoria: 'POS', activo: true }
       ]);
     }
   };
@@ -188,17 +188,23 @@ function VentasPOS() {
     setPreCuentaEstado((prev) => (prev === 'VIGENTE' ? 'DESACTUALIZADA' : prev));
   };
 
+  const metodoPagoActivo = useMemo(
+    () => (metodosPago || []).find((x) => String(x?.codigo || '').toUpperCase() === String(metodoPago || '').toUpperCase()) || null,
+    [metodosPago, metodoPago]
+  );
+  const categoriaMetodoPago = useMemo(() => {
+    const codigo = String(metodoPago || '').toUpperCase();
+    const cat = String(metodoPagoActivo?.categoria || '').toUpperCase();
+    if (cat) return cat;
+    // Respaldo para configuraciones antiguas sin categoria correcta.
+    if (codigo === 'TRANSFERENCIA') return 'POS';
+    if (codigo === 'EFECTIVO') return 'EFECTIVO';
+    return 'OTRO';
+  }, [metodoPago, metodoPagoActivo]);
   const canalesPagoFiltrados = useMemo(() => {
-    const categoria = String(metodoPago || '').toUpperCase();
-    if (categoria === 'EFECTIVO') return [];
-    return (metodosPago || []).filter((x) => {
-      const cat = String(x?.categoria || '').toUpperCase();
-      if (categoria === 'POS') return cat === 'POS';
-      if (categoria === 'TRANSFERENCIA') return cat === 'TRANSFERENCIA' || cat === 'BANCO';
-      if (categoria === 'OTRO') return cat === 'OTRO';
-      return false;
-    });
-  }, [metodosPago, metodoPago]);
+    if (categoriaMetodoPago === 'EFECTIVO') return [];
+    return (metodosPago || []).filter((x) => String(x?.categoria || '').toUpperCase() === categoriaMetodoPago);
+  }, [metodosPago, categoriaMetodoPago]);
 
   useEffect(() => {
     if (metodoPago === 'EFECTIVO') {

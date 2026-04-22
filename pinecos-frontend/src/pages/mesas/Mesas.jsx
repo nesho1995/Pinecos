@@ -167,7 +167,7 @@ function Mesas() {
       setMetodosPago([
         { codigo: 'EFECTIVO', nombre: 'Efectivo', categoria: 'EFECTIVO', activo: true },
         { codigo: 'TARJETA', nombre: 'Tarjeta', categoria: 'POS', activo: true },
-        { codigo: 'TRANSFERENCIA', nombre: 'Transferencia', categoria: 'OTRO', activo: true }
+        { codigo: 'TRANSFERENCIA', nombre: 'Transferencia', categoria: 'POS', activo: true }
       ]);
     }
   };

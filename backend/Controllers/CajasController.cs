@@ -279,6 +279,22 @@ namespace Pinecos.Controllers
                 return BadRequest(new { message = "idSucursal invalido" });
 
             var config = CuadreCanalesStore.Sanitize(model);
+            var metodosActivos = (config.MetodosPago ?? new List<MetodoPagoConfigDto>())
+                .Where(x => x.Activo)
+                .ToList();
+
+            if (!metodosActivos.Any(x => string.Equals((x.Categoria ?? string.Empty).Trim(), "EFECTIVO", StringComparison.OrdinalIgnoreCase)))
+                return BadRequest(new { message = "Debe existir al menos un metodo de pago activo de categoria EFECTIVO." });
+
+            // Regla de negocio: transferencia se cuadra como POS, nunca como OTRO.
+            if (metodosActivos.Any(x =>
+                ((x.Codigo ?? string.Empty).Contains("TRANSFER", StringComparison.OrdinalIgnoreCase) ||
+                 (x.Nombre ?? string.Empty).Contains("TRANSFER", StringComparison.OrdinalIgnoreCase)) &&
+                !string.Equals((x.Categoria ?? string.Empty).Trim(), "POS", StringComparison.OrdinalIgnoreCase)))
+            {
+                return BadRequest(new { message = "Los metodos de transferencia deben estar en categoria POS para el cuadre de caja." });
+            }
+
             config.IdSucursal = idSucursal;
             CuadreCanalesStore.SaveConfig(_env.ContentRootPath, idSucursal, config);
 
@@ -594,19 +610,43 @@ namespace Pinecos.Controllers
             var expectedPos = canalesConfig.Pos.Select(NormalizeCanal).ToHashSet(StringComparer.Ordinal);
             var expectedDelivery = canalesConfig.Delivery.Select(NormalizeCanal).ToHashSet(StringComparer.Ordinal);
 
-            var posDeclarado = (request.Pos ?? new List<CanalMontoDto>())
+            var posItems = request.Pos ?? new List<CanalMontoDto>();
+            var deliveryItems = request.Delivery ?? new List<CanalMontoDto>();
+
+            var posDeclarado = posItems
                 .Select(x => NormalizeCanal(x.Canal))
                 .ToHashSet(StringComparer.Ordinal);
 
-            var deliveryDeclarado = (request.Delivery ?? new List<CanalMontoDto>())
+            var deliveryDeclarado = deliveryItems
                 .Select(x => NormalizeCanal(x.Canal))
                 .ToHashSet(StringComparer.Ordinal);
+
+            if (posDeclarado.Count != posItems.Count || deliveryDeclarado.Count != deliveryItems.Count)
+                return BadRequest(new { message = "No se permiten canales repetidos en POS o delivery dentro del cierre." });
 
             if (!expectedPos.SetEquals(posDeclarado))
-                return BadRequest(new { message = "Los canales POS del cierre no coinciden con la configuracion de admin" });
+            {
+                var faltanPos = expectedPos.Except(posDeclarado).ToList();
+                var sobranPos = posDeclarado.Except(expectedPos).ToList();
+                return BadRequest(new
+                {
+                    message = "Los canales POS del cierre no coinciden con la configuracion de admin",
+                    faltan = faltanPos,
+                    sobran = sobranPos
+                });
+            }
 
             if (!expectedDelivery.SetEquals(deliveryDeclarado))
-                return BadRequest(new { message = "Los canales Delivery del cierre no coinciden con la configuracion de admin" });
+            {
+                var faltanDelivery = expectedDelivery.Except(deliveryDeclarado).ToList();
+                var sobranDelivery = deliveryDeclarado.Except(expectedDelivery).ToList();
+                return BadRequest(new
+                {
+                    message = "Los canales Delivery del cierre no coinciden con la configuracion de admin",
+                    faltan = faltanDelivery,
+                    sobran = sobranDelivery
+                });
+            }
 
             var usuarioDb = await _context.Usuarios
                 .AsNoTracking()
@@ -618,8 +658,8 @@ namespace Pinecos.Controllers
             var fechaCierre = FechaHelper.AhoraHonduras();
             var resumen = await ConstruirResumenCuadreAsync(caja, fechaCierre);
 
-            var totalPosDeclarado = (request.Pos ?? new List<CanalMontoDto>()).Sum(x => x.Monto);
-            var totalDeliveryDeclarado = (request.Delivery ?? new List<CanalMontoDto>()).Sum(x => x.Monto);
+            var totalPosDeclarado = posItems.Sum(x => x.Monto);
+            var totalDeliveryDeclarado = deliveryItems.Sum(x => x.Monto);
             var totalDeclarado = request.Monto_Cierre + totalPosDeclarado + totalDeliveryDeclarado;
             var diferencia = totalDeclarado - resumen.TotalEsperado;
             var cuadro = Math.Abs(diferencia) <= 0.01m;
@@ -645,8 +685,8 @@ namespace Pinecos.Controllers
                     totalPos = totalPosDeclarado,
                     totalDelivery = totalDeliveryDeclarado,
                     total = totalDeclarado,
-                    pos = request.Pos ?? new List<CanalMontoDto>(),
-                    delivery = request.Delivery ?? new List<CanalMontoDto>()
+                    pos = posItems,
+                    delivery = deliveryItems
                 },
                 diferencia,
                 cuadro

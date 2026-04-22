@@ -44,11 +44,12 @@ function Configuracion() {
   const [sucursalSar, setSucursalSar] = useState('');
   const [listaSar, setListaSar] = useState([]);
   const [canalesForm, setCanalesForm] = useState({
-    pos: ['POS 1'],
+    pos: ['POS 1', 'Transferencia'],
     delivery: ['PEDIDOS_YA'],
     metodosPago: [
       { codigo: 'EFECTIVO', nombre: 'Efectivo', categoria: 'EFECTIVO', activo: true },
       { codigo: 'POS_1', nombre: 'POS 1', categoria: 'POS', activo: true },
+      { codigo: 'TRANSFERENCIA', nombre: 'Transferencia', categoria: 'POS', activo: true },
       { codigo: 'PEDIDOS_YA', nombre: 'Pedidos Ya', categoria: 'DELIVERY', activo: true }
     ],
     requiereMontoEnTodos: true
@@ -131,11 +132,12 @@ function Configuracion() {
     const res = await api.get('/Cajas/canales-config', { params: { idSucursal: Number(idSucursal) } });
     const data = res.data || {};
     setCanalesForm({
-      pos: data.pos || ['POS 1'],
+      pos: data.pos || ['POS 1', 'Transferencia'],
       delivery: data.delivery || ['PEDIDOS_YA'],
       metodosPago: data.metodosPago || [
         { codigo: 'EFECTIVO', nombre: 'Efectivo', categoria: 'EFECTIVO', activo: true },
         { codigo: 'POS_1', nombre: 'POS 1', categoria: 'POS', activo: true },
+        { codigo: 'TRANSFERENCIA', nombre: 'Transferencia', categoria: 'POS', activo: true },
         { codigo: 'PEDIDOS_YA', nombre: 'Pedidos Ya', categoria: 'DELIVERY', activo: true }
       ],
       requiereMontoEnTodos: data.requiereMontoEnTodos ?? true
@@ -287,15 +289,25 @@ function Configuracion() {
       });
     };
 
+    const esTransferencia = (codigo, nombre) => {
+      const c = String(codigo || '').toUpperCase();
+      const n = String(nombre || '').toUpperCase();
+      return c.includes('TRANSFER') || n.includes('TRANSFER');
+    };
+
     const payload = {
       pos: (canalesForm.pos || []).map((x) => String(x || '').trim()).filter(Boolean),
       delivery: (canalesForm.delivery || []).map((x) => String(x || '').trim()).filter(Boolean),
       metodosPago: (canalesForm.metodosPago || []).map((x) => ({
         codigo: normalizarCodigoMetodo(x.codigo) || normalizarCodigoMetodo(x.nombre),
         nombre: String(x.nombre || '').trim(),
-        categoria: ['EFECTIVO', 'POS', 'DELIVERY', 'OTRO'].includes(String(x.categoria || '').trim().toUpperCase())
-          ? String(x.categoria || '').trim().toUpperCase()
-          : 'OTRO',
+        categoria: (() => {
+          const codigoNorm = normalizarCodigoMetodo(x.codigo) || normalizarCodigoMetodo(x.nombre);
+          const nombre = String(x.nombre || '').trim();
+          if (esTransferencia(codigoNorm, nombre)) return 'POS';
+          const cat = String(x.categoria || '').trim().toUpperCase();
+          return ['EFECTIVO', 'POS', 'DELIVERY', 'OTRO'].includes(cat) ? cat : 'OTRO';
+        })(),
         activo: !!x.activo
       })).filter((x) => x.codigo && x.nombre),
       requiereMontoEnTodos: true

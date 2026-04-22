@@ -64,12 +64,13 @@ namespace Pinecos.Helpers
                 return new CuadreCanalesConfigDto
                 {
                     IdSucursal = idSucursal,
-                    Pos = new List<string> { "POS 1" },
+                    Pos = new List<string> { "POS 1", "Transferencia" },
                     Delivery = new List<string> { "PEDIDOS_YA" },
                     MetodosPago = new List<MetodoPagoConfigDto>
                     {
                         new() { Codigo = "EFECTIVO", Nombre = "Efectivo", Categoria = "EFECTIVO", Activo = true },
                         new() { Codigo = "POS_1", Nombre = "POS 1", Categoria = "POS", Activo = true },
+                        new() { Codigo = "TRANSFERENCIA", Nombre = "Transferencia", Categoria = "POS", Activo = true },
                         new() { Codigo = "PEDIDOS_YA", Nombre = "Pedidos Ya", Categoria = "DELIVERY", Activo = true }
                     },
                     RequiereMontoEnTodos = true
@@ -90,6 +91,13 @@ namespace Pinecos.Helpers
 
         public static CuadreCanalesConfigDto Sanitize(CuadreCanalesConfigDto config)
         {
+            var esTransferencia = (string? codigo, string? nombre) =>
+            {
+                var c = (codigo ?? string.Empty).Trim().ToUpperInvariant();
+                var n = (nombre ?? string.Empty).Trim().ToUpperInvariant();
+                return c.Contains("TRANSFER", StringComparison.Ordinal) || n.Contains("TRANSFER", StringComparison.Ordinal);
+            };
+
             var normalizarCategoria = (string? categoria) =>
             {
                 var c = (categoria ?? string.Empty).Trim().ToUpperInvariant();
@@ -134,11 +142,15 @@ namespace Pinecos.Helpers
                     if (string.IsNullOrWhiteSpace(codigo))
                         codigo = normalizarCodigo(nombre);
 
+                    var categoria = esTransferencia(codigo, nombre)
+                        ? "POS"
+                        : normalizarCategoria(x.Categoria);
+
                     return new MetodoPagoConfigDto
                     {
                         Codigo = codigo,
                         Nombre = (nombre ?? string.Empty).Trim(),
-                        Categoria = normalizarCategoria(x.Categoria),
+                        Categoria = categoria,
                         Activo = x.Activo
                     };
                 })
