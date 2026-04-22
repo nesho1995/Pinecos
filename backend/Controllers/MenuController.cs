@@ -306,6 +306,7 @@ namespace Pinecos.Controllers
                     Id_Presentacion = (int?)null,
                     Producto = p.Nombre,
                     Categoria = c.Nombre,
+                    TipoFiscal = p.Tipo_Fiscal,
                     Costo = p.Costo,
                     ps.Precio
                 }
@@ -326,6 +327,7 @@ namespace Pinecos.Controllers
                     Id_Presentacion = (int?)pp.Id_Presentacion,
                     Producto = p.Nombre,
                     Categoria = c.Nombre,
+                    TipoFiscal = p.Tipo_Fiscal,
                     Presentacion = pr.Nombre,
                     pr.Onzas,
                     Costo = p.Costo,

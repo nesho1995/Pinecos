@@ -8,6 +8,7 @@
         public decimal PrecioUnitario { get; set; }
         public decimal CostoUnitario { get; set; }
         public decimal Subtotal { get; set; }
+        public string TipoFiscalLinea { get; set; } = "GRAVADO_15";
     }
 
     public class TicketVentaDto

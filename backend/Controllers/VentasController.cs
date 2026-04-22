@@ -152,6 +152,8 @@ namespace Pinecos.Controllers
                     Precio_Unitario = precioUnitarioFinal,
                     Costo_Unitario = producto.Costo,
                     Subtotal = lineaSubtotal,
+                    Tipo_Fiscal_Linea = FiscalTipoHelper.Normalizar(
+                        string.IsNullOrWhiteSpace(item.Tipo_Fiscal_Linea) ? producto.Tipo_Fiscal : item.Tipo_Fiscal_Linea),
                     Observacion = ConstruirObservacionDetalle(item.Observacion, esCortesia, precioUnitario.Value)
                 });
             }

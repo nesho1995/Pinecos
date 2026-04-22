@@ -1,5 +1,7 @@
 namespace Pinecos.Helpers
 {
+    using Pinecos.DTOs;
+
     public class FacturaResumenFiscal
     {
         public decimal ImporteExento { get; set; }
@@ -39,6 +41,39 @@ namespace Pinecos.Helpers
                     break;
             }
 
+            return resumen;
+        }
+
+        public static FacturaResumenFiscal CalcularDesdeLineas(IEnumerable<TicketVentaDetalleDto> detalles)
+        {
+            var resumen = new FacturaResumenFiscal();
+            foreach (var d in detalles ?? Enumerable.Empty<TicketVentaDetalleDto>())
+            {
+                var subtotal = d.Subtotal < 0 ? 0 : Math.Round(d.Subtotal, 2, MidpointRounding.AwayFromZero);
+                var tipo = FiscalTipoHelper.Normalizar(d.TipoFiscalLinea);
+                switch (tipo)
+                {
+                    case FiscalTipoHelper.Exento:
+                        resumen.ImporteExento += subtotal;
+                        break;
+                    case FiscalTipoHelper.Exonerado:
+                        resumen.ImporteExonerado += subtotal;
+                        break;
+                    case FiscalTipoHelper.Gravado18:
+                        resumen.ImporteGravado18 += subtotal;
+                        break;
+                    default:
+                        resumen.ImporteGravado15 += subtotal;
+                        break;
+                }
+            }
+
+            resumen.ImporteExento = Math.Round(resumen.ImporteExento, 2, MidpointRounding.AwayFromZero);
+            resumen.ImporteExonerado = Math.Round(resumen.ImporteExonerado, 2, MidpointRounding.AwayFromZero);
+            resumen.ImporteGravado15 = Math.Round(resumen.ImporteGravado15, 2, MidpointRounding.AwayFromZero);
+            resumen.ImporteGravado18 = Math.Round(resumen.ImporteGravado18, 2, MidpointRounding.AwayFromZero);
+            resumen.Isv15 = Math.Round(resumen.ImporteGravado15 * 0.15m, 2, MidpointRounding.AwayFromZero);
+            resumen.Isv18 = Math.Round(resumen.ImporteGravado18 * 0.18m, 2, MidpointRounding.AwayFromZero);
             return resumen;
         }
 

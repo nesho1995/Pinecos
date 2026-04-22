@@ -4,8 +4,7 @@
 const DEFAULTS = [
   { codigo: 'EFECTIVO', label: 'Efectivo', title: 'Efectivo' },
   { codigo: 'POS', label: 'Tarjeta / POS', title: 'POS / datáfono' },
-  { codigo: 'TRANSFERENCIA', label: 'Transferencia', title: 'Transferencia bancaria' },
-  { codigo: 'OTRO', label: 'Otro', title: 'Otro medio' }
+  { codigo: 'TRANSFERENCIA', label: 'Transferencia', title: 'Transferencia bancaria' }
 ];
 
 function CheckoutPayMethodChips({ value, onChange, options = DEFAULTS, className = '', disabled = false }) {

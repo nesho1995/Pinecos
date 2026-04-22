@@ -103,7 +103,8 @@ function VentasPOS() {
       id_Presentacion: null,
       nombre: item.producto,
       categoria: item.categoria || 'Sin categoria',
-      precio: Number(item.precio || 0)
+      precio: Number(item.precio || 0),
+      tipo_Fiscal: String(item.tipoFiscal || 'GRAVADO_15').toUpperCase()
     }));
 
     const conPresentacion = (response.data?.conPresentacion || []).map((item) => ({
@@ -111,7 +112,8 @@ function VentasPOS() {
       id_Presentacion: item.id_Presentacion,
       nombre: `${item.producto} - ${item.presentacion || 'Presentacion'}`,
       categoria: item.categoria || 'Sin categoria',
-      precio: Number(item.precio || 0)
+      precio: Number(item.precio || 0),
+      tipo_Fiscal: String(item.tipoFiscal || 'GRAVADO_15').toUpperCase()
     }));
 
     setProductos([...normales, ...conPresentacion].filter((x) => x.precio > 0));
@@ -271,6 +273,7 @@ function VentasPOS() {
         id_Producto: producto.id_Producto,
         id_Presentacion: producto.id_Presentacion,
         nombre: producto.nombre,
+        tipo_Fiscal: String(producto.tipo_Fiscal || 'GRAVADO_15').toUpperCase(),
         cantidad: 1,
         precio_Lista: Number(producto.precio),
         precio_Unitario: Number(producto.precio),
@@ -664,6 +667,7 @@ function VentasPOS() {
           id_Producto: item.id_Producto,
           id_Presentacion: item.id_Presentacion,
           cantidad: item.cantidad,
+          tipo_Fiscal_Linea: String(item.tipo_Fiscal || 'GRAVADO_15').toUpperCase(),
           es_Cortesia: esLineaCortesia(item),
           observacion: esLineaCortesia(item) ? '[CORTESIA]' : ''
         }))

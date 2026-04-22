@@ -15,6 +15,7 @@ function Productos() {
     nombre: '',
     id_Categoria: '',
     costo: 0,
+    tipo_Fiscal: 'GRAVADO_15',
     activo: true
   });
   const [error, setError] = useState('');
@@ -127,6 +128,7 @@ function Productos() {
       nombre: '',
       id_Categoria: '',
       costo: 0,
+      tipo_Fiscal: 'GRAVADO_15',
       activo: true
     });
     setPrecioVenta({ id_Sucursal: '', precio: '' });
@@ -162,6 +164,7 @@ function Productos() {
       nombre: form.nombre.trim(),
       id_Categoria: Number(form.id_Categoria),
       costo: Number(form.costo || 0),
+      tipo_Fiscal: String(form.tipo_Fiscal || 'GRAVADO_15').toUpperCase(),
       activo: form.activo
     };
 
@@ -211,6 +214,7 @@ function Productos() {
       nombre: item.nombre || '',
       id_Categoria: item.id_Categoria || '',
       costo: item.costo || 0,
+      tipo_Fiscal: String(item.tipo_Fiscal || 'GRAVADO_15').toUpperCase(),
       activo: item.activo ?? true
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -398,6 +402,15 @@ function Productos() {
               <label className="form-label">Costo interno (L)</label>
               <input type="number" min="0" step="0.01" className="form-control" name="costo" value={form.costo} onChange={handleChange} />
             </div>
+            <div className="col-lg-3 col-md-6">
+              <label className="form-label">Tipo fiscal (SAR)</label>
+              <select className="form-select" name="tipo_Fiscal" value={form.tipo_Fiscal} onChange={handleChange}>
+                <option value="GRAVADO_15">Gravado 15% ISV</option>
+                <option value="GRAVADO_18">Gravado 18% ISV</option>
+                <option value="EXENTO">Exento</option>
+                <option value="EXONERADO">Exonerado</option>
+              </select>
+            </div>
             <div className="col-lg-2 col-md-4 d-flex align-items-end">
               <div className="form-check">
                 <input type="checkbox" className="form-check-input" name="activo" checked={form.activo} onChange={handleChange} />
@@ -478,6 +491,7 @@ function Productos() {
                 <th>Nombre</th>
                 <th>Categoria</th>
                 <th>Costo</th>
+                <th>Fiscal</th>
                 <th>Estado</th>
                 <th style={{ width: 320 }}>Acciones</th>
               </tr>
@@ -489,6 +503,7 @@ function Productos() {
                   <td>{item.nombre}</td>
                   <td>{item.categoria}</td>
                   <td>L {Number(item.costo || 0).toFixed(2)}</td>
+                  <td>{String(item.tipo_Fiscal || 'GRAVADO_15').replace('_', ' ')}</td>
                   <td>
                     <span className={`status-pill ${item.activo ? 'active' : 'inactive'}`}>
                       {item.activo ? 'Activo' : 'Inactivo'}
@@ -517,7 +532,7 @@ function Productos() {
               ))}
               {dataFiltrada.length === 0 && (
                 <tr>
-                  <td colSpan="6" className="text-center">No hay productos para mostrar</td>
+                  <td colSpan="7" className="text-center">No hay productos para mostrar</td>
                 </tr>
               )}
             </tbody>

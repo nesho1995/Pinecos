@@ -62,14 +62,18 @@ namespace Pinecos.Controllers
                     Cantidad = d.Cantidad,
                     PrecioUnitario = d.Precio_Unitario,
                     CostoUnitario = d.Costo_Unitario,
-                    Subtotal = d.Subtotal
+                    Subtotal = d.Subtotal,
+                    TipoFiscalLinea = d.Tipo_Fiscal_Linea
                 }
             ).ToListAsync();
 
             var costoTotal = detalles.Sum(d => d.CostoUnitario * d.Cantidad);
             var facturaMeta = FacturaMetadataHelper.ParseFromObservacion(venta.Observacion);
             var facturaClienteMeta = FacturaClienteMetadataHelper.ParseFromObservacion(venta.Observacion);
-            var resumenFiscal = FacturaResumenFiscalHelper.Calcular(venta.Subtotal, venta.Impuesto, facturaClienteMeta.TipoFacturaFiscal);
+            var hayTipoFiscalPorLinea = detalles.Any(d => !string.IsNullOrWhiteSpace(d.TipoFiscalLinea));
+            var resumenFiscal = hayTipoFiscalPorLinea
+                ? FacturaResumenFiscalHelper.CalcularDesdeLineas(detalles)
+                : FacturaResumenFiscalHelper.Calcular(venta.Subtotal, venta.Impuesto, facturaClienteMeta.TipoFacturaFiscal);
             var sarConfig = FacturacionSarStore.GetConfig(_env.ContentRootPath, venta.Id_Sucursal);
 
             var ticket = new TicketVentaDto
@@ -165,12 +169,18 @@ namespace Pinecos.Controllers
                     Cantidad = d.Cantidad,
                     PrecioUnitario = d.Precio_Unitario,
                     CostoUnitario = d.Costo_Unitario,
-                    Subtotal = d.Subtotal
+                    Subtotal = d.Subtotal,
+                    TipoFiscalLinea = d.Tipo_Fiscal_Linea
                 }
             ).ToListAsync();
 
             var costoTotal = detalles.Sum(d => d.CostoUnitario * d.Cantidad);
             var facturaMeta = FacturaMetadataHelper.ParseFromObservacion(venta.Observacion);
+            var facturaClienteMeta = FacturaClienteMetadataHelper.ParseFromObservacion(venta.Observacion);
+            var hayTipoFiscalPorLinea = detalles.Any(d => !string.IsNullOrWhiteSpace(d.TipoFiscalLinea));
+            var resumenFiscal = hayTipoFiscalPorLinea
+                ? FacturaResumenFiscalHelper.CalcularDesdeLineas(detalles)
+                : FacturaResumenFiscalHelper.Calcular(venta.Subtotal, venta.Impuesto, facturaClienteMeta.TipoFacturaFiscal);
             var sarConfig = FacturacionSarStore.GetConfig(_env.ContentRootPath, venta.Id_Sucursal);
 
             var ticket = new TicketVentaDto
@@ -195,6 +205,13 @@ namespace Pinecos.Controllers
                 RangoFin = facturaMeta.RangoFin,
                 CaiHabilitadoSucursal = sarConfig.HabilitadoCai,
                 CaiSucursalConfigurado = sarConfig.Cai ?? "",
+                TipoFacturaFiscal = facturaClienteMeta.TipoFacturaFiscal,
+                ImporteExento = resumenFiscal.ImporteExento,
+                ImporteExonerado = resumenFiscal.ImporteExonerado,
+                ImporteGravado15 = resumenFiscal.ImporteGravado15,
+                ImporteGravado18 = resumenFiscal.ImporteGravado18,
+                Isv15 = resumenFiscal.Isv15,
+                Isv18 = resumenFiscal.Isv18,
                 Detalles = detalles
             };
 
@@ -244,12 +261,18 @@ namespace Pinecos.Controllers
                     Cantidad = d.Cantidad,
                     PrecioUnitario = d.Precio_Unitario,
                     CostoUnitario = d.Costo_Unitario,
-                    Subtotal = d.Subtotal
+                    Subtotal = d.Subtotal,
+                    TipoFiscalLinea = d.Tipo_Fiscal_Linea
                 }
             ).ToListAsync();
 
             var costoTotal = detalles.Sum(d => d.CostoUnitario * d.Cantidad);
             var facturaMeta = FacturaMetadataHelper.ParseFromObservacion(venta.Observacion);
+            var facturaClienteMeta = FacturaClienteMetadataHelper.ParseFromObservacion(venta.Observacion);
+            var hayTipoFiscalPorLinea = detalles.Any(d => !string.IsNullOrWhiteSpace(d.TipoFiscalLinea));
+            var resumenFiscal = hayTipoFiscalPorLinea
+                ? FacturaResumenFiscalHelper.CalcularDesdeLineas(detalles)
+                : FacturaResumenFiscalHelper.Calcular(venta.Subtotal, venta.Impuesto, facturaClienteMeta.TipoFacturaFiscal);
             var sarConfig = FacturacionSarStore.GetConfig(_env.ContentRootPath, venta.Id_Sucursal);
 
             var ticket = new TicketVentaDto
@@ -274,6 +297,13 @@ namespace Pinecos.Controllers
                 RangoFin = facturaMeta.RangoFin,
                 CaiHabilitadoSucursal = sarConfig.HabilitadoCai,
                 CaiSucursalConfigurado = sarConfig.Cai ?? "",
+                TipoFacturaFiscal = facturaClienteMeta.TipoFacturaFiscal,
+                ImporteExento = resumenFiscal.ImporteExento,
+                ImporteExonerado = resumenFiscal.ImporteExonerado,
+                ImporteGravado15 = resumenFiscal.ImporteGravado15,
+                ImporteGravado18 = resumenFiscal.ImporteGravado18,
+                Isv15 = resumenFiscal.Isv15,
+                Isv18 = resumenFiscal.Isv18,
                 Detalles = detalles
             };
 
@@ -323,12 +353,18 @@ namespace Pinecos.Controllers
                     Cantidad = d.Cantidad,
                     PrecioUnitario = d.Precio_Unitario,
                     CostoUnitario = d.Costo_Unitario,
-                    Subtotal = d.Subtotal
+                    Subtotal = d.Subtotal,
+                    TipoFiscalLinea = d.Tipo_Fiscal_Linea
                 }
             ).ToListAsync();
 
             var costoTotal = detalles.Sum(d => d.CostoUnitario * d.Cantidad);
             var facturaMeta = FacturaMetadataHelper.ParseFromObservacion(venta.Observacion);
+            var facturaClienteMeta = FacturaClienteMetadataHelper.ParseFromObservacion(venta.Observacion);
+            var hayTipoFiscalPorLinea = detalles.Any(d => !string.IsNullOrWhiteSpace(d.TipoFiscalLinea));
+            var resumenFiscal = hayTipoFiscalPorLinea
+                ? FacturaResumenFiscalHelper.CalcularDesdeLineas(detalles)
+                : FacturaResumenFiscalHelper.Calcular(venta.Subtotal, venta.Impuesto, facturaClienteMeta.TipoFacturaFiscal);
             var sarConfig = FacturacionSarStore.GetConfig(_env.ContentRootPath, venta.Id_Sucursal);
 
             var ticket = new TicketVentaDto
@@ -353,6 +389,13 @@ namespace Pinecos.Controllers
                 RangoFin = facturaMeta.RangoFin,
                 CaiHabilitadoSucursal = sarConfig.HabilitadoCai,
                 CaiSucursalConfigurado = sarConfig.Cai ?? "",
+                TipoFacturaFiscal = facturaClienteMeta.TipoFacturaFiscal,
+                ImporteExento = resumenFiscal.ImporteExento,
+                ImporteExonerado = resumenFiscal.ImporteExonerado,
+                ImporteGravado15 = resumenFiscal.ImporteGravado15,
+                ImporteGravado18 = resumenFiscal.ImporteGravado18,
+                Isv15 = resumenFiscal.Isv15,
+                Isv18 = resumenFiscal.Isv18,
                 Detalles = detalles
             };
 

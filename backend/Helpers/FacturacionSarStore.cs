@@ -209,6 +209,22 @@ namespace Pinecos.Helpers
             {
                 throw new InvalidOperationException("Siguiente correlativo fuera de rango");
             }
+
+            if (!config.FechaLimiteEmision.HasValue)
+                throw new InvalidOperationException("La fecha limite de emision es requerida cuando el CAI esta habilitado");
+
+            if (string.IsNullOrWhiteSpace(config.NombreImprenta) || config.NombreImprenta.Trim().Length < 3)
+                throw new InvalidOperationException("Debe configurar el nombre de la imprenta/proveedor (minimo 3 caracteres)");
+
+            var rtnImprentaDigitos = Regex.Replace(config.RtnImprenta ?? string.Empty, @"\D", "");
+            if (rtnImprentaDigitos.Length != 14)
+                throw new InvalidOperationException("El RTN de imprenta/proveedor debe tener 14 digitos");
+
+            if (string.IsNullOrWhiteSpace(config.NumeroCertificadoImprenta) || config.NumeroCertificadoImprenta.Trim().Length < 3)
+                throw new InvalidOperationException("Debe configurar el numero de registro/certificado de imprenta");
+
+            if (string.IsNullOrWhiteSpace(config.CiudadFechaFactura) || config.CiudadFechaFactura.Trim().Length < 2)
+                throw new InvalidOperationException("Debe configurar ciudad para la fecha de emision en factura");
         }
 
         public static int CalcularFacturasRestantes(FacturacionSarConfigDto config)

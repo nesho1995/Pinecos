@@ -88,6 +88,7 @@ namespace Pinecos.Controllers
                     p.Id_Categoria,
                     categoria = c.Nombre,
                     p.Costo,
+                    p.Tipo_Fiscal,
                     p.Activo
                 }
             ).ToListAsync();
@@ -109,6 +110,7 @@ namespace Pinecos.Controllers
                     p.Id_Categoria,
                     categoria = c.Nombre,
                     p.Costo,
+                    p.Tipo_Fiscal,
                     p.Activo
                 }
             ).FirstOrDefaultAsync();
@@ -138,6 +140,7 @@ namespace Pinecos.Controllers
                 return BadRequest(new { message = "Ya existe un producto activo con ese nombre" });
 
             producto.Activo = true;
+            producto.Tipo_Fiscal = FiscalTipoHelper.Normalizar(producto.Tipo_Fiscal);
 
             _context.Productos.Add(producto);
             await _context.SaveChangesAsync();
@@ -184,6 +187,7 @@ namespace Pinecos.Controllers
             productoDb.Nombre = producto.Nombre;
             productoDb.Id_Categoria = producto.Id_Categoria;
             productoDb.Costo = producto.Costo;
+            productoDb.Tipo_Fiscal = FiscalTipoHelper.Normalizar(producto.Tipo_Fiscal);
             productoDb.Activo = producto.Activo;
 
             await _context.SaveChangesAsync();

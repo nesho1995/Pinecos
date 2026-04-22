@@ -205,6 +205,31 @@ function Configuracion() {
     setError('');
 
     try {
+      if (sarForm.habilitadoCai) {
+        const soloDigitos = (v) => String(v || '').replace(/\D/g, '');
+        if (String(sarForm.cai || '').trim().length < 14) {
+          return setError('SAR/CAI: ingresa un CAI valido.');
+        }
+        if (!String(sarForm.rangoInicio || '').trim() || !String(sarForm.rangoFin || '').trim()) {
+          return setError('SAR/CAI: debes completar rango inicio y rango fin.');
+        }
+        if (!sarForm.fechaLimiteEmision) {
+          return setError('SAR/CAI: la fecha limite de emision es obligatoria.');
+        }
+        if (String(sarForm.nombreImprenta || '').trim().length < 3) {
+          return setError('SAR/CAI: nombre de imprenta/proveedor es obligatorio (minimo 3 caracteres).');
+        }
+        if (soloDigitos(sarForm.rtnImprenta).length !== 14) {
+          return setError('SAR/CAI: RTN de imprenta/proveedor debe tener 14 digitos.');
+        }
+        if (String(sarForm.numeroCertificadoImprenta || '').trim().length < 3) {
+          return setError('SAR/CAI: numero de registro/certificado es obligatorio.');
+        }
+        if (String(sarForm.ciudadFechaFactura || '').trim().length < 2) {
+          return setError('SAR/CAI: ciudad para fecha de factura es obligatoria.');
+        }
+      }
+
       const payload = {
         ...sarForm,
         siguienteCorrelativo: sarForm.siguienteCorrelativo === '' ? null : Number(sarForm.siguienteCorrelativo),

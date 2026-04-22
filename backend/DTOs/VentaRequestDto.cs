@@ -7,6 +7,7 @@
         public int Cantidad { get; set; }
         public decimal Precio_Unitario { get; set; }
         public bool Es_Cortesia { get; set; }
+        public string Tipo_Fiscal_Linea { get; set; } = string.Empty;
         public string Observacion { get; set; } = string.Empty;
     }
 

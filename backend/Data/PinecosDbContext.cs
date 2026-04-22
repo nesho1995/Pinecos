@@ -94,6 +94,7 @@ namespace Pinecos.Data
             modelBuilder.Entity<Producto>().Property(x => x.Nombre).HasColumnName("nombre");
             modelBuilder.Entity<Producto>().Property(x => x.Id_Categoria).HasColumnName("id_categoria");
             modelBuilder.Entity<Producto>().Property(x => x.Costo).HasColumnName("costo");
+            modelBuilder.Entity<Producto>().Property(x => x.Tipo_Fiscal).HasColumnName("tipo_fiscal");
             modelBuilder.Entity<Producto>().Property(x => x.Activo).HasColumnName("activo");
 
             modelBuilder.Entity<Sucursal>().Property(x => x.Id_Sucursal).HasColumnName("id_sucursal");
@@ -166,6 +167,7 @@ namespace Pinecos.Data
             modelBuilder.Entity<DetalleVenta>().Property(x => x.Precio_Unitario).HasColumnName("precio_unitario");
             modelBuilder.Entity<DetalleVenta>().Property(x => x.Costo_Unitario).HasColumnName("costo_unitario");
             modelBuilder.Entity<DetalleVenta>().Property(x => x.Subtotal).HasColumnName("subtotal");
+            modelBuilder.Entity<DetalleVenta>().Property(x => x.Tipo_Fiscal_Linea).HasColumnName("tipo_fiscal_linea");
             modelBuilder.Entity<DetalleVenta>().Property(x => x.Observacion).HasColumnName("observacion");
 
             modelBuilder.Entity<Gasto>().Property(x => x.Id_Gasto).HasColumnName("id_gasto");
@@ -286,6 +288,7 @@ namespace Pinecos.Data
             modelBuilder.Entity<DetalleCuentaMesa>().Property(x => x.Cantidad).HasColumnName("cantidad");
             modelBuilder.Entity<DetalleCuentaMesa>().Property(x => x.Precio_Unitario).HasColumnName("precio_unitario");
             modelBuilder.Entity<DetalleCuentaMesa>().Property(x => x.Subtotal).HasColumnName("subtotal");
+            modelBuilder.Entity<DetalleCuentaMesa>().Property(x => x.Tipo_Fiscal_Linea).HasColumnName("tipo_fiscal_linea");
             modelBuilder.Entity<DetalleCuentaMesa>().Property(x => x.Observacion).HasColumnName("observacion");
         }
     }

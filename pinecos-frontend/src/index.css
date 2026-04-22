@@ -630,6 +630,24 @@ body {
   padding: 0.45rem 0.55rem;
 }
 
+.mesas-tablet-quick-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.mesas-tablet-quick-actions .btn {
+  min-height: 48px;
+  font-size: 0.98rem;
+  font-weight: 800;
+}
+
+.mesas-categorias-quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
 .mesas-canal-hint {
   font-weight: 600;
 }
@@ -947,6 +965,10 @@ body {
 
   .mesas-cobro-helper {
     font-size: 0.8rem;
+  }
+
+  .mesas-categorias-quick .btn {
+    min-height: 42px;
   }
 
   .mesa-nombre {

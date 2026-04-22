@@ -10,6 +10,7 @@
         public decimal Precio_Unitario { get; set; }
         public decimal Costo_Unitario { get; set; }
         public decimal Subtotal { get; set; }
+        public string Tipo_Fiscal_Linea { get; set; } = "GRAVADO_15";
         public string Observacion { get; set; } = string.Empty;
     }
 }

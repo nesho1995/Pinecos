@@ -177,6 +177,7 @@ namespace Pinecos.Controllers
                     Costo_Unitario = p.Costo,
                     d.Precio_Unitario,
                     d.Subtotal,
+                    d.Tipo_Fiscal_Linea,
                     EsCortesia = d.Observacion != null && d.Observacion.Contains(CortesiaToken),
                     d.Observacion
                 }
@@ -253,6 +254,8 @@ namespace Pinecos.Controllers
                 Cantidad = request.Cantidad,
                 Precio_Unitario = precioUnitarioFinal,
                 Subtotal = subtotal,
+                Tipo_Fiscal_Linea = FiscalTipoHelper.Normalizar(
+                    string.IsNullOrWhiteSpace(request.Tipo_Fiscal_Linea) ? producto.Tipo_Fiscal : request.Tipo_Fiscal_Linea),
                 Observacion = ConstruirObservacionDetalle(request.Observacion, esCortesia, precioUnitario.Value)
             };
 
@@ -485,6 +488,7 @@ namespace Pinecos.Controllers
                         Precio_Unitario = item.Precio_Unitario,
                         Costo_Unitario = producto?.Costo ?? 0,
                         Subtotal = item.Subtotal,
+                        Tipo_Fiscal_Linea = FiscalTipoHelper.Normalizar(item.Tipo_Fiscal_Linea),
                         Observacion = item.Observacion
                     };
 

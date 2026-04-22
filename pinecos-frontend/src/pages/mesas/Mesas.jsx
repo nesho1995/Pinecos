@@ -24,6 +24,7 @@ function Mesas() {
     es_Cortesia: false
   });
   const [filtroProducto, setFiltroProducto] = useState('');
+  const [categoriaMenu, setCategoriaMenu] = useState('');
   const [metodoPago, setMetodoPago] = useState('EFECTIVO');
   const [canalPagoCodigo, setCanalPagoCodigo] = useState('');
   const [tipoServicio, setTipoServicio] = useState('COMER_AQUI');
@@ -116,16 +117,20 @@ function Mesas() {
       id_Producto: item.id_Producto,
       id_Presentacion: null,
       nombre: item.producto,
+      categoria: item.categoria || 'Sin categoria',
       precio: Number(item.precio || 0),
-      costo: Number(item.costo || 0)
+      costo: Number(item.costo || 0),
+      tipo_Fiscal: String(item.tipoFiscal || 'GRAVADO_15').toUpperCase()
     }));
 
     const conPresentacion = (response.data?.conPresentacion || []).map((item) => ({
       id_Producto: item.id_Producto,
       id_Presentacion: item.id_Presentacion,
       nombre: `${item.producto} - ${item.presentacion || 'Presentacion'}`,
+      categoria: item.categoria || 'Sin categoria',
       precio: Number(item.precio || 0),
-      costo: Number(item.costo || 0)
+      costo: Number(item.costo || 0),
+      tipo_Fiscal: String(item.tipoFiscal || 'GRAVADO_15').toUpperCase()
     }));
 
     setMenuItems([...normales, ...conPresentacion].filter((x) => x.precio > 0));
@@ -219,11 +224,19 @@ function Mesas() {
     () => [...menuItems].sort((a, b) => a.nombre.localeCompare(b.nombre)),
     [menuItems]
   );
+  const categoriasMenu = useMemo(
+    () => [...new Set((menuItems || []).map((x) => String(x?.categoria || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
+    [menuItems]
+  );
   const menuItemsFiltrados = useMemo(() => {
     const filtro = filtroProducto.trim().toLowerCase();
-    if (!filtro) return menuItemsOrdenados;
-    return menuItemsOrdenados.filter((item) => item.nombre.toLowerCase().includes(filtro));
-  }, [menuItemsOrdenados, filtroProducto]);
+    const categoria = String(categoriaMenu || '').trim().toLowerCase();
+    return menuItemsOrdenados.filter((item) => {
+      const okTexto = !filtro || item.nombre.toLowerCase().includes(filtro);
+      const okCategoria = !categoria || String(item.categoria || '').toLowerCase() === categoria;
+      return okTexto && okCategoria;
+    });
+  }, [menuItemsOrdenados, filtroProducto, categoriaMenu]);
 
   const menuSeleccionado = useMemo(() => {
     if (!formAgregar.id_Producto) return null;
@@ -484,6 +497,7 @@ function Mesas() {
     ];
   }, [cajaActual, cargandoCaja, detalleCuenta, dividirCuenta, diferenciaPagosMixtos, bloqueoPreventivoCobro, validacionCaiLista, emitirFactura]);
   const listoParaCobrar = checklistCobro.every((x) => x.ok);
+  const cobrarDeshabilitado = cargandoCaja || !cajaActual?.abierta || procesando || bloqueoPreventivoCobro || !listoParaCobrar;
 
   useEffect(() => {
     setCobroMixto(dividirCuenta);
@@ -577,10 +591,12 @@ function Mesas() {
     if (!formAgregar.id_Producto) return setError('Selecciona un producto');
     try {
       setProcesando(true);
+      const tipoFiscalLinea = String(menuSeleccionado?.tipo_Fiscal || 'GRAVADO_15').toUpperCase();
       await api.post(`/CuentasMesa/${detalleCuenta.cuenta.id_Cuenta_Mesa}/agregar-producto`, {
         id_Producto: Number(formAgregar.id_Producto),
         id_Presentacion: formAgregar.id_Presentacion ? Number(formAgregar.id_Presentacion) : null,
         cantidad: 1,
+        tipo_Fiscal_Linea: tipoFiscalLinea,
         es_Cortesia: !!formAgregar.es_Cortesia,
         observacion: formAgregar.es_Cortesia ? '[CORTESIA]' : ''
       });
@@ -866,6 +882,7 @@ function Mesas() {
     setAsignacionDetalles({});
     setDescuentoDetalles({});
     setFiltroProducto('');
+    setCategoriaMenu('');
     setVistaTablet('cuenta');
     setMesaVistaSoloCobro(false);
     const cuenta = getCuentaMesa(mesa.id_Mesa);
@@ -998,6 +1015,34 @@ function Mesas() {
                       {detalleCuenta ? 'Cuenta abierta' : 'Mesa libre'}
                     </span>
                   </div>
+                  {detalleCuenta && (
+                    <div className="d-xl-none mesas-tablet-quick-actions mb-3">
+                      <button
+                        type="button"
+                        className={`btn ${!mesaVistaSoloCobro ? 'btn-secondary' : 'btn-outline-secondary'}`}
+                        onClick={() => setMesaVistaSoloCobro(false)}
+                      >
+                        Consumo
+                      </button>
+                      <button
+                        type="button"
+                        className={`btn ${mesaVistaSoloCobro ? 'btn-success' : 'btn-outline-success'}`}
+                        onClick={() => setMesaVistaSoloCobro(true)}
+                      >
+                        Cobro
+                      </button>
+                      <button
+                        type="button"
+                        className={`btn ${dividirCuenta ? 'btn-warning' : 'btn-outline-warning'}`}
+                        onClick={() => setDividirCuenta((v) => !v)}
+                      >
+                        {dividirCuenta ? 'Cobro dividido' : 'Dividir'}
+                      </button>
+                      <button type="button" className="btn btn-dark" onClick={cobrarCuenta} disabled={cobrarDeshabilitado}>
+                        Cobrar
+                      </button>
+                    </div>
+                  )}
                   {!detalleCuenta ? (
                     <>
                       <h6>Abrir cuenta</h6>
@@ -1101,6 +1146,25 @@ function Mesas() {
                       <hr />
                       <div className="mesas-section-card mb-3">
                       <h6 className="mesas-section-title mb-2">Agregar producto</h6>
+                      <div className="mesas-categorias-quick mb-2">
+                        <button
+                          type="button"
+                          className={`btn btn-sm ${!categoriaMenu ? 'btn-dark' : 'btn-outline-secondary'}`}
+                          onClick={() => setCategoriaMenu('')}
+                        >
+                          Todas
+                        </button>
+                        {categoriasMenu.map((cat) => (
+                          <button
+                            key={cat}
+                            type="button"
+                            className={`btn btn-sm ${categoriaMenu === cat ? 'btn-dark' : 'btn-outline-secondary'}`}
+                            onClick={() => setCategoriaMenu(cat)}
+                          >
+                            {cat}
+                          </button>
+                        ))}
+                      </div>
                       <input
                         type="text"
                         className="form-control mb-2"
@@ -1452,7 +1516,7 @@ function Mesas() {
                             Falta seleccionar canal de pago valido para uno o mas cobros no-efectivo.
                           </div>
                         )}
-                        <button className="btn btn-success" onClick={cobrarCuenta} disabled={cargandoCaja || !cajaActual?.abierta || procesando || bloqueoPreventivoCobro || !listoParaCobrar}>
+                        <button className="btn btn-success" onClick={cobrarCuenta} disabled={cobrarDeshabilitado}>
                           {procesando ? 'Procesando...' : 'Cobrar mesa'}
                         </button>
                         <button className="btn btn-outline-danger" onClick={cancelarCuenta} disabled={procesando}>
