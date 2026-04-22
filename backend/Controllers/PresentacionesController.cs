@@ -35,6 +35,12 @@ namespace Pinecos.Controllers
             if (string.IsNullOrWhiteSpace(presentacion.Nombre))
                 return BadRequest(new { message = "El nombre es requerido" });
 
+            var nombreNormalizado = presentacion.Nombre.Trim().ToLower();
+            var duplicado = await _context.Presentaciones.AnyAsync(p =>
+                p.Nombre.ToLower().Trim() == nombreNormalizado);
+            if (duplicado)
+                return BadRequest(new { message = "Ya existe una presentacion con ese nombre" });
+
             _context.Presentaciones.Add(presentacion);
             await _context.SaveChangesAsync();
 
@@ -43,6 +49,59 @@ namespace Pinecos.Controllers
                 message = "Presentación creada correctamente",
                 data = presentacion
             });
+        }
+
+        [HttpPut("{id:int}")]
+        public async Task<ActionResult> EditarPresentacion(int id, [FromBody] Presentacion presentacion)
+        {
+            var actual = await _context.Presentaciones.FirstOrDefaultAsync(x => x.Id_Presentacion == id);
+            if (actual == null)
+                return NotFound(new { message = "Presentacion no encontrada" });
+
+            if (string.IsNullOrWhiteSpace(presentacion.Nombre))
+                return BadRequest(new { message = "El nombre es requerido" });
+
+            var nombreNormalizado = presentacion.Nombre.Trim().ToLower();
+            var duplicado = await _context.Presentaciones.AnyAsync(p =>
+                p.Id_Presentacion != id &&
+                p.Nombre.ToLower().Trim() == nombreNormalizado);
+            if (duplicado)
+                return BadRequest(new { message = "Ya existe otra presentacion con ese nombre" });
+
+            actual.Nombre = presentacion.Nombre.Trim();
+            actual.Onzas = presentacion.Onzas;
+            await _context.SaveChangesAsync();
+
+            return Ok(new
+            {
+                message = "Presentacion actualizada correctamente",
+                data = actual
+            });
+        }
+
+        [HttpDelete("{id:int}")]
+        public async Task<ActionResult> EliminarPresentacion(int id)
+        {
+            var actual = await _context.Presentaciones.FirstOrDefaultAsync(x => x.Id_Presentacion == id);
+            if (actual == null)
+                return NotFound(new { message = "Presentacion no encontrada" });
+
+            var enUsoEnMenu = await _context.ProductoPresentaciones.AnyAsync(x => x.Id_Presentacion == id);
+            var enUsoEnVentas = await _context.DetalleVenta.AnyAsync(x => x.Id_Presentacion == id)
+                               || await _context.DetalleCuentaMesa.AnyAsync(x => x.Id_Presentacion == id);
+
+            if (enUsoEnMenu || enUsoEnVentas)
+            {
+                return BadRequest(new
+                {
+                    message = "No se puede eliminar esta presentacion porque ya esta en uso en menu o historial de ventas/cuentas."
+                });
+            }
+
+            _context.Presentaciones.Remove(actual);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Presentacion eliminada correctamente" });
         }
     }
 }
