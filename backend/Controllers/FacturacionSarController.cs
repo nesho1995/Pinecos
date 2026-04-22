@@ -238,11 +238,11 @@ namespace Pinecos.Controllers
         [HttpPatch("eventos/revision-masiva")]
         [AuthorizeRoles("ADMIN")]
         public async Task<ActionResult> RevisarEventosMasivo(
+            [FromBody] FacturacionSarEventoRevisionDto model,
             [FromQuery] int? idSucursal = null,
             [FromQuery] string? estado = null,
             [FromQuery] bool soloNoRevisados = false,
-            [FromQuery] int top = 500,
-            [FromBody] FacturacionSarEventoRevisionDto model)
+            [FromQuery] int top = 500)
         {
             var idUsuario = UserHelper.GetUserId(User);
             if (!idUsuario.HasValue)

@@ -13,7 +13,7 @@ namespace Pinecos.Helpers
             string contentRootPath,
             int idSucursal,
             int? idUsuario,
-            string origen,
+            string? origen,
             FacturaEmitidaDto factura,
             string error)
         {
