@@ -1010,7 +1010,8 @@ function Mesas() {
                       </details>
 
                       <div className="pro-checkout-total-hero mb-3">
-                        <div className="pro-checkout-total-eyebrow">Resumen de mesa</div>
+                        <div className="pro-checkout-flow-title pro-checkout-flow-title--on-dark">Paso 1 · Cuenta</div>
+                        <div className="pro-checkout-total-eyebrow">Resumen antes de cobrar</div>
                         <div className="pro-checkout-total-breakdown mt-2">
                           <div className="pro-checkout-total-line">
                             <span className="pro-checkout-total-line-label">Subtotal base</span>
@@ -1035,12 +1036,14 @@ function Mesas() {
                           )}
                         </div>
                         <div className="pro-checkout-total-grand">
-                          <div className="pro-checkout-total-label mb-1">Total mesa</div>
+                          <div className="pro-checkout-total-label mb-1">Total a cobrar</div>
                           <div className="pro-checkout-total-amount">L {Number(totalCuenta || 0).toFixed(2)}</div>
                         </div>
                       </div>
 
-                      <div className="row g-2 mb-2 mesas-cobro-shell">
+                      <div className="pro-checkout-flow-block pro-checkout-flow-block--pay">
+                        <div className="pro-checkout-flow-title">Paso 2 · Forma de cobro y pago</div>
+                        <div className="row g-2 mesas-cobro-shell">
                         <div className="col-12">
                           <label className="form-label mb-1">Modo de cobro</label>
                           <select
@@ -1137,7 +1140,12 @@ function Mesas() {
                             </div>
                           </div>
                         )}
+                        </div>
+                      </div>
+
+                      <div className="row g-2 mb-2 mesas-cobro-shell">
                         <div className="col-12 mb-2">
+                          <div className="pro-checkout-flow-title mb-2">Servicio y factura</div>
                           <CheckoutServiceToggle value={tipoServicio} onChange={setTipoServicio} disabled={procesando} />
                         </div>
                         {facturacionSar?.habilitadoCai && (
@@ -1216,6 +1224,14 @@ function Mesas() {
                               </div>
                             </div>
                           </details>
+                        </div>
+                      </div>
+
+                      <div className="pro-checkout-flow-block pro-checkout-flow-block--confirm">
+                        <div className="pro-checkout-flow-title">Paso 3 · Confirmar</div>
+                        <div className="mesas-actions-total-strip" aria-live="polite">
+                          <span className="mesas-actions-total-label">Total a cobrar</span>
+                          <span className="mesas-actions-total-value">L {Number(totalCuenta || 0).toFixed(2)}</span>
                         </div>
                       </div>
 

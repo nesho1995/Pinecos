@@ -1007,16 +1007,9 @@ function VentasPOS() {
                   </details>
                 )}
 
-                <div className="pro-checkout-steps mt-3 mb-2" aria-hidden="true">
-                  <span className={`pro-checkout-step ${preCuentaEstado === 'VIGENTE' ? 'pro-checkout-step--ok' : ''}`}>1 Pre-cuenta</span>
-                  <span className={`pro-checkout-step ${preCuentaEstado === 'VIGENTE' ? 'pro-checkout-step--ok' : preCuentaEstado === 'DESACTUALIZADA' ? 'pro-checkout-step--warn' : ''}`}>
-                    2 Pago y total
-                  </span>
-                  <span className="pro-checkout-step">3 Cobro final</span>
-                </div>
-
-                <div className="pro-checkout-total-hero">
-                  <div className="pro-checkout-total-eyebrow">Resumen del cobro</div>
+                <div className="pro-checkout-total-hero mt-3">
+                  <div className="pro-checkout-flow-title pro-checkout-flow-title--on-dark">Paso 1 · Cuenta</div>
+                  <div className="pro-checkout-total-eyebrow">Resumen antes de cobrar</div>
                   <div className="pro-checkout-total-breakdown mt-2">
                     <div className="pro-checkout-total-line">
                       <span className="pro-checkout-total-line-label">Subtotal base</span>
@@ -1042,43 +1035,47 @@ function VentasPOS() {
                   </div>
                 </div>
 
-                <CheckoutPayMethodChips value={metodoPago} onChange={setMetodoPago} disabled={procesando} />
+                <div className="pro-checkout-flow-block pro-checkout-flow-block--pay">
+                  <div className="pro-checkout-flow-title">Paso 2 · Forma de pago</div>
+                  <CheckoutPayMethodChips value={metodoPago} onChange={setMetodoPago} disabled={procesando} />
 
-                {!esPagoEnEfectivo && (
-                  <div className="mb-2 mt-2">
-                    <label className="form-label">Canal / terminal</label>
-                    <select className="form-select" value={canalPagoCodigo} onChange={(e) => setCanalPagoCodigo(e.target.value)}>
-                      {canalesPagoFiltrados.length === 0 ? (
-                        <option value="">Configura canales en Administracion</option>
-                      ) : (
-                        canalesPagoFiltrados.map((canal) => (
-                          <option key={canal.codigo} value={canal.codigo}>{canal.nombre}</option>
-                        ))
-                      )}
-                    </select>
-                  </div>
-                )}
-
-                {esPagoEnEfectivo && (
-                  <div className="pro-cash-strip mb-2 mt-2">
-                    <label className="form-label">Efectivo recibido</label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      className="form-control form-control-lg"
-                      value={efectivoRecibido}
-                      onChange={(e) => setEfectivoRecibido(e.target.value)}
-                      placeholder="Monto que entrega el cliente"
-                    />
-                    <div className={`fw-semibold mt-2 ${cambioCalculado >= 0 ? 'text-success' : 'text-danger'}`}>
-                      Cambio: L {Math.max(0, cambioCalculado).toFixed(2)}
-                      {cambioCalculado < 0 ? ` · Faltan L ${Math.abs(cambioCalculado).toFixed(2)}` : ''}
+                  {!esPagoEnEfectivo && (
+                    <div className="mb-2 mt-2">
+                      <label className="form-label">Canal / terminal</label>
+                      <select className="form-select" value={canalPagoCodigo} onChange={(e) => setCanalPagoCodigo(e.target.value)}>
+                        {canalesPagoFiltrados.length === 0 ? (
+                          <option value="">Configura canales en Administracion</option>
+                        ) : (
+                          canalesPagoFiltrados.map((canal) => (
+                            <option key={canal.codigo} value={canal.codigo}>{canal.nombre}</option>
+                          ))
+                        )}
+                      </select>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                <div className="mb-2 mt-2">
+                  {esPagoEnEfectivo && (
+                    <div className="pro-cash-strip mb-2 mt-2">
+                      <label className="form-label">Efectivo recibido</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        className="form-control form-control-lg"
+                        value={efectivoRecibido}
+                        onChange={(e) => setEfectivoRecibido(e.target.value)}
+                        placeholder="Monto que entrega el cliente"
+                      />
+                      <div className={`fw-semibold mt-2 ${cambioCalculado >= 0 ? 'text-success' : 'text-danger'}`}>
+                        Cambio: L {Math.max(0, cambioCalculado).toFixed(2)}
+                        {cambioCalculado < 0 ? ` · Faltan L ${Math.abs(cambioCalculado).toFixed(2)}` : ''}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="pro-checkout-flow-block mt-2">
+                  <div className="pro-checkout-flow-title">Servicio</div>
                   <CheckoutServiceToggle value={tipoServicio} onChange={setTipoServicio} disabled={procesando} />
                 </div>
 
@@ -1151,7 +1148,22 @@ function VentasPOS() {
                   </div>
                 </details>
 
-                <div className="d-grid gap-2 mt-3 pos-checkout-actions">
+                <div className="pro-checkout-flow-block pro-checkout-flow-block--confirm">
+                  <div className="pro-checkout-flow-title">Paso 3 · Pre-cuenta y cobro final</div>
+                  <div className="pro-checkout-steps pro-checkout-steps--on-light mb-2" aria-hidden="true">
+                    <span className={`pro-checkout-step ${preCuentaEstado === 'VIGENTE' ? 'pro-checkout-step--ok' : ''}`}>Pre-cuenta lista</span>
+                    <span className={`pro-checkout-step ${preCuentaEstado === 'VIGENTE' ? 'pro-checkout-step--ok' : preCuentaEstado === 'DESACTUALIZADA' ? 'pro-checkout-step--warn' : ''}`}>
+                      Total vigente
+                    </span>
+                    <span className="pro-checkout-step">Cobrar</span>
+                  </div>
+                  <div className="pos-checkout-actions-total-strip" aria-live="polite">
+                    <span className="pos-checkout-actions-total-label">Total a cobrar</span>
+                    <span className="pos-checkout-actions-total-value">L {Number(total || 0).toFixed(2)}</span>
+                  </div>
+                </div>
+
+                <div className="d-grid gap-2 mt-2 pos-checkout-actions">
                   <button type="button" className="btn btn-outline-primary" onClick={generarPreCuenta} disabled={procesando || carrito.length === 0}>
                     {preCuentaEstado === 'DESACTUALIZADA' ? 'Regenerar pre-cuenta' : 'Generar pre-cuenta'}
                   </button>

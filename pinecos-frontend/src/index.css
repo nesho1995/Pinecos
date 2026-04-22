@@ -1032,6 +1032,62 @@ body {
   font-weight: 600;
 }
 
+.pos-checkout-actions-total-strip {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding: 0.55rem 0.65rem;
+  margin-bottom: 0.35rem;
+  border-radius: 10px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+}
+
+.pos-checkout-actions-total-strip .pos-checkout-actions-total-label {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #166534;
+}
+
+.pos-checkout-actions-total-strip .pos-checkout-actions-total-value {
+  font-size: 1.35rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #14532d;
+  line-height: 1;
+}
+
+.mesas-actions-total-strip {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding: 0.55rem 0.65rem;
+  margin-bottom: 0.5rem;
+  border-radius: 10px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+}
+
+.mesas-actions-total-strip .mesas-actions-total-label {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #166534;
+}
+
+.mesas-actions-total-strip .mesas-actions-total-value {
+  font-size: 1.35rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #14532d;
+  line-height: 1;
+}
+
 @media (max-width: 991px) {
   .pos-checkout-actions .btn.btn-success {
     min-height: 52px;
@@ -1131,6 +1187,38 @@ body {
   opacity: 0.88;
 }
 
+/* Secciones del flujo de cobro (productos → total → pago → confirmar) */
+.pro-checkout-flow-block {
+  margin-top: 0.35rem;
+}
+
+.pro-checkout-flow-block--pay {
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.pro-checkout-flow-block--confirm {
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid #cbd5e1;
+}
+
+.pro-checkout-flow-title {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: #475569;
+  margin-bottom: 0.55rem;
+}
+
+.pro-checkout-flow-title--on-dark {
+  color: rgba(255, 255, 255, 0.88);
+  opacity: 0.95;
+  margin-bottom: 0.35rem;
+}
+
 .pro-checkout-steps {
   display: flex;
   gap: 0.35rem;
@@ -1155,6 +1243,21 @@ body {
 }
 
 .pro-checkout-step--warn {
+  background: #fef08a;
+  color: #713f12;
+}
+
+.pro-checkout-steps--on-light .pro-checkout-step {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.pro-checkout-steps--on-light .pro-checkout-step--ok {
+  background: #22c55e;
+  color: #052e16;
+}
+
+.pro-checkout-steps--on-light .pro-checkout-step--warn {
   background: #fef08a;
   color: #713f12;
 }
