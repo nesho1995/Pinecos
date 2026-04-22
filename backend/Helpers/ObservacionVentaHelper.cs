@@ -1,31 +1,20 @@
-using System.Text.RegularExpressions;
-
 namespace Pinecos.Helpers
 {
+    /// <summary>
+    /// La observacion guarda tokens FEXTRA (base64) y datos FACTURA/CAI; VARCHAR cortos en BD provocan error al guardar.
+    /// </summary>
     public static class ObservacionVentaHelper
     {
-        public static string ObtenerToken(string? observacion, string clave)
-        {
-            var text = observacion ?? string.Empty;
-            var match = Regex.Match(text, $@"(?:^|\||\s){Regex.Escape(clave)}\s*:\s*(?<v>[^|]+)", RegexOptions.IgnoreCase);
-            return match.Success ? match.Groups["v"].Value.Trim() : string.Empty;
-        }
+        public const int MaxLengthMySqlText = 65535;
 
-        public static string ObtenerTipoServicio(string? observacion)
+        public static string TruncarSiHaceFalta(string? observacion)
         {
-            var tipo = ObtenerToken(observacion, "SERVICIO");
-            if (string.IsNullOrWhiteSpace(tipo)) return "SIN_DEFINIR";
-            return tipo.Trim().ToUpperInvariant();
-        }
+            if (string.IsNullOrEmpty(observacion)) return observacion ?? string.Empty;
+            if (observacion.Length <= MaxLengthMySqlText) return observacion;
 
-        public static string ObtenerAtendio(string? observacion)
-        {
-            return ObtenerToken(observacion, "ATENDIO");
-        }
-
-        public static string ObtenerCobro(string? observacion)
-        {
-            return ObtenerToken(observacion, "COBRO");
+            const string marker = " |...[OBSERVACION_TRUNCADA]";
+            var take = MaxLengthMySqlText - marker.Length;
+            return take <= 0 ? marker : observacion.Substring(0, take) + marker;
         }
     }
 }

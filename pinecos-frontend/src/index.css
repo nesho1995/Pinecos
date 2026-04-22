@@ -1041,12 +1041,74 @@ body {
 
 /* Checkout estilo terminal POS (Square / Toast / Lightspeed): chips, total hero */
 .pro-checkout-total-hero {
-  background: linear-gradient(135deg, #0f172a 0%, #134e4a 100%);
+  background: linear-gradient(145deg, #0f172a 0%, #134e4a 55%, #0d4f4a 100%);
   color: #fff;
   border-radius: 14px;
-  padding: 1rem 1.1rem;
+  padding: 1rem 1.15rem;
   margin-bottom: 0.75rem;
   box-shadow: 0 12px 28px rgba(15, 23, 42, 0.2);
+}
+
+/* Primero desglose, al final total grande (flujo tipo ticket para cajero) */
+.pro-checkout-total-eyebrow {
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.72;
+  font-weight: 700;
+}
+
+.pro-checkout-total-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.pro-checkout-total-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+  font-size: 0.84rem;
+  padding: 0.18rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.pro-checkout-total-line:last-of-type {
+  border-bottom: none;
+}
+
+.pro-checkout-total-line-label {
+  opacity: 0.88;
+  font-weight: 600;
+}
+
+.pro-checkout-total-line-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.pro-checkout-total-line--deduccion .pro-checkout-total-line-value {
+  color: #fde68a;
+}
+
+.pro-checkout-total-note {
+  font-size: 0.72rem;
+  opacity: 0.78;
+  line-height: 1.35;
+  margin-top: 0.15rem;
+  padding: 0.35rem 0.45rem;
+  border-radius: 8px;
+  background: rgba(251, 191, 36, 0.12);
+  border: 1px solid rgba(251, 191, 36, 0.28);
+}
+
+.pro-checkout-total-grand {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.22);
 }
 
 .pro-checkout-total-hero .pro-checkout-total-label {

@@ -1010,16 +1010,33 @@ function Mesas() {
                       </details>
 
                       <div className="pro-checkout-total-hero mb-3">
-                        <div className="pro-checkout-total-label">Total mesa</div>
-                        <div className="pro-checkout-total-amount">L {Number(totalCuenta || 0).toFixed(2)}</div>
-                        <div className="pro-checkout-total-sub mt-2 d-flex flex-column gap-1">
-                          <div className="d-flex justify-content-between"><span>Subtotal base</span><span>L {subtotalBaseCuenta.toFixed(2)}</span></div>
-                          <div className="d-flex justify-content-between"><span>Base descuento (lineas marcadas)</span><span>L {subtotalDescuentoCuenta.toFixed(2)}</span></div>
-                          <div className="d-flex justify-content-between"><span>Descuento</span><span>L {descuentoNum.toFixed(2)}</span></div>
-                          <div className="d-flex justify-content-between"><span>Impuesto</span><span>L {impuestoNum.toFixed(2)}</span></div>
+                        <div className="pro-checkout-total-eyebrow">Resumen de mesa</div>
+                        <div className="pro-checkout-total-breakdown mt-2">
+                          <div className="pro-checkout-total-line">
+                            <span className="pro-checkout-total-line-label">Subtotal base</span>
+                            <span className="pro-checkout-total-line-value">L {subtotalBaseCuenta.toFixed(2)}</span>
+                          </div>
+                          <div className="pro-checkout-total-line">
+                            <span className="pro-checkout-total-line-label">Base para descuento</span>
+                            <span className="pro-checkout-total-line-value text-white-50">L {subtotalDescuentoCuenta.toFixed(2)}</span>
+                          </div>
+                          <div className={`pro-checkout-total-line ${descuentoNum > 0 ? 'pro-checkout-total-line--deduccion' : ''}`}>
+                            <span className="pro-checkout-total-line-label">Descuentos aplicados</span>
+                            <span className="pro-checkout-total-line-value">{descuentoNum > 0 ? `- L ${descuentoNum.toFixed(2)}` : 'L 0.00'}</span>
+                          </div>
+                          <div className="pro-checkout-total-line">
+                            <span className="pro-checkout-total-line-label">
+                              Impuesto {impuestoIncluidoEnSubtotal ? '(en precio)' : '(ISV)'}
+                            </span>
+                            <span className="pro-checkout-total-line-value">L {impuestoNum.toFixed(2)}</span>
+                          </div>
                           {impuestoIncluidoEnSubtotal && (
-                            <div className="small text-warning">Impuesto incluido en precios (no se suma al total)</div>
+                            <div className="pro-checkout-total-note">El ISV ya va en los precios — no se suma otra vez al total.</div>
                           )}
+                        </div>
+                        <div className="pro-checkout-total-grand">
+                          <div className="pro-checkout-total-label mb-1">Total mesa</div>
+                          <div className="pro-checkout-total-amount">L {Number(totalCuenta || 0).toFixed(2)}</div>
                         </div>
                       </div>
 

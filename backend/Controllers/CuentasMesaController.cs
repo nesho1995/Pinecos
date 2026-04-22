@@ -452,6 +452,8 @@ namespace Pinecos.Controllers
                         : $"{observacionFinal} | {facturaObs}";
                 }
 
+                observacionFinal = ObservacionVentaHelper.TruncarSiHaceFalta(observacionFinal);
+
                 var venta = new Venta
                 {
                     Id_Caja = request.Id_Caja,
@@ -512,6 +514,17 @@ namespace Pinecos.Controllers
                         venta.Total,
                         factura
                     }
+                });
+            }
+            catch (DbUpdateException ex)
+            {
+                await transaction.RollbackAsync();
+                var detalle = ex.InnerException?.Message ?? ex.Message;
+                return BadRequest(new
+                {
+                    message =
+                        "No se guardo la venta en la base de datos. Revise tipo de columna ventas.observacion (LONGTEXT) y columnas de anulacion si aplican.",
+                    detalle
                 });
             }
             catch

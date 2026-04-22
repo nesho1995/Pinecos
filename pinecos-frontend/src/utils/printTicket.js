@@ -98,10 +98,21 @@ const construirHtmlDobleCopiaCai = (htmlBase) => {
 <html lang="es">
 <head>
   <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   ${headOriginal}
   <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden;
+      max-width: 100%;
+    }
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
     .ticket-copia-cai {
       width: 100%;
+      max-width: 100%;
       margin: 0;
       padding: 0;
       break-inside: avoid;
