@@ -449,6 +449,15 @@ body {
   white-space: nowrap;
 }
 
+.productos-table th,
+.productos-table td {
+  white-space: nowrap;
+}
+
+.productos-table td.productos-fiscal-cell {
+  white-space: nowrap;
+}
+
 .app-content .nav-pills .nav-link {
   border-radius: 999px;
 }

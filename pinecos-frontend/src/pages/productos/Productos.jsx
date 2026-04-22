@@ -504,7 +504,7 @@ function Productos() {
             </div>
           </div>
 
-          <table className="table table-bordered align-middle">
+          <table className="table table-bordered align-middle productos-table">
             <thead>
               <tr>
                 <th>Codigo</th>
@@ -533,7 +533,7 @@ function Productos() {
                       <span className="text-muted">Sin precio en esta sucursal</span>
                     )}
                   </td>
-                  <td>{String(item.tipo_Fiscal || 'GRAVADO_15').replace('_', ' ')}</td>
+                  <td className="productos-fiscal-cell">{String(item.tipo_Fiscal || 'GRAVADO_15').replace('_', ' ')}</td>
                   <td>
                     <span className={`status-pill ${item.activo ? 'active' : 'inactive'}`}>
                       {item.activo ? 'Activo' : 'Inactivo'}
