@@ -146,9 +146,21 @@ function Caja() {
         observacion: cierre.observacion
       };
 
-      await api.post(`/Cajas/cerrar/${cajaActual.id_Caja}`, payload);
-      // No mostrar al cajero si cuadra ni montos esperados/diferencia; eso lo revisa administración.
-      setMensaje('Caja cerrada correctamente.');
+      const response = await api.post(`/Cajas/cerrar/${cajaActual.id_Caja}`, payload);
+      const okCuadre = response?.data?.cuadre?.cuadro === true;
+      const dif = Number(response?.data?.cuadre?.diferencia ?? 0);
+      if (okCuadre) {
+        setMensaje('Caja cerrada. El conteo cuadra con el registro del sistema.');
+      } else {
+        const abs = Math.abs(dif).toFixed(2);
+        const sentido =
+          dif > 0.01
+            ? 'Tu declaración total queda por encima de lo que el sistema calcula; revisa captura o informa a supervisión si aplica.'
+            : dif < -0.01
+              ? 'Tu declaración total queda por debajo de lo que el sistema calcula; revisa conteo o informa a supervisión si aplica.'
+              : 'Hay una diferencia pequeña; confirma montos o informa a supervisión.';
+        setMensaje(`Caja cerrada, pero el conteo no cuadra. Diferencia: L ${abs}. ${sentido}`);
+      }
       setCierre(cierreBase);
       setIdCajaCargadaEnCierre(null);
 
