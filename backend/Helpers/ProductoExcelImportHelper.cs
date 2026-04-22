@@ -159,14 +159,8 @@ namespace Pinecos.Helpers
                     idCategoria = nueva.Id_Categoria;
                 }
 
-                var existeActivo = await context.Productos
-                    .AnyAsync(p => p.Nombre == nombre && p.Activo, cancellationToken);
-
-                if (existeActivo)
-                {
-                    resultado.Omitidos.Add(new ProductoImportOmitido(r, nombre, "Ya existe un producto activo con ese nombre."));
-                    continue;
-                }
+                var productoExistente = await context.Productos
+                    .FirstOrDefaultAsync(p => p.Nombre == nombre && p.Activo, cancellationToken);
 
                 int? idSucursalPrecio = null;
                 decimal? precioImport = null;
@@ -215,6 +209,26 @@ namespace Pinecos.Helpers
                         idSucursalPrecio = sucursal.Id_Sucursal;
                         precioImport = precioVenta;
                     }
+                }
+
+                if (productoExistente != null)
+                {
+                    // Caso clave negocio: el producto ya existe, pero queremos asignar/actualizar precio
+                    // para otra sucursal sin duplicar catálogo global.
+                    if (precioImport.HasValue && idSucursalPrecio.HasValue)
+                    {
+                        await UpsertProductoSucursalAsync(context, productoExistente.Id_Producto, idSucursalPrecio.Value,
+                            precioImport.Value, cancellationToken);
+                        resultado.PreciosAsignados++;
+                    }
+                    else
+                    {
+                        resultado.Omitidos.Add(new ProductoImportOmitido(
+                            r,
+                            nombre,
+                            "Ya existe un producto activo con ese nombre. Para usarlo en otra sucursal, llena precio y sucursal en la fila."));
+                    }
+                    continue;
                 }
 
                 var nuevoProducto = new Producto
