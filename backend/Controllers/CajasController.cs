@@ -724,8 +724,6 @@ namespace Pinecos.Controllers
 
             await BitacoraHelper.RegistrarAsync(_context, idUsuario.Value, "CAJA", "CERRAR", $"Caja #{caja.Id_Caja} cerrada");
 
-            // No exponer TotalEsperado al cliente: el cajero no debe "apuntar" a un monto objetivo al declarar.
-            // Si cuadre y diferencia bastan para saber si hubo faltante/sobrante operativo.
             return Ok(new
             {
                 message = cuadro ? "Caja cerrada correctamente. El cuadre coincide." : "Caja cerrada, pero el cuadre NO coincide.",
@@ -733,7 +731,9 @@ namespace Pinecos.Controllers
                 cuadre = new
                 {
                     cuadro,
-                    diferencia
+                    diferencia,
+                    esperado = resumen.TotalEsperado,
+                    declarado = totalDeclarado
                 }
             });
         }
