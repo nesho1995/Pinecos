@@ -206,6 +206,18 @@ body {
   font-size: 0.82rem;
 }
 
+.header-signature {
+  font-size: 0.74rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64748b;
+  padding: 0.26rem 0.5rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  background: #f8fafc;
+  white-space: nowrap;
+}
+
 .user-pill {
   background: var(--brand-soft);
   color: #134e4a;
@@ -900,6 +912,10 @@ body {
     height: 100vh;
     position: relative;
     box-shadow: 8px 0 30px rgba(0, 0, 0, 0.25);
+  }
+
+  .header-signature {
+    display: none;
   }
 
   .app-content {

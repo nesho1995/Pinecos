@@ -48,6 +48,7 @@ function Header({ onToggleSidebar }) {
       </div>
 
       <div className="d-flex align-items-center gap-3">
+        <span className="header-signature">Desarrollado por NesSys</span>
         <span className="user-pill">
           {usuario?.nombre || usuario?.Nombre || usuario?.usuarioLogin || usuario?.UsuarioLogin || 'Usuario'}
         </span>

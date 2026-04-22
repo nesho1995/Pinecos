@@ -85,7 +85,7 @@ function Sidebar({ onNavigate, pendientesFiscales = 0 }) {
             <img src="/PinecosCafe.jpeg" alt="Cafe Pinecos" className="brand-logo" />
           </div>
           <div className="brand-title">Pinecos</div>
-          <div className="brand-subtitle">Desarrollado por NesSys</div>
+          <div className="brand-subtitle">Punto de venta y gestion</div>
         </div>
 
         <div className="sidebar-nav-groups">
