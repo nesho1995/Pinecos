@@ -41,6 +41,8 @@ function VentasPOS() {
   const [preCuentaFecha, setPreCuentaFecha] = useState(null);
   const [preCuentaHtmlUltima, setPreCuentaHtmlUltima] = useState('');
   const [preCuentaResumenUltima, setPreCuentaResumenUltima] = useState(null);
+  const [actualizandoCatalogo, setActualizandoCatalogo] = useState(false);
+  const [ultimaActualizacionCatalogo, setUltimaActualizacionCatalogo] = useState(null);
   const cobrarVentaRef = useRef(async () => {});
   /** Oculta catalogo y acorta lista de lineas para ver cobro sin scroll excesivo */
   const [vistaSoloCobro, setVistaSoloCobro] = useState(false);
@@ -128,13 +130,38 @@ function VentasPOS() {
     }));
 
     setProductos([...normales, ...conPresentacion].filter((x) => x.precio > 0));
+    setUltimaActualizacionCatalogo(new Date().toISOString());
+  };
+
+  const obtenerSucursalObjetivo = (caja = cajaActual) =>
+    Number(idSucursalUsuario || caja?.id_Sucursal || 0) || null;
+
+  const actualizarCatalogoPos = async ({ manual = false, silent = false } = {}) => {
+    const sucursalObjetivo = obtenerSucursalObjetivo();
+    if (!sucursalObjetivo) return;
+
+    if (manual) {
+      limpiarMensajes();
+      setActualizandoCatalogo(true);
+    }
+
+    try {
+      await cargarMenuSucursal(sucursalObjetivo);
+      if (manual && !silent) setMensaje('Catalogo actualizado correctamente.');
+    } catch (err) {
+      if (!silent) {
+        setError(err?.response?.data?.message || 'No se pudo actualizar el catalogo en este momento');
+      }
+    } finally {
+      if (manual) setActualizandoCatalogo(false);
+    }
   };
 
   useEffect(() => {
     const init = async () => {
       try {
         const caja = await cargarCajaActual();
-        const sucursalObjetivo = Number(idSucursalUsuario || caja?.id_Sucursal || 0) || null;
+        const sucursalObjetivo = obtenerSucursalObjetivo(caja);
         await Promise.all([
           cargarMenuSucursal(sucursalObjetivo),
           cargarFacturacionSar(sucursalObjetivo),
@@ -147,6 +174,14 @@ function VentasPOS() {
     };
     init();
   }, []);
+
+  useEffect(() => {
+    if (!cajaActual?.abierta) return undefined;
+    const intervalId = setInterval(() => {
+      actualizarCatalogoPos({ manual: false, silent: true });
+    }, 30000);
+    return () => clearInterval(intervalId);
+  }, [cajaActual?.abierta, idSucursalUsuario]);
 
   useEffect(() => {
     if (!['EFECTIVO', 'POS', 'TRANSFERENCIA', 'OTRO'].includes(metodoPago)) {
@@ -897,6 +932,20 @@ function VentasPOS() {
                   </button>
                   {' '}
                   para que administracion lo apruebe sin frenar la operacion.
+                </div>
+                <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                  <div className="small text-muted">
+                    Ultima actualizacion de catalogo:{' '}
+                    <strong>{ultimaActualizacionCatalogo ? formatTimeHN(ultimaActualizacionCatalogo) : 'sin datos'}</strong>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-primary"
+                    onClick={() => actualizarCatalogoPos({ manual: true })}
+                    disabled={actualizandoCatalogo}
+                  >
+                    {actualizandoCatalogo ? 'Actualizando catalogo...' : 'Actualizar catalogo'}
+                  </button>
                 </div>
                 <div className="row g-3">
                   <div className="col-md-4">
