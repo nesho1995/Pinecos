@@ -1009,40 +1009,96 @@ function Mesas() {
                         </div>
                       </details>
 
-                      <div className="pro-checkout-total-hero mb-3">
-                        <div className="pro-checkout-flow-title pro-checkout-flow-title--on-dark">Paso 1 · Cuenta</div>
-                        <div className="pro-checkout-total-eyebrow">Resumen antes de cobrar</div>
-                        <div className="pro-checkout-total-breakdown mt-2">
-                          <div className="pro-checkout-total-line">
-                            <span className="pro-checkout-total-line-label">Subtotal base</span>
-                            <span className="pro-checkout-total-line-value">L {subtotalBaseCuenta.toFixed(2)}</span>
+                      <div className="pro-checkout-flow-block mt-3">
+                        <div className="pro-checkout-flow-title">1 · Descuentos e impuesto</div>
+                        <div className="pro-checkout-pricing-panel border rounded p-3 mb-0 bg-light">
+                          <div className="small text-muted mb-2">Ajusta antes del pago; el total de abajo se actualiza al instante.</div>
+                          <div className="row g-2 mb-2">
+                            <div className="col-12">
+                              <label className="form-label mb-1">Descuento sobre lineas</label>
+                              <select className="form-select" value={modoDescuento} onChange={(e) => setModoDescuento(e.target.value)}>
+                                {descuentosActivos.map((opt) => <option key={opt.codigo} value={opt.codigo}>{opt.nombre}</option>)}
+                              </select>
+                            </div>
+                            {descuentoSeleccionado?.permiteEditarMonto && (
+                              <div className="col-12">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  className="form-control"
+                                  value={descuentoManual}
+                                  onChange={(e) => setDescuentoManual(e.target.value)}
+                                  placeholder="Monto descuento"
+                                />
+                              </div>
+                            )}
+                            {modoDescuento !== 'NINGUNO' && (
+                              <div className="col-12">
+                                <div className="small text-muted">Marca en cada linea de Consumo actual si aplica descuento a esa linea.</div>
+                              </div>
+                            )}
                           </div>
-                          <div className="pro-checkout-total-line">
-                            <span className="pro-checkout-total-line-label">Base para descuento</span>
-                            <span className="pro-checkout-total-line-value text-white-50">L {subtotalDescuentoCuenta.toFixed(2)}</span>
+                          <div className="row g-2 mb-0">
+                            <div className="col-12">
+                              <label className="form-label mb-1">Impuesto</label>
+                              <select className="form-select" value={modoImpuesto} onChange={(e) => setModoImpuesto(e.target.value)}>
+                                {impuestosActivos.map((opt) => <option key={opt.codigo} value={opt.codigo}>{opt.nombre}</option>)}
+                              </select>
+                            </div>
+                            {impuestoSeleccionado?.permiteEditarMonto && (
+                              <div className="col-12">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  className="form-control"
+                                  value={impuestoManual}
+                                  onChange={(e) => setImpuestoManual(e.target.value)}
+                                  placeholder="Monto impuesto"
+                                />
+                              </div>
+                            )}
                           </div>
-                          <div className={`pro-checkout-total-line ${descuentoNum > 0 ? 'pro-checkout-total-line--deduccion' : ''}`}>
-                            <span className="pro-checkout-total-line-label">Descuentos aplicados</span>
-                            <span className="pro-checkout-total-line-value">{descuentoNum > 0 ? `- L ${descuentoNum.toFixed(2)}` : 'L 0.00'}</span>
-                          </div>
-                          <div className="pro-checkout-total-line">
-                            <span className="pro-checkout-total-line-label">
-                              Impuesto {impuestoIncluidoEnSubtotal ? '(en precio)' : '(ISV)'}
-                            </span>
-                            <span className="pro-checkout-total-line-value">L {impuestoNum.toFixed(2)}</span>
-                          </div>
-                          {impuestoIncluidoEnSubtotal && (
-                            <div className="pro-checkout-total-note">El ISV ya va en los precios — no se suma otra vez al total.</div>
-                          )}
-                        </div>
-                        <div className="pro-checkout-total-grand">
-                          <div className="pro-checkout-total-label mb-1">Total a cobrar</div>
-                          <div className="pro-checkout-total-amount">L {Number(totalCuenta || 0).toFixed(2)}</div>
                         </div>
                       </div>
 
-                      <div className="pro-checkout-flow-block pro-checkout-flow-block--pay">
-                        <div className="pro-checkout-flow-title">Paso 2 · Forma de cobro y pago</div>
+                      <div className="pro-checkout-flow-block mt-3">
+                        <div className="pro-checkout-flow-title">2 · Servicio</div>
+                        <CheckoutServiceToggle value={tipoServicio} onChange={setTipoServicio} disabled={procesando} />
+                      </div>
+
+                      <div className="pro-checkout-flow-block mt-3">
+                        <div className="pro-checkout-flow-title">3 · Documento fiscal</div>
+                        {facturacionSar?.habilitadoCai ? (
+                          <div className="border rounded p-3 mb-0 bg-body-secondary bg-opacity-25">
+                            <div className="fw-semibold small mb-2 text-muted">Factura SAR (CAI) disponible</div>
+                            <div className={`alert py-2 ${facturacionSar.facturasRestantes > 0 ? 'alert-info' : 'alert-danger'}`}>
+                              Facturas CAI restantes: <strong>{Number(facturacionSar.facturasRestantes || 0)}</strong>
+                            </div>
+                            <div className="form-check mb-2">
+                              <input
+                                className="form-check-input"
+                                type="checkbox"
+                                id="emitirFacturaMesa"
+                                checked={emitirFactura}
+                                onChange={(e) => setEmitirFactura(e.target.checked)}
+                              />
+                              <label className="form-check-label fw-semibold" htmlFor="emitirFacturaMesa">
+                                Emitir factura CAI (complete datos del adquirente abajo)
+                              </label>
+                            </div>
+                            {emitirFactura && <FacturaCaiClienteForm idPrefix="mesa" value={facturaCliente} onChange={setFacturaCliente} />}
+                          </div>
+                        ) : (
+                          <div className="alert alert-light border py-2 mb-0 small text-body-secondary">
+                            <strong>Sin CAI en esta sucursal.</strong> El cobro registra la venta y el ticket; no se emiten correlativos SAR hasta que un administrador active y configure CAI.
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="pro-checkout-flow-block pro-checkout-flow-block--pay mt-3">
+                        <div className="pro-checkout-flow-title">4 · Forma de cobro y pago</div>
                         <div className="row g-2 mesas-cobro-shell">
                         <div className="col-12">
                           <label className="form-label mb-1">Modo de cobro</label>
@@ -1143,99 +1199,39 @@ function Mesas() {
                         </div>
                       </div>
 
-                      <div className="row g-2 mb-2 mesas-cobro-shell">
-                        <div className="col-12 mb-2">
-                          <div className="pro-checkout-flow-title mb-2">Servicio y factura</div>
-                          <CheckoutServiceToggle value={tipoServicio} onChange={setTipoServicio} disabled={procesando} />
-                        </div>
-                        {facturacionSar?.habilitadoCai && (
-                          <div className="col-12">
-                            <div className="border rounded p-3 mb-2 bg-body-secondary bg-opacity-25">
-                              <div className="fw-semibold small mb-2 text-muted">Factura fiscal (CAI)</div>
-                              <div className={`alert py-2 ${facturacionSar.facturasRestantes > 0 ? 'alert-info' : 'alert-danger'}`}>
-                                Facturas CAI restantes: <strong>{Number(facturacionSar.facturasRestantes || 0)}</strong>
-                              </div>
-                              <div className="form-check mb-2">
-                                <input
-                                  className="form-check-input"
-                                  type="checkbox"
-                                  id="emitirFacturaMesa"
-                                  checked={emitirFactura}
-                                  onChange={(e) => setEmitirFactura(e.target.checked)}
-                                />
-                                <label className="form-check-label fw-semibold" htmlFor="emitirFacturaMesa">
-                                  Emitir factura CAI (complete datos del adquirente abajo)
-                                </label>
-                              </div>
-                              {emitirFactura && <FacturaCaiClienteForm idPrefix="mesa" value={facturaCliente} onChange={setFacturaCliente} />}
-                            </div>
+                      <div className="pro-checkout-total-hero mb-2 mt-3">
+                        <div className="pro-checkout-flow-title pro-checkout-flow-title--on-dark">5 · Resumen y total</div>
+                        <div className="pro-checkout-total-eyebrow">Revise montos y luego confirme abajo</div>
+                        <div className="pro-checkout-total-breakdown mt-2">
+                          <div className="pro-checkout-total-line">
+                            <span className="pro-checkout-total-line-label">Subtotal base</span>
+                            <span className="pro-checkout-total-line-value">L {subtotalBaseCuenta.toFixed(2)}</span>
                           </div>
-                        )}
-                        <div className="col-12">
-                          <details className="pro-checkout-advanced">
-                            <summary>Mas opciones — descuento e impuesto</summary>
-                            <div className="pt-2 mt-2 border-top">
-                              <div className="row g-2 mb-2">
-                                <div className="col-12">
-                                  <label className="form-label mb-1">Descuento</label>
-                                  <select className="form-select" value={modoDescuento} onChange={(e) => setModoDescuento(e.target.value)}>
-                                    {descuentosActivos.map((opt) => <option key={opt.codigo} value={opt.codigo}>{opt.nombre}</option>)}
-                                  </select>
-                                </div>
-                                {descuentoSeleccionado?.permiteEditarMonto && (
-                                  <div className="col-12">
-                                    <input
-                                      type="number"
-                                      min="0"
-                                      step="0.01"
-                                      className="form-control"
-                                      value={descuentoManual}
-                                      onChange={(e) => setDescuentoManual(e.target.value)}
-                                      placeholder="Monto descuento"
-                                    />
-                                  </div>
-                                )}
-                                {modoDescuento !== 'NINGUNO' && (
-                                  <div className="col-12">
-                                    <div className="small text-muted">Marca en cada linea de Consumo actual si aplica descuento a esa linea.</div>
-                                  </div>
-                                )}
-                              </div>
-                              <div className="row g-2 mb-2">
-                                <div className="col-12">
-                                  <label className="form-label mb-1">Impuesto</label>
-                                  <select className="form-select" value={modoImpuesto} onChange={(e) => setModoImpuesto(e.target.value)}>
-                                    {impuestosActivos.map((opt) => <option key={opt.codigo} value={opt.codigo}>{opt.nombre}</option>)}
-                                  </select>
-                                </div>
-                                {impuestoSeleccionado?.permiteEditarMonto && (
-                                  <div className="col-12">
-                                    <input
-                                      type="number"
-                                      min="0"
-                                      step="0.01"
-                                      className="form-control"
-                                      value={impuestoManual}
-                                      onChange={(e) => setImpuestoManual(e.target.value)}
-                                      placeholder="Monto impuesto"
-                                    />
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </details>
+                          <div className="pro-checkout-total-line">
+                            <span className="pro-checkout-total-line-label">Base para descuento</span>
+                            <span className="pro-checkout-total-line-value text-white-50">L {subtotalDescuentoCuenta.toFixed(2)}</span>
+                          </div>
+                          <div className={`pro-checkout-total-line ${descuentoNum > 0 ? 'pro-checkout-total-line--deduccion' : ''}`}>
+                            <span className="pro-checkout-total-line-label">Descuentos aplicados</span>
+                            <span className="pro-checkout-total-line-value">{descuentoNum > 0 ? `- L ${descuentoNum.toFixed(2)}` : 'L 0.00'}</span>
+                          </div>
+                          <div className="pro-checkout-total-line">
+                            <span className="pro-checkout-total-line-label">
+                              Impuesto {impuestoIncluidoEnSubtotal ? '(en precio)' : '(ISV)'}
+                            </span>
+                            <span className="pro-checkout-total-line-value">L {impuestoNum.toFixed(2)}</span>
+                          </div>
+                          {impuestoIncluidoEnSubtotal && (
+                            <div className="pro-checkout-total-note">El ISV ya va en los precios — no se suma otra vez al total.</div>
+                          )}
+                        </div>
+                        <div className="pro-checkout-total-grand">
+                          <div className="pro-checkout-total-label mb-1">Total a cobrar</div>
+                          <div className="pro-checkout-total-amount">L {Number(totalCuenta || 0).toFixed(2)}</div>
                         </div>
                       </div>
 
-                      <div className="pro-checkout-flow-block pro-checkout-flow-block--confirm">
-                        <div className="pro-checkout-flow-title">Paso 3 · Confirmar</div>
-                        <div className="mesas-actions-total-strip" aria-live="polite">
-                          <span className="mesas-actions-total-label">Total a cobrar</span>
-                          <span className="mesas-actions-total-value">L {Number(totalCuenta || 0).toFixed(2)}</span>
-                        </div>
-                      </div>
-
-                      <div className="d-grid gap-2 mesas-actions-bar">
+                      <div className="d-grid gap-2 mt-2 mesas-actions-bar">
                         <button className="btn btn-success" onClick={cobrarCuenta} disabled={cargandoCaja || !cajaActual?.abierta || procesando}>
                           {procesando ? 'Procesando...' : 'Cobrar mesa'}
                         </button>
