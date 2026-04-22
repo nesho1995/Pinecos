@@ -63,12 +63,28 @@ namespace Pinecos.Controllers
         {
             var idUsuario = UserHelper.GetUserId(User);
             var idSucursal = UserHelper.GetSucursalId(User);
+            var rol = UserHelper.GetUserRole(User);
 
             if (!idUsuario.HasValue)
                 return Unauthorized(new { message = "Usuario no válido en el token" });
 
             if (!idSucursal.HasValue)
-                return BadRequest(new { message = "El usuario no tiene sucursal asignada" });
+            {
+                if (rol == "ADMIN")
+                {
+                    var cajaAdmin = await _context.Cajas
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(x => x.Id_Caja == request.Id_Caja && x.Estado == "ABIERTA");
+                    if (cajaAdmin == null)
+                        return BadRequest(new { message = "El administrador no tiene sucursal asignada y la caja indicada no está abierta" });
+
+                    idSucursal = cajaAdmin.Id_Sucursal;
+                }
+                else
+                {
+                    return BadRequest(new { message = "El usuario no tiene sucursal asignada" });
+                }
+            }
 
             if (request.Detalles == null || request.Detalles.Count == 0)
                 return BadRequest(new { message = "La venta debe tener al menos un detalle" });

@@ -12,6 +12,9 @@ function VentasPOS() {
   const navigate = useNavigate();
   const usuario = getUsuario();
   const idSucursalUsuario = usuario?.id_Sucursal ?? usuario?.id_sucursal ?? null;
+  const esAdmin = String(usuario?.rol || usuario?.Rol || '').toUpperCase() === 'ADMIN';
+  const [sucursalesAdmin, setSucursalesAdmin] = useState([]);
+  const [idSucursalAdmin, setIdSucursalAdmin] = useState('');
 
   const [cajaActual, setCajaActual] = useState(null);
   const [cargandoCaja, setCargandoCaja] = useState(true);
@@ -54,10 +57,11 @@ function VentasPOS() {
     return value || '-';
   };
 
-  const cargarCajaActual = async () => {
+  const cargarCajaActual = async (idSucursal = null) => {
     try {
       setCargandoCaja(true);
-      const response = await api.get('/Dashboard/caja-actual');
+      const params = idSucursal ? { idSucursal: Number(idSucursal) } : undefined;
+      const response = await api.get('/Dashboard/caja-actual', { params });
       const data = response.data || { abierta: false };
       setCajaActual(data);
       return data;
@@ -133,8 +137,12 @@ function VentasPOS() {
     setUltimaActualizacionCatalogo(new Date().toISOString());
   };
 
+  const sucursalObjetivoSeleccionada = esAdmin
+    ? (Number(idSucursalAdmin || 0) || null)
+    : (Number(idSucursalUsuario || 0) || null);
+
   const obtenerSucursalObjetivo = (caja = cajaActual) =>
-    Number(idSucursalUsuario || caja?.id_Sucursal || 0) || null;
+    Number(sucursalObjetivoSeleccionada || caja?.id_Sucursal || 0) || null;
 
   const actualizarCatalogoPos = async ({ manual = false, silent = false } = {}) => {
     const sucursalObjetivo = obtenerSucursalObjetivo();
@@ -158,10 +166,36 @@ function VentasPOS() {
   };
 
   useEffect(() => {
-    const init = async () => {
+    const initAdminSucursales = async () => {
+      if (!esAdmin) return;
       try {
-        const caja = await cargarCajaActual();
-        const sucursalObjetivo = obtenerSucursalObjetivo(caja);
+        const response = await api.get('/Sucursales');
+        const lista = response.data || [];
+        setSucursalesAdmin(lista);
+        if (!lista.length) return;
+        if (idSucursalAdmin) return;
+        const sugerida = Number(idSucursalUsuario || lista[0]?.id_Sucursal || 0);
+        if (sugerida > 0) setIdSucursalAdmin(String(sugerida));
+      } catch {
+        setSucursalesAdmin([]);
+      }
+    };
+    initAdminSucursales();
+  }, [esAdmin, idSucursalUsuario, idSucursalAdmin]);
+
+  useEffect(() => {
+    const cargarContextoPos = async () => {
+      const baseSucursal = sucursalObjetivoSeleccionada;
+      if (!baseSucursal && !esAdmin) return;
+      if (esAdmin && !baseSucursal) {
+        setCargandoCaja(false);
+        setCajaActual({ abierta: false });
+        setProductos([]);
+        return;
+      }
+      try {
+        const caja = await cargarCajaActual(esAdmin ? baseSucursal : null);
+        const sucursalObjetivo = Number(baseSucursal || caja?.id_Sucursal || 0) || null;
         await Promise.all([
           cargarMenuSucursal(sucursalObjetivo),
           cargarFacturacionSar(sucursalObjetivo),
@@ -172,8 +206,8 @@ function VentasPOS() {
         setError(err?.response?.data?.message || 'Error al cargar POS');
       }
     };
-    init();
-  }, []);
+    cargarContextoPos();
+  }, [esAdmin, sucursalObjetivoSeleccionada]);
 
   useEffect(() => {
     if (!cajaActual?.abierta) return undefined;
@@ -181,7 +215,7 @@ function VentasPOS() {
       actualizarCatalogoPos({ manual: false, silent: true });
     }, 30000);
     return () => clearInterval(intervalId);
-  }, [cajaActual?.abierta, idSucursalUsuario]);
+  }, [cajaActual?.abierta, sucursalObjetivoSeleccionada]);
 
   useEffect(() => {
     if (!['EFECTIVO', 'POS', 'TRANSFERENCIA', 'OTRO'].includes(metodoPago)) {
@@ -522,6 +556,7 @@ function VentasPOS() {
   const esPagoEnEfectivo = String(metodoPago || '').toUpperCase() === 'EFECTIVO';
   const efectivoRecibidoNum = Number(efectivoRecibido || 0);
   const cambioCalculado = esPagoEnEfectivo ? efectivoRecibidoNum - total : 0;
+  const efectivoValidoParaCobro = !esPagoEnEfectivo || soloCortesia || (!Number.isNaN(efectivoRecibidoNum) && efectivoRecibidoNum >= total && efectivoRecibidoNum > 0);
 
   const tieneLineasInvalidas = useMemo(
     () =>
@@ -871,6 +906,24 @@ function VentasPOS() {
                     ? `Listo para vender — caja #${cajaActual.id_Caja} abierta.`
                     : 'Abre caja en el modulo Caja antes de registrar ventas.'}
               </div>
+              {esAdmin && (
+                <div className="mt-2" style={{ maxWidth: 340 }}>
+                  <label className="form-label form-label-sm small mb-1">Sucursal operativa (admin)</label>
+                  <select
+                    className="form-select form-select-sm"
+                    value={idSucursalAdmin}
+                    onChange={(e) => setIdSucursalAdmin(e.target.value)}
+                  >
+                    {sucursalesAdmin.length === 0 ? (
+                      <option value="">Sin sucursales activas</option>
+                    ) : (
+                      sucursalesAdmin.map((s) => (
+                        <option key={s.id_Sucursal} value={s.id_Sucursal}>{s.nombre}</option>
+                      ))
+                    )}
+                  </select>
+                </div>
+              )}
             </div>
             <div className="d-flex flex-wrap align-items-center gap-2">
               <span className={`badge rounded-pill px-3 py-2 ${cargandoCaja ? 'text-bg-secondary' : cajaActual?.abierta ? 'text-bg-success' : 'text-bg-warning text-dark'}`}>
@@ -909,7 +962,9 @@ function VentasPOS() {
           </div>
         </div>
       )}
-      {!idSucursalUsuario && <div className="alert alert-warning mb-3">El usuario no tiene sucursal asignada.</div>}
+      {!idSucursalUsuario && !esAdmin && <div className="alert alert-warning mb-3">El usuario no tiene sucursal asignada.</div>}
+      {!idSucursalUsuario && esAdmin && <div className="alert alert-info mb-3">Admin sin sucursal fija: selecciona la sucursal operativa para trabajar en su caja y catalogo.</div>}
+      {esAdmin && !idSucursalAdmin && <div className="alert alert-warning mb-3">Selecciona una sucursal operativa para continuar.</div>}
 
       {cargandoCaja ? (
         <div className="alert alert-secondary">Validando caja de la sucursal...</div>
@@ -1251,7 +1306,7 @@ function VentasPOS() {
 
                   {esPagoEnEfectivo && (
                     <div className="pro-cash-strip mb-2 mt-2">
-                      <label className="form-label">Efectivo recibido</label>
+                      <label className="form-label">Efectivo recibido (obligatorio)</label>
                       <input
                         type="number"
                         min="0"
@@ -1261,6 +1316,9 @@ function VentasPOS() {
                         onChange={(e) => setEfectivoRecibido(e.target.value)}
                         placeholder="Monto que entrega el cliente"
                       />
+                      <div className="small text-muted mt-1">
+                        Debe ser mayor o igual al total para habilitar el cobro.
+                      </div>
                       <div className={`fw-semibold mt-2 ${cambioCalculado >= 0 ? 'text-success' : 'text-danger'}`}>
                         Cambio: {formatCurrencyHNL(Math.max(0, cambioCalculado))}
                         {cambioCalculado < 0 ? ` · Faltan ${formatCurrencyHNL(Math.abs(cambioCalculado))}` : ''}
@@ -1317,7 +1375,7 @@ function VentasPOS() {
                       Antes del cobro final debes generar una pre-cuenta vigente.
                     </div>
                   )}
-                  <button type="button" className="btn btn-success" onClick={cobrarVenta} disabled={procesando || carrito.length === 0 || preCuentaEstado !== 'VIGENTE'}>
+                  <button type="button" className="btn btn-success" onClick={cobrarVenta} disabled={procesando || carrito.length === 0 || preCuentaEstado !== 'VIGENTE' || !efectivoValidoParaCobro}>
                     {procesando ? 'Procesando...' : 'Cobro final'}
                   </button>
                   <div className="small text-muted text-center">Atajo: <kbd className="px-1">Alt</kbd> + <kbd className="px-1">C</kbd> (fuera de campos de texto)</div>

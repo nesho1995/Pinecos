@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import api from '../../services/api';
 import { exportToExcelCsv } from '../../utils/excelExport';
 import { formatCurrencyHNL, formatDateTimeHN, formatTimeHN } from '../../utils/formatters';
@@ -28,6 +28,17 @@ const formatearMetodoPago = (value) => {
   return value || '-';
 };
 
+const formatearTipoMovimientoCaja = (value) => {
+  const normalized = String(value || '').trim().toUpperCase();
+  if (normalized === 'APERTURA_CAJA') return 'Apertura de caja';
+  if (normalized === 'CIERRE_CAJA') return 'Cierre de caja';
+  if (normalized === 'INGRESO') return 'Ingreso';
+  if (normalized === 'EGRESO') return 'Egreso';
+  if (normalized === 'VENTA') return 'Venta';
+  if (normalized === 'ANULACION') return 'Anulacion';
+  return value || '-';
+};
+
 function Reportes() {
   const [sucursales, setSucursales] = useState([]);
   const [form, setForm] = useState({
@@ -47,6 +58,7 @@ function Reportes() {
   const [gastosCategoria, setGastosCategoria] = useState([]);
   const [productosMasVendidos, setProductosMasVendidos] = useState([]);
   const [cajaMovimientosAvanzado, setCajaMovimientosAvanzado] = useState(null);
+  const [cierresCaja, setCierresCaja] = useState([]);
   const [error, setError] = useState('');
   const [tabActiva, setTabActiva] = useState('metodos');
   const [loading, setLoading] = useState(false);
@@ -131,7 +143,7 @@ function Reportes() {
       (panel?.movimientosHoy || []).map((x) => [
         x.fecha ? new Date(x.fecha).toLocaleTimeString('es-HN') : '',
         x.id_Caja,
-        x.tipo,
+        formatearTipoMovimientoCaja(x.tipo),
         x.descripcion,
         Number(x.monto || 0).toFixed(2)
       ])
@@ -145,7 +157,7 @@ function Reportes() {
         x.fecha ? new Date(x.fecha).toLocaleString('es-HN') : '',
         x.id_Caja,
         x.id_Sucursal,
-        x.tipo,
+        formatearTipoMovimientoCaja(x.tipo),
         x.descripcion,
         Number(x.monto || 0).toFixed(2)
       ])
@@ -234,7 +246,8 @@ function Reportes() {
         { key: 'panel', label: 'Panel negocio', request: api.get('/Reportes/panel-negocio', { params: panelParams }) },
         { key: 'ventas', label: 'Ventas resumen', request: api.get('/Reportes/ventas-resumen', { params }) },
         { key: 'gastos', label: 'Gastos resumen', request: api.get('/Reportes/gastos-resumen', { params }) },
-        { key: 'utilidad', label: 'Utilidad', request: api.get('/Reportes/utilidad', { params }) }
+        { key: 'utilidad', label: 'Utilidad', request: api.get('/Reportes/utilidad', { params }) },
+        { key: 'cierresCaja', label: 'Cierres de caja', request: api.get('/Cajas/cierres', { params }) }
       ];
       const tabRequestByKey = {
         metodos: { key: 'metodos', label: 'Ventas por metodo', request: api.get('/Reportes/ventas-por-metodo-pago', { params }) },
@@ -283,6 +296,7 @@ function Reportes() {
       if (Object.prototype.hasOwnProperty.call(data, 'gastosCat')) setGastosCategoria(data.gastosCat || []);
       if (Object.prototype.hasOwnProperty.call(data, 'productos')) setProductosMasVendidos(data.productos || []);
       if (Object.prototype.hasOwnProperty.call(data, 'cajaAvanzado')) setCajaMovimientosAvanzado(data.cajaAvanzado || null);
+      if (Object.prototype.hasOwnProperty.call(data, 'cierresCaja')) setCierresCaja(data.cierresCaja || []);
 
       if (fallos.length > 0) {
         const coreLabels = new Set(['Panel negocio', 'Ventas resumen', 'Gastos resumen', 'Utilidad']);
@@ -309,6 +323,19 @@ function Reportes() {
   useEffect(() => {
     cargarReportes();
   }, []);
+
+  const resumenDescuadreCaja = useMemo(() => {
+    const data = Array.isArray(cierresCaja) ? cierresCaja : [];
+    const conDiferencia = data.filter((x) => Number.isFinite(Number(x?.diferencia)));
+    const descuadrados = conDiferencia.filter((x) => Math.abs(Number(x?.diferencia || 0)) > 0.01);
+    const sumaAbsoluta = descuadrados.reduce((acc, x) => acc + Math.abs(Number(x?.diferencia || 0)), 0);
+    return {
+      totalCierres: data.length,
+      conDiferencia: conDiferencia.length,
+      descuadrados: descuadrados.length,
+      sumaAbsoluta
+    };
+  }, [cierresCaja]);
 
   useEffect(() => {
     if (!ventasResumen) return;
@@ -638,13 +665,36 @@ function Reportes() {
                   {(cajaMovimientosAvanzado?.porTipo || []).map((x, idx) => (
                     <div className="col-md-3" key={`tipo-${idx}`}>
                       <div className="border rounded p-2 bg-light">
-                        <div className="small text-muted">{x.tipo || 'N/D'}</div>
+                        <div className="small text-muted">{formatearTipoMovimientoCaja(x.tipo) || 'N/D'}</div>
                         <div className="fw-bold">{formatCurrencyHNL(x.total)}</div>
                         <div className="small">{x.cantidad} mov.</div>
                       </div>
                     </div>
                   ))}
                   {!(cajaMovimientosAvanzado?.porTipo || []).length && <div className="text-muted">Sin datos en el rango.</div>}
+                </div>
+                <div className="row g-2 mb-3">
+                  <div className="col-md-3">
+                    <div className="border rounded p-2 bg-light">
+                      <div className="small text-muted">Cierres de caja</div>
+                      <div className="fw-bold">{resumenDescuadreCaja.totalCierres}</div>
+                      <div className="small">en el rango</div>
+                    </div>
+                  </div>
+                  <div className="col-md-3">
+                    <div className="border rounded p-2 bg-light">
+                      <div className="small text-muted">Cierres con descuadre</div>
+                      <div className="fw-bold text-danger">{resumenDescuadreCaja.descuadrados}</div>
+                      <div className="small">diferencia mayor a L 0.01</div>
+                    </div>
+                  </div>
+                  <div className="col-md-3">
+                    <div className="border rounded p-2 bg-light">
+                      <div className="small text-muted">Impacto acumulado</div>
+                      <div className="fw-bold">{formatCurrencyHNL(resumenDescuadreCaja.sumaAbsoluta)}</div>
+                      <div className="small">suma absoluta de diferencias</div>
+                    </div>
+                  </div>
                 </div>
                 <div className="compact-table-wrap">
                   <table className="table table-bordered mb-0">
@@ -655,7 +705,7 @@ function Reportes() {
                           <td>{formatDateTimeHN(item.fecha) || '-'}</td>
                           <td>{item.id_Caja}</td>
                           <td>{item.id_Sucursal}</td>
-                          <td>{item.tipo}</td>
+                          <td>{formatearTipoMovimientoCaja(item.tipo)}</td>
                           <td>{item.descripcion}</td>
                           <td>{formatCurrencyHNL(item.monto)}</td>
                         </tr>
