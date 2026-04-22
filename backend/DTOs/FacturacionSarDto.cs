@@ -50,4 +50,15 @@ namespace Pinecos.DTOs
         public string Cai { get; set; } = string.Empty;
         public DateTime? FechaLimiteEmision { get; set; }
     }
+
+    public class FacturacionSarEventoRevisionDto
+    {
+        public bool Revisado { get; set; }
+        public string ComentarioOperacion { get; set; } = string.Empty;
+    }
+
+    public class FacturacionSarEventoRevisionSeleccionDto : FacturacionSarEventoRevisionDto
+    {
+        public List<long> IdsEvento { get; set; } = new();
+    }
 }

@@ -153,7 +153,9 @@ export const imprimirTicketHtml = async (idVenta) => {
     const ticketPayload = ticketResponse?.data?.data ?? ticketResponse?.data;
     esFacturaCai = Boolean(ticketPayload?.esFacturaCai ?? ticketPayload?.EsFacturaCai);
   } catch {
-    esFacturaCai = false;
+    throw new Error(
+      'No se pudo confirmar si la venta requiere copia fiscal CAI. Reintenta o descarga el PDF para evitar omisiones de impresion.'
+    );
   }
 
   const response = await api.get(`/Tickets/venta/${idVenta}/html`, {
@@ -164,6 +166,21 @@ export const imprimirTicketHtml = async (idVenta) => {
     : response.data;
 
   await imprimirEnMismaPantalla(html);
+};
+
+export const descargarTicketPdf = async (idVenta) => {
+  const response = await api.get(`/Tickets/venta/${idVenta}/pdf`, {
+    responseType: 'blob'
+  });
+  const blob = new Blob([response.data], { type: 'application/pdf' });
+  const url = window.URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = `ticket_venta_${idVenta}.pdf`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  setTimeout(() => window.URL.revokeObjectURL(url), 1000);
 };
 
 export const imprimirHtmlDirecto = async (html) => {

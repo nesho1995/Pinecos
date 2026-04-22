@@ -182,24 +182,37 @@ namespace Pinecos.Controllers
             if (string.IsNullOrWhiteSpace(metodoPagoFinal))
                 return BadRequest(new { message = "Debes seleccionar método de pago" });
 
+            FacturaEmitidaDto? factura = null;
+            long? eventoFiscalId = null;
+            if (request.EmitirFactura)
+            {
+                try
+                {
+                    var reserva = await FacturacionSarCorrelativoService.ReservarAsync(
+                        _context,
+                        _env.ContentRootPath,
+                        idSucursal.Value,
+                        idUsuario.Value,
+                        "VENTA_POS");
+                    factura = reserva.Factura;
+                    eventoFiscalId = reserva.EventoId;
+                }
+                catch (InvalidOperationException ex)
+                {
+                    return BadRequest(ApiErrorHelper.Build(HttpContext, "FISCAL_CONFIG_INVALID", ex.Message));
+                }
+                catch (Exception ex)
+                {
+                    return StatusCode(
+                        StatusCodes.Status500InternalServerError,
+                        ApiErrorHelper.Build(HttpContext, "FISCAL_EVENT_PERSIST_FAILED", $"Error al reservar correlativo fiscal: {ex.Message}"));
+                }
+            }
+
             using var transaction = await _context.Database.BeginTransactionAsync();
 
             try
             {
-                FacturaEmitidaDto? factura = null;
-                if (request.EmitirFactura)
-                {
-                    try
-                    {
-                        factura = FacturacionSarStore.EmitirSiguiente(_env.ContentRootPath, idSucursal.Value);
-                    }
-                    catch (InvalidOperationException ex)
-                    {
-                        await transaction.RollbackAsync();
-                        return BadRequest(new { message = ex.Message });
-                    }
-                }
-
                 var tipoServicio = NormalizarTipoServicio(request.Tipo_Servicio);
                 var observacionFinal = string.IsNullOrWhiteSpace(request.Observacion)
                     ? $"SERVICIO:{tipoServicio}"
@@ -254,6 +267,9 @@ namespace Pinecos.Controllers
 
                 await _context.SaveChangesAsync();
 
+                if (eventoFiscalId.HasValue)
+                    await FacturacionSarCorrelativoService.MarcarEmitidoAsync(_context, eventoFiscalId.Value, venta.Id_Venta);
+
                 await BitacoraHelper.RegistrarAsync(_context, idUsuario.Value, "VENTAS", "CREAR", $"Venta #{venta.Id_Venta} registrada");
 
                 await transaction.CommitAsync();
@@ -272,17 +288,30 @@ namespace Pinecos.Controllers
             catch (DbUpdateException ex)
             {
                 await transaction.RollbackAsync();
-                var detalle = ex.InnerException?.Message ?? ex.Message;
-                return BadRequest(new
+                if (eventoFiscalId.HasValue)
                 {
-                    message =
-                        "No se guardo la venta en la base de datos. Suele ser observacion muy larga para el tipo de columna, o columnas nuevas (anulacion) pendientes en la BD.",
-                    detalle
-                });
+                    await FacturacionSarCorrelativoService.MarcarFallidoAsync(
+                        _context,
+                        eventoFiscalId.Value,
+                        ex.InnerException?.Message ?? ex.Message);
+                }
+                var detalle = ex.InnerException?.Message ?? ex.Message;
+                return BadRequest(ApiErrorHelper.Build(
+                    HttpContext,
+                    "DB_UPDATE_FAILED",
+                    "No se guardo la venta en la base de datos. Suele ser observacion muy larga para el tipo de columna, o columnas nuevas (anulacion) pendientes en la BD.",
+                    new { detalle }));
             }
-            catch
+            catch (Exception ex)
             {
                 await transaction.RollbackAsync();
+                if (eventoFiscalId.HasValue)
+                {
+                    await FacturacionSarCorrelativoService.MarcarFallidoAsync(
+                        _context,
+                        eventoFiscalId.Value,
+                        ex.Message);
+                }
                 throw;
             }
         }

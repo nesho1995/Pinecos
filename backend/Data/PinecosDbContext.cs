@@ -33,6 +33,7 @@ namespace Pinecos.Data
         public DbSet<CompraProveedor> ComprasProveedor { get; set; }
         public DbSet<CompraProveedorDetalle> ComprasProveedorDetalle { get; set; }
         public DbSet<RecetaProductoInsumo> RecetasProductoInsumo { get; set; }
+        public DbSet<FacturacionSarCorrelativoEvento> FacturacionSarCorrelativoEventos { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<Usuario>().ToTable("usuarios");
@@ -56,6 +57,7 @@ namespace Pinecos.Data
             modelBuilder.Entity<CompraProveedor>().ToTable("compras_proveedor");
             modelBuilder.Entity<CompraProveedorDetalle>().ToTable("compras_proveedor_detalle");
             modelBuilder.Entity<RecetaProductoInsumo>().ToTable("receta_producto_insumo");
+            modelBuilder.Entity<FacturacionSarCorrelativoEvento>().ToTable("facturacion_sar_correlativo_eventos");
 
             modelBuilder.Entity<Usuario>().HasKey(x => x.Id_Usuario);
             modelBuilder.Entity<Categoria>().HasKey(x => x.Id_Categoria);
@@ -78,6 +80,7 @@ namespace Pinecos.Data
             modelBuilder.Entity<CompraProveedor>().HasKey(x => x.Id_Compra_Proveedor);
             modelBuilder.Entity<CompraProveedorDetalle>().HasKey(x => x.Id_Compra_Proveedor_Detalle);
             modelBuilder.Entity<RecetaProductoInsumo>().HasKey(x => x.Id_Receta_Producto_Insumo);
+            modelBuilder.Entity<FacturacionSarCorrelativoEvento>().HasKey(x => x.Id_Facturacion_Sar_Correlativo_Evento);
 
             modelBuilder.Entity<Usuario>().Property(x => x.Id_Usuario).HasColumnName("id_usuario");
             modelBuilder.Entity<Usuario>().Property(x => x.Nombre).HasColumnName("nombre");
@@ -252,6 +255,22 @@ namespace Pinecos.Data
             modelBuilder.Entity<RecetaProductoInsumo>().Property(x => x.Id_Inventario_Item).HasColumnName("id_inventario_item");
             modelBuilder.Entity<RecetaProductoInsumo>().Property(x => x.Cantidad_Insumo).HasColumnName("cantidad_insumo");
             modelBuilder.Entity<RecetaProductoInsumo>().Property(x => x.Activo).HasColumnName("activo");
+            modelBuilder.Entity<FacturacionSarCorrelativoEvento>().Property(x => x.Id_Facturacion_Sar_Correlativo_Evento).HasColumnName("id_facturacion_sar_correlativo_evento");
+            modelBuilder.Entity<FacturacionSarCorrelativoEvento>().Property(x => x.Id_Sucursal).HasColumnName("id_sucursal");
+            modelBuilder.Entity<FacturacionSarCorrelativoEvento>().Property(x => x.Numero_Factura).HasColumnName("numero_factura");
+            modelBuilder.Entity<FacturacionSarCorrelativoEvento>().Property(x => x.Cai).HasColumnName("cai");
+            modelBuilder.Entity<FacturacionSarCorrelativoEvento>().Property(x => x.Fecha_Limite_Emision).HasColumnName("fecha_limite_emision");
+            modelBuilder.Entity<FacturacionSarCorrelativoEvento>().Property(x => x.Estado).HasColumnName("estado");
+            modelBuilder.Entity<FacturacionSarCorrelativoEvento>().Property(x => x.Origen).HasColumnName("origen");
+            modelBuilder.Entity<FacturacionSarCorrelativoEvento>().Property(x => x.Id_Venta).HasColumnName("id_venta");
+            modelBuilder.Entity<FacturacionSarCorrelativoEvento>().Property(x => x.Id_Usuario).HasColumnName("id_usuario");
+            modelBuilder.Entity<FacturacionSarCorrelativoEvento>().Property(x => x.Motivo_Fallo).HasColumnName("motivo_fallo");
+            modelBuilder.Entity<FacturacionSarCorrelativoEvento>().Property(x => x.Revisado).HasColumnName("revisado");
+            modelBuilder.Entity<FacturacionSarCorrelativoEvento>().Property(x => x.Comentario_Operacion).HasColumnName("comentario_operacion");
+            modelBuilder.Entity<FacturacionSarCorrelativoEvento>().Property(x => x.Id_Usuario_Revision).HasColumnName("id_usuario_revision");
+            modelBuilder.Entity<FacturacionSarCorrelativoEvento>().Property(x => x.Fecha_Revision).HasColumnName("fecha_revision");
+            modelBuilder.Entity<FacturacionSarCorrelativoEvento>().Property(x => x.Fecha_Creacion).HasColumnName("fecha_creacion");
+            modelBuilder.Entity<FacturacionSarCorrelativoEvento>().Property(x => x.Fecha_Actualizacion).HasColumnName("fecha_actualizacion");
             modelBuilder.Entity<Mesa>().ToTable("mesas");
             modelBuilder.Entity<CuentaMesa>().ToTable("cuentas_mesa");
             modelBuilder.Entity<DetalleCuentaMesa>().ToTable("detalle_cuenta_mesa");

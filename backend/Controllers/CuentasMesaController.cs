@@ -379,46 +379,59 @@ namespace Pinecos.Controllers
             if (request.Descuento < 0 || request.Impuesto < 0)
                 return BadRequest(new { message = "Descuento e impuesto no pueden ser negativos" });
 
+            var subtotalBruto = detallesCuenta.Sum(x => x.Subtotal);
+            var subtotalBase = request.ImpuestoIncluidoEnSubtotal ? subtotalBruto - request.Impuesto : subtotalBruto;
+            if (subtotalBase < 0)
+                return BadRequest(new { message = "El impuesto no puede ser mayor al subtotal" });
+
+            var total = subtotalBase - request.Descuento + request.Impuesto;
+            if (total < 0)
+                return BadRequest(new { message = "El total no puede ser negativo" });
+
+            var pagosNormalizados = PagoVentaHelper.NormalizarPagos(request.Pagos);
+            if (pagosNormalizados.Count > 0 && !PagoVentaHelper.CuadraConTotal(pagosNormalizados, total))
+                return BadRequest(new { message = "La suma de pagos no coincide con el total de la cuenta" });
+
+            var metodoPagoFinal = pagosNormalizados.Count switch
+            {
+                > 1 => "MIXTO",
+                1 => pagosNormalizados[0].Metodo_Pago,
+                _ => request.Metodo_Pago
+            };
+            if (string.IsNullOrWhiteSpace(metodoPagoFinal))
+                return BadRequest(new { message = "Debes seleccionar método de pago" });
+
+            FacturaEmitidaDto? factura = null;
+            long? eventoFiscalId = null;
+            if (request.EmitirFactura)
+            {
+                try
+                {
+                    var reserva = await FacturacionSarCorrelativoService.ReservarAsync(
+                        _context,
+                        _env.ContentRootPath,
+                        idSucursal.Value,
+                        idUsuario.Value,
+                        "CUENTA_MESA");
+                    factura = reserva.Factura;
+                    eventoFiscalId = reserva.EventoId;
+                }
+                catch (InvalidOperationException ex)
+                {
+                    return BadRequest(ApiErrorHelper.Build(HttpContext, "FISCAL_CONFIG_INVALID", ex.Message));
+                }
+                catch (Exception ex)
+                {
+                    return StatusCode(
+                        StatusCodes.Status500InternalServerError,
+                        ApiErrorHelper.Build(HttpContext, "FISCAL_EVENT_PERSIST_FAILED", $"Error al reservar correlativo fiscal: {ex.Message}"));
+                }
+            }
+
             using var transaction = await _context.Database.BeginTransactionAsync();
 
             try
             {
-                var subtotalBruto = detallesCuenta.Sum(x => x.Subtotal);
-                var subtotalBase = request.ImpuestoIncluidoEnSubtotal ? subtotalBruto - request.Impuesto : subtotalBruto;
-                if (subtotalBase < 0)
-                    return BadRequest(new { message = "El impuesto no puede ser mayor al subtotal" });
-
-                var total = subtotalBase - request.Descuento + request.Impuesto;
-                if (total < 0)
-                    return BadRequest(new { message = "El total no puede ser negativo" });
-
-                var pagosNormalizados = PagoVentaHelper.NormalizarPagos(request.Pagos);
-                if (pagosNormalizados.Count > 0 && !PagoVentaHelper.CuadraConTotal(pagosNormalizados, total))
-                    return BadRequest(new { message = "La suma de pagos no coincide con el total de la cuenta" });
-
-                var metodoPagoFinal = pagosNormalizados.Count switch
-                {
-                    > 1 => "MIXTO",
-                    1 => pagosNormalizados[0].Metodo_Pago,
-                    _ => request.Metodo_Pago
-                };
-                if (string.IsNullOrWhiteSpace(metodoPagoFinal))
-                    return BadRequest(new { message = "Debes seleccionar método de pago" });
-
-                FacturaEmitidaDto? factura = null;
-                if (request.EmitirFactura)
-                {
-                    try
-                    {
-                        factura = FacturacionSarStore.EmitirSiguiente(_env.ContentRootPath, idSucursal.Value);
-                    }
-                    catch (InvalidOperationException ex)
-                    {
-                        await transaction.RollbackAsync();
-                        return BadRequest(new { message = ex.Message });
-                    }
-                }
-
                 var tipoServicio = NormalizarTipoServicio(request.Tipo_Servicio);
                 var usuarioAtendio = await _context.Usuarios
                     .Where(x => x.Id_Usuario == cuenta.Id_Usuario)
@@ -504,6 +517,9 @@ namespace Pinecos.Controllers
 
                 await _context.SaveChangesAsync();
 
+                if (eventoFiscalId.HasValue)
+                    await FacturacionSarCorrelativoService.MarcarEmitidoAsync(_context, eventoFiscalId.Value, venta.Id_Venta);
+
                 await BitacoraHelper.RegistrarAsync(_context, idUsuario.Value, "CUENTAS_MESA", "COBRAR", $"Cuenta mesa #{idCuenta} cobrada y convertida en venta #{venta.Id_Venta}");
 
                 await transaction.CommitAsync();
@@ -523,17 +539,30 @@ namespace Pinecos.Controllers
             catch (DbUpdateException ex)
             {
                 await transaction.RollbackAsync();
-                var detalle = ex.InnerException?.Message ?? ex.Message;
-                return BadRequest(new
+                if (eventoFiscalId.HasValue)
                 {
-                    message =
-                        "No se guardo la venta en la base de datos. Revise tipo de columna ventas.observacion (LONGTEXT) y columnas de anulacion si aplican.",
-                    detalle
-                });
+                    await FacturacionSarCorrelativoService.MarcarFallidoAsync(
+                        _context,
+                        eventoFiscalId.Value,
+                        ex.InnerException?.Message ?? ex.Message);
+                }
+                var detalle = ex.InnerException?.Message ?? ex.Message;
+                return BadRequest(ApiErrorHelper.Build(
+                    HttpContext,
+                    "DB_UPDATE_FAILED",
+                    "No se guardo la venta en la base de datos. Revise tipo de columna ventas.observacion (LONGTEXT) y columnas de anulacion si aplican.",
+                    new { detalle }));
             }
-            catch
+            catch (Exception ex)
             {
                 await transaction.RollbackAsync();
+                if (eventoFiscalId.HasValue)
+                {
+                    await FacturacionSarCorrelativoService.MarcarFallidoAsync(
+                        _context,
+                        eventoFiscalId.Value,
+                        ex.Message);
+                }
                 throw;
             }
         }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import api from '../../services/api';
 import { exportToExcelCsv } from '../../utils/excelExport';
+import { formatCurrencyHNL, formatDateTimeHN, formatTimeHN } from '../../utils/formatters';
 
 const toLocalInput = (date) => {
   const pad = (n) => String(n).padStart(2, '0');
@@ -29,9 +30,12 @@ function Reportes() {
   const [ventasCategoria, setVentasCategoria] = useState([]);
   const [gastosCategoria, setGastosCategoria] = useState([]);
   const [productosMasVendidos, setProductosMasVendidos] = useState([]);
+  const [cajaMovimientosAvanzado, setCajaMovimientosAvanzado] = useState(null);
   const [error, setError] = useState('');
   const [tabActiva, setTabActiva] = useState('metodos');
   const [loading, setLoading] = useState(false);
+  const [loadingByTab, setLoadingByTab] = useState({});
+  const [errorByTab, setErrorByTab] = useState({});
 
   const exportarResumenGeneral = () => {
     if (!ventasResumen) return;
@@ -117,6 +121,20 @@ function Reportes() {
       ])
     );
 
+  const exportarCajaAvanzado = () =>
+    exportToExcelCsv(
+      'reporte_caja_movimientos_avanzado.csv',
+      ['Fecha', 'Caja', 'Sucursal', 'Tipo', 'Descripcion', 'Monto'],
+      (cajaMovimientosAvanzado?.ultimos || []).map((x) => [
+        x.fecha ? new Date(x.fecha).toLocaleString('es-HN') : '',
+        x.id_Caja,
+        x.id_Sucursal,
+        x.tipo,
+        x.descripcion,
+        Number(x.monto || 0).toFixed(2)
+      ])
+    );
+
   useEffect(() => {
     const cargarSucursales = async () => {
       try {
@@ -166,6 +184,8 @@ function Reportes() {
   const cargarReportes = async () => {
     setError('');
     setLoading(true);
+    setErrorByTab((prev) => ({ ...prev, [tabActiva]: '' }));
+    setLoadingByTab((prev) => ({ ...prev, [tabActiva]: true }));
     try {
       const params = buildParams();
       const panelParams = {};
@@ -194,18 +214,23 @@ function Reportes() {
         throw ultimoError || new Error('No existe endpoint de detalle de ventas');
       };
 
-      const requests = [
+      const coreRequests = [
         { key: 'panel', label: 'Panel negocio', request: api.get('/Reportes/panel-negocio', { params: panelParams }) },
         { key: 'ventas', label: 'Ventas resumen', request: api.get('/Reportes/ventas-resumen', { params }) },
         { key: 'gastos', label: 'Gastos resumen', request: api.get('/Reportes/gastos-resumen', { params }) },
-        { key: 'utilidad', label: 'Utilidad', request: api.get('/Reportes/utilidad', { params }) },
-        { key: 'metodos', label: 'Ventas por metodo', request: api.get('/Reportes/ventas-por-metodo-pago', { params }) },
-        { key: 'servicio', label: 'Ventas por servicio', request: api.get('/Reportes/ventas-por-tipo-servicio', { params }) },
-        { key: 'detalle', label: 'Detalle de ventas', request: cargarVentasDetalleCompat() },
-        { key: 'ventasCat', label: 'Ventas por categoria', request: api.get('/Reportes/ventas-por-categoria', { params }) },
-        { key: 'gastosCat', label: 'Gastos por categoria', request: api.get('/Reportes/gastos-por-categoria', { params }) },
-        { key: 'productos', label: 'Productos mas vendidos', request: api.get('/Reportes/productos-mas-vendidos', { params }) }
+        { key: 'utilidad', label: 'Utilidad', request: api.get('/Reportes/utilidad', { params }) }
       ];
+      const tabRequestByKey = {
+        metodos: { key: 'metodos', label: 'Ventas por metodo', request: api.get('/Reportes/ventas-por-metodo-pago', { params }) },
+        servicio: { key: 'servicio', label: 'Ventas por servicio', request: api.get('/Reportes/ventas-por-tipo-servicio', { params }) },
+        detalle: { key: 'detalle', label: 'Detalle de ventas', request: cargarVentasDetalleCompat() },
+        ventas_categoria: { key: 'ventasCat', label: 'Ventas por categoria', request: api.get('/Reportes/ventas-por-categoria', { params }) },
+        gastos_categoria: { key: 'gastosCat', label: 'Gastos por categoria', request: api.get('/Reportes/gastos-por-categoria', { params }) },
+        productos: { key: 'productos', label: 'Productos mas vendidos', request: api.get('/Reportes/productos-mas-vendidos', { params }) },
+        caja_avanzado: { key: 'cajaAvanzado', label: 'Caja movimientos avanzado', request: api.get('/Reportes/caja-movimientos-avanzado', { params }) }
+      };
+      const selectedTabRequest = tabRequestByKey[tabActiva];
+      const requests = selectedTabRequest ? [...coreRequests, selectedTabRequest] : coreRequests;
 
       const results = await Promise.allSettled(requests.map((x) => x.request));
       const fallos = [];
@@ -235,26 +260,51 @@ function Reportes() {
       setVentasResumen(data.ventas || null);
       setGastosResumen(data.gastos || null);
       setUtilidad(data.utilidad || null);
-      setVentasMetodoPago(data.metodos || []);
-      setVentasTipoServicio(data.servicio || []);
-      setVentasDetalle(data.detalle || []);
-      setVentasCategoria(data.ventasCat || []);
-      setGastosCategoria(data.gastosCat || []);
-      setProductosMasVendidos(data.productos || []);
+      if (Object.prototype.hasOwnProperty.call(data, 'metodos')) setVentasMetodoPago(data.metodos || []);
+      if (Object.prototype.hasOwnProperty.call(data, 'servicio')) setVentasTipoServicio(data.servicio || []);
+      if (Object.prototype.hasOwnProperty.call(data, 'detalle')) setVentasDetalle(data.detalle || []);
+      if (Object.prototype.hasOwnProperty.call(data, 'ventasCat')) setVentasCategoria(data.ventasCat || []);
+      if (Object.prototype.hasOwnProperty.call(data, 'gastosCat')) setGastosCategoria(data.gastosCat || []);
+      if (Object.prototype.hasOwnProperty.call(data, 'productos')) setProductosMasVendidos(data.productos || []);
+      if (Object.prototype.hasOwnProperty.call(data, 'cajaAvanzado')) setCajaMovimientosAvanzado(data.cajaAvanzado || null);
 
       if (fallos.length > 0) {
-        setError(`Algunos bloques no cargaron: ${fallos.join(', ')}`);
+        const coreLabels = new Set(['Panel negocio', 'Ventas resumen', 'Gastos resumen', 'Utilidad']);
+        const fallosCore = fallos.filter((x) => [...coreLabels].some((label) => x.startsWith(label)));
+        const fallosTab = fallos.filter((x) => !fallosCore.includes(x));
+        if (fallosCore.length > 0) {
+          setError(`Algunos bloques principales no cargaron: ${fallosCore.join(', ')}`);
+        }
+        if (fallosTab.length > 0) {
+          setErrorByTab((prev) => ({
+            ...prev,
+            [tabActiva]: `Este bloque no cargo completo: ${fallosTab.join(', ')}`
+          }));
+        }
       }
     } catch (err) {
       setError(err?.response?.data?.message || 'Error al cargar reportes');
     } finally {
       setLoading(false);
+      setLoadingByTab((prev) => ({ ...prev, [tabActiva]: false }));
     }
   };
 
   useEffect(() => {
     cargarReportes();
   }, []);
+
+  useEffect(() => {
+    if (!ventasResumen) return;
+    setErrorByTab((prev) => ({ ...prev, [tabActiva]: '' }));
+    if (tabActiva === 'metodos' && ventasMetodoPago.length === 0) cargarReportes();
+    if (tabActiva === 'servicio' && ventasTipoServicio.length === 0) cargarReportes();
+    if (tabActiva === 'detalle' && ventasDetalle.length === 0) cargarReportes();
+    if (tabActiva === 'productos' && productosMasVendidos.length === 0) cargarReportes();
+    if (tabActiva === 'ventas_categoria' && ventasCategoria.length === 0) cargarReportes();
+    if (tabActiva === 'gastos_categoria' && gastosCategoria.length === 0) cargarReportes();
+    if (tabActiva === 'caja_avanzado' && !cajaMovimientosAvanzado) cargarReportes();
+  }, [tabActiva]);
 
   return (
     <div>
@@ -290,12 +340,27 @@ function Reportes() {
         </div>
       </div>
 
+      {!panel && loading && (
+        <div className="row g-3 mb-4">
+          {[1, 2, 3, 4].map((idx) => (
+            <div className="col-md-3" key={`panel-skeleton-${idx}`}>
+              <div className="card shadow-sm">
+                <div className="card-body placeholder-glow">
+                  <span className="placeholder col-6 mb-2"></span>
+                  <span className="placeholder col-8"></span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {panel && (
         <div className="row g-3 mb-4">
-          <div className="col-md-3"><div className="card shadow-sm"><div className="card-body"><h6>Hoy ventas</h6><h4>L {Number(panel?.hoy?.ventas?.total || 0).toFixed(2)}</h4></div></div></div>
-          <div className="col-md-3"><div className="card shadow-sm"><div className="card-body"><h6>Hoy ticket prom.</h6><h4>L {Number(panel?.hoy?.ventas?.ticketPromedio || 0).toFixed(2)}</h4></div></div></div>
-          <div className="col-md-3"><div className="card shadow-sm"><div className="card-body"><h6>Mes ventas</h6><h4>L {Number(panel?.mesActual?.ventas?.total || 0).toFixed(2)}</h4></div></div></div>
-          <div className="col-md-3"><div className="card shadow-sm"><div className="card-body"><h6>Mes utilidad neta</h6><h4>L {Number(panel?.mesActual?.costos?.utilidadNeta || 0).toFixed(2)}</h4></div></div></div>
+          <div className="col-md-3"><div className="card shadow-sm"><div className="card-body"><h6>Hoy ventas</h6><h4>{formatCurrencyHNL(panel?.hoy?.ventas?.total)}</h4></div></div></div>
+          <div className="col-md-3"><div className="card shadow-sm"><div className="card-body"><h6>Hoy ticket prom.</h6><h4>{formatCurrencyHNL(panel?.hoy?.ventas?.ticketPromedio)}</h4></div></div></div>
+          <div className="col-md-3"><div className="card shadow-sm"><div className="card-body"><h6>Mes ventas</h6><h4>{formatCurrencyHNL(panel?.mesActual?.ventas?.total)}</h4></div></div></div>
+          <div className="col-md-3"><div className="card shadow-sm"><div className="card-body"><h6>Mes utilidad neta</h6><h4>{formatCurrencyHNL(panel?.mesActual?.costos?.utilidadNeta)}</h4></div></div></div>
         </div>
       )}
 
@@ -303,11 +368,11 @@ function Reportes() {
         <>
           <div className="row g-3 mb-4">
             <div className="col-md-2"><div className="card shadow-sm"><div className="card-body"><h6>Ventas</h6><h4>{ventasResumen.cantidadVentas}</h4></div></div></div>
-            <div className="col-md-2"><div className="card shadow-sm"><div className="card-body"><h6>Total</h6><h4>L {Number(ventasResumen.total || 0).toFixed(2)}</h4></div></div></div>
-            <div className="col-md-2"><div className="card shadow-sm"><div className="card-body"><h6>Descuento</h6><h4>L {Number(ventasResumen.descuento || 0).toFixed(2)}</h4></div></div></div>
-            <div className="col-md-2"><div className="card shadow-sm"><div className="card-body"><h6>Impuesto</h6><h4>L {Number(ventasResumen.impuesto || 0).toFixed(2)}</h4></div></div></div>
-            <div className="col-md-2"><div className="card shadow-sm"><div className="card-body"><h6>Gastos</h6><h4>L {Number(gastosResumen?.totalGastos || 0).toFixed(2)}</h4></div></div></div>
-            <div className="col-md-2"><div className="card shadow-sm"><div className="card-body"><h6>Utilidad neta</h6><h4>L {Number(utilidad?.utilidadNeta || 0).toFixed(2)}</h4></div></div></div>
+            <div className="col-md-2"><div className="card shadow-sm"><div className="card-body"><h6>Total</h6><h4>{formatCurrencyHNL(ventasResumen.total)}</h4></div></div></div>
+            <div className="col-md-2"><div className="card shadow-sm"><div className="card-body"><h6>Descuento</h6><h4>{formatCurrencyHNL(ventasResumen.descuento)}</h4></div></div></div>
+            <div className="col-md-2"><div className="card shadow-sm"><div className="card-body"><h6>Impuesto</h6><h4>{formatCurrencyHNL(ventasResumen.impuesto)}</h4></div></div></div>
+            <div className="col-md-2"><div className="card shadow-sm"><div className="card-body"><h6>Gastos</h6><h4>{formatCurrencyHNL(gastosResumen?.totalGastos)}</h4></div></div></div>
+            <div className="col-md-2"><div className="card shadow-sm"><div className="card-body"><h6>Utilidad neta</h6><h4>{formatCurrencyHNL(utilidad?.utilidadNeta)}</h4></div></div></div>
           </div>
           <div className="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
             <div className="reports-tabs">
@@ -316,12 +381,26 @@ function Reportes() {
               <button type="button" className={`btn btn-sm ${tabActiva === 'detalle' ? 'btn-dark' : 'btn-outline-secondary'}`} onClick={() => setTabActiva('detalle')}>Detalle</button>
               <button type="button" className={`btn btn-sm ${tabActiva === 'productos' ? 'btn-dark' : 'btn-outline-secondary'}`} onClick={() => setTabActiva('productos')}>Productos</button>
               <button type="button" className={`btn btn-sm ${tabActiva === 'tendencia' ? 'btn-dark' : 'btn-outline-secondary'}`} onClick={() => setTabActiva('tendencia')}>Tendencia</button>
-              <button type="button" className={`btn btn-sm ${tabActiva === 'ventas_categoria' ? 'btn-dark' : 'btn-outline-secondary'}`} onClick={() => setTabActiva('ventas_categoria')}>Cat. ventas</button>
-              <button type="button" className={`btn btn-sm ${tabActiva === 'gastos_categoria' ? 'btn-dark' : 'btn-outline-secondary'}`} onClick={() => setTabActiva('gastos_categoria')}>Cat. gastos</button>
+              <button type="button" className={`btn btn-sm ${tabActiva === 'ventas_categoria' ? 'btn-dark' : 'btn-outline-secondary'}`} onClick={() => setTabActiva('ventas_categoria')}>Categorias ventas</button>
+              <button type="button" className={`btn btn-sm ${tabActiva === 'gastos_categoria' ? 'btn-dark' : 'btn-outline-secondary'}`} onClick={() => setTabActiva('gastos_categoria')}>Categorias gastos</button>
               <button type="button" className={`btn btn-sm ${tabActiva === 'movimientos' ? 'btn-dark' : 'btn-outline-secondary'}`} onClick={() => setTabActiva('movimientos')}>Movimientos</button>
+              <button type="button" className={`btn btn-sm ${tabActiva === 'caja_avanzado' ? 'btn-dark' : 'btn-outline-secondary'}`} onClick={() => setTabActiva('caja_avanzado')}>Caja avanzado</button>
             </div>
             <button className="btn btn-outline-success btn-sm" onClick={exportarResumenGeneral}>Excel resumen</button>
           </div>
+          {loadingByTab[tabActiva] && (
+            <div className="alert alert-secondary py-2">
+              Cargando bloque <strong>{tabActiva.replace('_', ' ')}</strong>...
+            </div>
+          )}
+          {!!errorByTab[tabActiva] && (
+            <div className="alert alert-warning py-2 d-flex justify-content-between align-items-center gap-2">
+              <span>{errorByTab[tabActiva]}</span>
+              <button type="button" className="btn btn-sm btn-outline-dark" onClick={cargarReportes}>
+                Reintentar bloque
+              </button>
+            </div>
+          )}
 
           {tabActiva === 'metodos' && (
             <div className="card shadow-sm">
@@ -380,14 +459,14 @@ function Reportes() {
                     <tbody>
                       {ventasDetalle.map((item) => (
                         <tr key={item.id_Venta}>
-                          <td>{item.fecha ? new Date(item.fecha).toLocaleString('es-HN') : '-'}</td>
+                          <td>{formatDateTimeHN(item.fecha) || '-'}</td>
                           <td>#{item.id_Venta}</td>
                           <td>{item.sucursal}</td>
                           <td>{item.tipoServicio}</td>
                           <td>{item.atendio}</td>
                           <td>{item.cobro}</td>
                           <td>{item.metodo_Pago}</td>
-                          <td>L {Number(item.total || 0).toFixed(2)}</td>
+                          <td>{formatCurrencyHNL(item.total)}</td>
                         </tr>
                       ))}
                       {ventasDetalle.length === 0 && (
@@ -501,15 +580,72 @@ function Reportes() {
                     <tbody>
                       {(panel?.movimientosHoy || []).map((item) => (
                         <tr key={item.id_Movimiento_Caja}>
-                          <td>{new Date(item.fecha).toLocaleTimeString('es-HN')}</td>
+                          <td>{formatTimeHN(item.fecha)}</td>
                           <td>{item.id_Caja}</td>
                           <td>{item.tipo}</td>
                           <td>{item.descripcion}</td>
-                          <td>L {Number(item.monto || 0).toFixed(2)}</td>
+                          <td>{formatCurrencyHNL(item.monto)}</td>
                         </tr>
                       ))}
                       {(panel?.movimientosHoy || []).length === 0 && (
                         <tr><td colSpan="5" className="text-center">Sin movimientos hoy</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {loadingByTab[tabActiva] && (
+            <div className="card shadow-sm mt-2">
+              <div className="card-body placeholder-glow">
+                <span className="placeholder col-4 mb-3"></span>
+                <span className="placeholder col-12 mb-2"></span>
+                <span className="placeholder col-12 mb-2"></span>
+                <span className="placeholder col-10 mb-2"></span>
+                <span className="placeholder col-8"></span>
+              </div>
+            </div>
+          )}
+
+          {tabActiva === 'caja_avanzado' && (
+            <div className="card shadow-sm">
+              <div className="card-body reports-card-body">
+                <div className="d-flex justify-content-between align-items-center mb-2">
+                  <h5 className="mb-0">Analitica avanzada de movimientos de caja</h5>
+                  <button className="btn btn-outline-success btn-sm" onClick={exportarCajaAvanzado} disabled={!cajaMovimientosAvanzado?.ultimos?.length}>
+                    Excel
+                  </button>
+                </div>
+                <div className="row g-2 mb-3">
+                  {(cajaMovimientosAvanzado?.porTipo || []).map((x, idx) => (
+                    <div className="col-md-3" key={`tipo-${idx}`}>
+                      <div className="border rounded p-2 bg-light">
+                        <div className="small text-muted">{x.tipo || 'N/D'}</div>
+                        <div className="fw-bold">{formatCurrencyHNL(x.total)}</div>
+                        <div className="small">{x.cantidad} mov.</div>
+                      </div>
+                    </div>
+                  ))}
+                  {!(cajaMovimientosAvanzado?.porTipo || []).length && <div className="text-muted">Sin datos en el rango.</div>}
+                </div>
+                <div className="compact-table-wrap">
+                  <table className="table table-bordered mb-0">
+                    <thead><tr><th>Fecha</th><th>Caja</th><th>Sucursal</th><th>Tipo</th><th>Descripcion</th><th>Monto</th></tr></thead>
+                    <tbody>
+                      {(cajaMovimientosAvanzado?.ultimos || []).map((item) => (
+                        <tr key={item.id_Movimiento_Caja}>
+                          <td>{formatDateTimeHN(item.fecha) || '-'}</td>
+                          <td>{item.id_Caja}</td>
+                          <td>{item.id_Sucursal}</td>
+                          <td>{item.tipo}</td>
+                          <td>{item.descripcion}</td>
+                          <td>{formatCurrencyHNL(item.monto)}</td>
+                        </tr>
+                      ))}
+                      {!(cajaMovimientosAvanzado?.ultimos || []).length && (
+                        <tr><td colSpan="6" className="text-center">Sin movimientos en el rango</td></tr>
                       )}
                     </tbody>
                   </table>

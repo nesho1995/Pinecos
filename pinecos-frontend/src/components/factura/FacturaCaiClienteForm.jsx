@@ -17,9 +17,19 @@ export const facturaClienteVacio = () => ({
 });
 
 function FacturaCaiClienteForm({ value, onChange, idPrefix = 'fcai' }) {
+  const onlyDigits = (raw) => String(raw || '').replace(/\D+/g, '');
   const set = (field, v) => onChange({ ...value, [field]: v });
 
   const esEmpresa = String(value.tipoCliente || '').toUpperCase() === 'OBLIGADO_TRIBUTARIO';
+  const rtnDigits = onlyDigits(value.rtnCliente);
+  const identidadDigits = onlyDigits(value.identidadCliente);
+  const telefonoDigits = onlyDigits(value.telefonoCliente);
+  const rtnTouched = String(value.rtnCliente || '').length > 0;
+  const identidadTouched = String(value.identidadCliente || '').length > 0;
+  const telefonoTouched = String(value.telefonoCliente || '').length > 0;
+  const rtnInvalido = esEmpresa && rtnTouched && rtnDigits.length !== 14;
+  const identidadInvalida = !esEmpresa && identidadTouched && identidadDigits.length < 13;
+  const telefonoInvalido = telefonoTouched && telefonoDigits.length < 8;
 
   return (
     <div className="border rounded p-3 bg-light mb-2">
@@ -74,26 +84,40 @@ function FacturaCaiClienteForm({ value, onChange, idPrefix = 'fcai' }) {
           <label className="form-label small mb-0">RTN (14 digitos)</label>
           <input
             type="text"
-            className="form-control form-control-sm font-monospace"
+            className={`form-control form-control-sm font-monospace ${rtnInvalido ? 'is-invalid' : ''}`}
             id={`${idPrefix}-rtn`}
             value={value.rtnCliente || ''}
-            onChange={(e) => set('rtnCliente', e.target.value)}
+            onChange={(e) => set('rtnCliente', onlyDigits(e.target.value).slice(0, 14))}
             placeholder="Ej. 08011980123456"
             autoComplete="off"
+            inputMode="numeric"
+            pattern="[0-9]{14}"
+            aria-invalid={rtnInvalido}
+            aria-describedby={`${idPrefix}-rtn-help`}
           />
+          <div id={`${idPrefix}-rtn-help`} className={`form-text ${rtnInvalido ? 'text-danger' : ''}`}>
+            Debe contener exactamente 14 digitos numericos.
+          </div>
         </div>
       ) : (
         <div className="mb-2">
           <label className="form-label small mb-0">Identidad</label>
           <input
             type="text"
-            className="form-control form-control-sm font-monospace"
+            className={`form-control form-control-sm font-monospace ${identidadInvalida ? 'is-invalid' : ''}`}
             id={`${idPrefix}-id`}
             value={value.identidadCliente || ''}
-            onChange={(e) => set('identidadCliente', e.target.value)}
+            onChange={(e) => set('identidadCliente', onlyDigits(e.target.value).slice(0, 20))}
             placeholder="Numero de identidad"
             autoComplete="off"
+            inputMode="numeric"
+            pattern="[0-9]{13,20}"
+            aria-invalid={identidadInvalida}
+            aria-describedby={`${idPrefix}-id-help`}
           />
+          <div id={`${idPrefix}-id-help`} className={`form-text ${identidadInvalida ? 'text-danger' : ''}`}>
+            Ingresa al menos 13 digitos numericos.
+          </div>
         </div>
       )}
 
@@ -114,13 +138,20 @@ function FacturaCaiClienteForm({ value, onChange, idPrefix = 'fcai' }) {
         <label className="form-label small mb-0">Telefono</label>
         <input
           type="text"
-          className="form-control form-control-sm"
+          className={`form-control form-control-sm ${telefonoInvalido ? 'is-invalid' : ''}`}
           id={`${idPrefix}-tel`}
           value={value.telefonoCliente || ''}
-          onChange={(e) => set('telefonoCliente', e.target.value)}
+          onChange={(e) => set('telefonoCliente', onlyDigits(e.target.value).slice(0, 15))}
           placeholder="Telefono de contacto"
           autoComplete="tel"
+          inputMode="tel"
+          pattern="[0-9]{8,15}"
+          aria-invalid={telefonoInvalido}
+          aria-describedby={`${idPrefix}-tel-help`}
         />
+        <div id={`${idPrefix}-tel-help`} className={`form-text ${telefonoInvalido ? 'text-danger' : ''}`}>
+          Ingresa entre 8 y 15 digitos.
+        </div>
       </div>
 
       <div className="mb-0">

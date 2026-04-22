@@ -668,5 +668,86 @@ namespace Pinecos.Controllers
                 return ErrorInternoReportes();
             }
         }
+
+        [HttpGet("caja-movimientos-avanzado")]
+        public async Task<ActionResult> CajaMovimientosAvanzado(DateTime? desde, DateTime? hasta, int? idSucursal, int top = 200)
+        {
+            var fechaDesde = desde ?? FechaHelper.HoyInicioHonduras();
+            var fechaHasta = hasta ?? FechaHelper.HoyFinHonduras();
+            if (top <= 0 || top > 1000) top = 200;
+
+            try
+            {
+                var query =
+                    from m in _context.MovimientosCaja.AsNoTracking()
+                    join c in _context.Cajas.AsNoTracking() on m.Id_Caja equals c.Id_Caja
+                    where m.Fecha >= fechaDesde && m.Fecha <= fechaHasta
+                          && (!idSucursal.HasValue || c.Id_Sucursal == idSucursal.Value)
+                    select new
+                    {
+                        m.Id_Movimiento_Caja,
+                        m.Id_Caja,
+                        c.Id_Sucursal,
+                        m.Fecha,
+                        Tipo = m.Tipo ?? string.Empty,
+                        m.Descripcion,
+                        m.Monto
+                    };
+
+                var ultimos = await query
+                    .OrderByDescending(x => x.Fecha)
+                    .Take(top)
+                    .ToListAsync();
+
+                var porTipo = await query
+                    .GroupBy(x => x.Tipo.ToUpper())
+                    .Select(g => new
+                    {
+                        tipo = g.Key,
+                        cantidad = g.Count(),
+                        total = g.Sum(x => x.Monto)
+                    })
+                    .OrderByDescending(x => x.total)
+                    .ToListAsync();
+
+                var porDia = await query
+                    .GroupBy(x => x.Fecha.Date)
+                    .Select(g => new
+                    {
+                        fecha = g.Key,
+                        cantidad = g.Count(),
+                        total = g.Sum(x => x.Monto)
+                    })
+                    .OrderBy(x => x.fecha)
+                    .ToListAsync();
+
+                var porCaja = await query
+                    .GroupBy(x => new { x.Id_Caja, x.Id_Sucursal })
+                    .Select(g => new
+                    {
+                        idCaja = g.Key.Id_Caja,
+                        idSucursalCaja = g.Key.Id_Sucursal,
+                        cantidad = g.Count(),
+                        total = g.Sum(x => x.Monto)
+                    })
+                    .OrderByDescending(x => x.total)
+                    .Take(20)
+                    .ToListAsync();
+
+                return Ok(new
+                {
+                    rango = new { desde = fechaDesde, hasta = fechaHasta },
+                    top,
+                    porTipo,
+                    porDia,
+                    porCaja,
+                    ultimos
+                });
+            }
+            catch
+            {
+                return ErrorInternoReportes();
+            }
+        }
     }
 }

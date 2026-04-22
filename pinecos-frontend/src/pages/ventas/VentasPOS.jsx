@@ -1,7 +1,8 @@
 ﻿import { useEffect, useMemo, useRef, useState } from 'react';
 import api from '../../services/api';
-import { imprimirHtmlDirecto, imprimirTicketHtml } from '../../utils/printTicket';
+import { descargarTicketPdf, imprimirHtmlDirecto, imprimirTicketHtml } from '../../utils/printTicket';
 import { getUsuario } from '../../utils/auth';
+import { formatCurrencyHNL, formatDateTimeHN, formatTimeHN } from '../../utils/formatters';
 import FacturaCaiClienteForm, { facturaClienteVacio } from '../../components/factura/FacturaCaiClienteForm';
 import CheckoutPayMethodChips from '../../components/checkout/CheckoutPayMethodChips';
 import CheckoutServiceToggle from '../../components/checkout/CheckoutServiceToggle';
@@ -32,6 +33,7 @@ function VentasPOS() {
   const [mensaje, setMensaje] = useState('');
   const [error, setError] = useState('');
   const [ultimaVentaId, setUltimaVentaId] = useState(null);
+  const [ticketPendienteImpresionId, setTicketPendienteImpresionId] = useState(null);
   const [procesando, setProcesando] = useState(false);
   const [preCuentaEstado, setPreCuentaEstado] = useState('NINGUNA');
   const [preCuentaFecha, setPreCuentaFecha] = useState(null);
@@ -184,6 +186,7 @@ function VentasPOS() {
   const limpiarMensajes = () => {
     setMensaje('');
     setError('');
+    setTicketPendienteImpresionId(null);
   };
 
   const invalidarPreCuenta = () => {
@@ -679,6 +682,7 @@ function VentasPOS() {
       try {
         await imprimirTicketHtml(idVenta);
       } catch (printErr) {
+        setTicketPendienteImpresionId(idVenta);
         mensajeOk += ` — No se abrio la impresion: ${printErr?.message || 'error desconocido'}`;
       }
       setMensaje(mensajeOk);
@@ -744,7 +748,7 @@ function VentasPOS() {
         items: carrito.reduce((acc, item) => acc + Number(item?.cantidad || 0), 0),
         fechaIso: fecha.toISOString()
       });
-      setMensaje(`Pre-cuenta impresa y generada (${fecha.toLocaleTimeString()}). Ya puedes hacer cobro final.`);
+      setMensaje(`Pre-cuenta impresa y generada (${formatTimeHN(fecha)}). Ya puedes hacer cobro final.`);
     } catch (err) {
       setPreCuentaEstado('NINGUNA');
       setPreCuentaFecha(null);
@@ -776,8 +780,35 @@ function VentasPOS() {
     if (!ultimaVentaId) return setError('No hay ticket para imprimir');
     try {
       await imprimirTicketHtml(ultimaVentaId);
+      setMensaje(`Ticket #${ultimaVentaId} enviado a impresion.`);
     } catch (err) {
+      setTicketPendienteImpresionId(ultimaVentaId);
       setError(err?.message || 'No se pudo imprimir el ticket');
+    }
+  };
+
+  const reintentarImpresionPendiente = async () => {
+    if (!ticketPendienteImpresionId) return;
+    limpiarMensajes();
+    try {
+      await imprimirTicketHtml(ticketPendienteImpresionId);
+      setMensaje(`Impresion reintentada con exito para ticket #${ticketPendienteImpresionId}.`);
+      setTicketPendienteImpresionId(null);
+    } catch (err) {
+      setError(err?.message || 'No se pudo reintentar la impresion del ticket');
+      setTicketPendienteImpresionId(ticketPendienteImpresionId);
+    }
+  };
+
+  const descargarPdfPendiente = async () => {
+    if (!ticketPendienteImpresionId) return;
+    limpiarMensajes();
+    try {
+      await descargarTicketPdf(ticketPendienteImpresionId);
+      setMensaje(`PDF del ticket #${ticketPendienteImpresionId} descargado correctamente.`);
+      setTicketPendienteImpresionId(ticketPendienteImpresionId);
+    } catch (err) {
+      setError(err?.response?.data?.message || err?.message || 'No se pudo descargar el PDF del ticket');
     }
   };
 
@@ -811,6 +842,28 @@ function VentasPOS() {
 
       {mensaje && <div className="alert alert-success">{mensaje}</div>}
       {error && <div className="alert alert-danger">{error}</div>}
+      {ticketPendienteImpresionId && (
+        <div className="alert alert-warning d-flex flex-wrap justify-content-between align-items-center gap-2">
+          <div>
+            El ticket <strong>#{ticketPendienteImpresionId}</strong> quedo pendiente de impresion.
+          </div>
+          <div className="d-flex flex-wrap gap-2">
+            <button type="button" className="btn btn-sm btn-outline-warning" onClick={reintentarImpresionPendiente}>
+              Reintentar impresion
+            </button>
+            <button type="button" className="btn btn-sm btn-outline-primary" onClick={descargarPdfPendiente}>
+              Descargar PDF
+            </button>
+            <button
+              type="button"
+              className="btn btn-sm btn-outline-secondary"
+              onClick={() => setMensaje(`Ticket #${ticketPendienteImpresionId} marcado como pendiente de impresion.`)}
+            >
+              Marcar pendiente
+            </button>
+          </div>
+        </div>
+      )}
       {!idSucursalUsuario && <div className="alert alert-warning mb-3">El usuario no tiene sucursal asignada.</div>}
 
       {cargandoCaja ? (
@@ -852,7 +905,7 @@ function VentasPOS() {
                           <div>
                             <h6 className="mb-1">{producto.nombre}</h6>
                             <div className="text-muted small">{producto.categoria}</div>
-                            <div className="fw-semibold mt-1">Venta: L {Number(producto.precio).toFixed(2)}</div>
+                            <div className="fw-semibold mt-1">Venta: {formatCurrencyHNL(producto.precio)}</div>
                             <div className="small mt-1">
                               {cantidadEnCarrito > 0 ? (
                                 <span className="badge bg-success-subtle text-success-emphasis border">En cuenta: {cantidadEnCarrito}</span>
@@ -911,14 +964,14 @@ function VentasPOS() {
                   </div>
                 </div>
                 <div className={`alert py-2 ${preCuentaEstado === 'VIGENTE' ? 'alert-success' : preCuentaEstado === 'DESACTUALIZADA' ? 'alert-warning' : 'alert-secondary'}`}>
-                  {preCuentaEstado === 'VIGENTE' && `Pre-cuenta vigente${preCuentaFecha ? ` (${preCuentaFecha.toLocaleTimeString()})` : ''}`}
-                  {preCuentaEstado === 'DESACTUALIZADA' && `Pre-cuenta desactualizada${preCuentaFecha ? ` (ultima: ${preCuentaFecha.toLocaleTimeString()})` : ''}. Regenera antes de cobrar.`}
+                  {preCuentaEstado === 'VIGENTE' && `Pre-cuenta vigente${preCuentaFecha ? ` (${formatTimeHN(preCuentaFecha)})` : ''}`}
+                  {preCuentaEstado === 'DESACTUALIZADA' && `Pre-cuenta desactualizada${preCuentaFecha ? ` (ultima: ${formatTimeHN(preCuentaFecha)})` : ''}. Regenera antes de cobrar.`}
                   {preCuentaEstado === 'NINGUNA' && 'Aun no se genera pre-cuenta'}
                 </div>
                 {preCuentaResumenUltima && (
                   <div className="alert alert-light border py-2">
-                    <div className="small"><strong>Ultima pre-cuenta:</strong> {new Date(preCuentaResumenUltima.fechaIso).toLocaleString()}</div>
-                    <div className="small">Items: <strong>{preCuentaResumenUltima.items}</strong> | Subtotal base: <strong>L {preCuentaResumenUltima.subtotalBase.toFixed(2)}</strong> | Total: <strong>L {preCuentaResumenUltima.total.toFixed(2)}</strong></div>
+                    <div className="small"><strong>Ultima pre-cuenta:</strong> {formatDateTimeHN(preCuentaResumenUltima.fechaIso)}</div>
+                    <div className="small">Items: <strong>{preCuentaResumenUltima.items}</strong> | Subtotal base: <strong>{formatCurrencyHNL(preCuentaResumenUltima.subtotalBase)}</strong> | Total: <strong>{formatCurrencyHNL(preCuentaResumenUltima.total)}</strong></div>
                     <div className="small text-muted">Si cambias productos o descuento, debes regenerar pre-cuenta.</div>
                     <div className="mt-2">
                       <button type="button" className="btn btn-sm btn-outline-secondary" onClick={reimprimirUltimaPreCuenta} disabled={procesando || !preCuentaHtmlUltima}>
@@ -997,8 +1050,8 @@ function VentasPOS() {
                                 </div>
                               </td>
                               <td className="text-end fw-semibold">{Number(item.cantidad || 0)}</td>
-                              <td className="text-end">L {Number(item.precio_Unitario || 0).toFixed(2)}</td>
-                              <td className="text-end fw-bold">L {Number(item.subtotal || 0).toFixed(2)}</td>
+                              <td className="text-end">{formatCurrencyHNL(item.precio_Unitario)}</td>
+                              <td className="text-end fw-bold">{formatCurrencyHNL(item.subtotal)}</td>
                               <td className="text-end">
                                 <div className="d-flex justify-content-end gap-2">
                                   <button type="button" className="btn btn-outline-secondary btn-sm" onClick={() => decrementarCantidadItem(index)} disabled={Number(item.cantidad || 0) <= 1}>
@@ -1137,8 +1190,8 @@ function VentasPOS() {
                         placeholder="Monto que entrega el cliente"
                       />
                       <div className={`fw-semibold mt-2 ${cambioCalculado >= 0 ? 'text-success' : 'text-danger'}`}>
-                        Cambio: L {Math.max(0, cambioCalculado).toFixed(2)}
-                        {cambioCalculado < 0 ? ` · Faltan L ${Math.abs(cambioCalculado).toFixed(2)}` : ''}
+                        Cambio: {formatCurrencyHNL(Math.max(0, cambioCalculado))}
+                        {cambioCalculado < 0 ? ` · Faltan ${formatCurrencyHNL(Math.abs(cambioCalculado))}` : ''}
                       </div>
                     </div>
                   )}
@@ -1150,17 +1203,17 @@ function VentasPOS() {
                   <div className="pro-checkout-total-breakdown mt-2">
                     <div className="pro-checkout-total-line">
                       <span className="pro-checkout-total-line-label">Subtotal base</span>
-                      <span className="pro-checkout-total-line-value">L {subtotalBase.toFixed(2)}</span>
+                      <span className="pro-checkout-total-line-value">{formatCurrencyHNL(subtotalBase)}</span>
                     </div>
                     <div className={`pro-checkout-total-line ${descuentoCalculado > 0 ? 'pro-checkout-total-line--deduccion' : ''}`}>
                       <span className="pro-checkout-total-line-label">Descuentos</span>
-                      <span className="pro-checkout-total-line-value">{descuentoCalculado > 0 ? `- L ${descuentoCalculado.toFixed(2)}` : 'L 0.00'}</span>
+                      <span className="pro-checkout-total-line-value">{descuentoCalculado > 0 ? `- ${formatCurrencyHNL(descuentoCalculado)}` : formatCurrencyHNL(0)}</span>
                     </div>
                     <div className="pro-checkout-total-line">
                       <span className="pro-checkout-total-line-label">
                         Impuesto {impuestoIncluidoEnSubtotal ? '(en precio)' : '(ISV)'}
                       </span>
-                      <span className="pro-checkout-total-line-value">L {impuestoCalculado.toFixed(2)}</span>
+                      <span className="pro-checkout-total-line-value">{formatCurrencyHNL(impuestoCalculado)}</span>
                     </div>
                     {impuestoIncluidoEnSubtotal && (
                       <div className="pro-checkout-total-note">El ISV ya va en los precios de venta — no se suma otra vez al total.</div>
@@ -1168,7 +1221,7 @@ function VentasPOS() {
                   </div>
                   <div className="pro-checkout-total-grand">
                     <div className="pro-checkout-total-label mb-1">Total a cobrar</div>
-                    <div className="pro-checkout-total-amount">L {Number(total || 0).toFixed(2)}</div>
+                    <div className="pro-checkout-total-amount">{formatCurrencyHNL(total)}</div>
                   </div>
                 </div>
 
@@ -1187,6 +1240,11 @@ function VentasPOS() {
                   <button type="button" className="btn btn-outline-primary" onClick={generarPreCuenta} disabled={procesando || carrito.length === 0}>
                     {preCuentaEstado === 'DESACTUALIZADA' ? 'Regenerar pre-cuenta' : 'Generar pre-cuenta'}
                   </button>
+                  {preCuentaEstado !== 'VIGENTE' && (
+                    <div className="small text-warning text-center">
+                      Antes del cobro final debes generar una pre-cuenta vigente.
+                    </div>
+                  )}
                   <button type="button" className="btn btn-success" onClick={cobrarVenta} disabled={procesando || carrito.length === 0 || preCuentaEstado !== 'VIGENTE'}>
                     {procesando ? 'Procesando...' : 'Cobro final'}
                   </button>

@@ -88,6 +88,13 @@ namespace Pinecos.Controllers
                     p.Id_Categoria,
                     categoria = c.Nombre,
                     p.Costo,
+                    precioReferencia = _context.ProductosSucursal
+                        .Where(ps => ps.Id_Producto == p.Id_Producto && ps.Activo)
+                        .OrderBy(ps => ps.Id_Producto_Sucursal)
+                        .Select(ps => (decimal?)ps.Precio)
+                        .FirstOrDefault(),
+                    preciosConfigurados = _context.ProductosSucursal
+                        .Count(ps => ps.Id_Producto == p.Id_Producto && ps.Activo),
                     p.Tipo_Fiscal,
                     p.Activo
                 }
@@ -110,6 +117,13 @@ namespace Pinecos.Controllers
                     p.Id_Categoria,
                     categoria = c.Nombre,
                     p.Costo,
+                    precioReferencia = _context.ProductosSucursal
+                        .Where(ps => ps.Id_Producto == p.Id_Producto && ps.Activo)
+                        .OrderBy(ps => ps.Id_Producto_Sucursal)
+                        .Select(ps => (decimal?)ps.Precio)
+                        .FirstOrDefault(),
+                    preciosConfigurados = _context.ProductosSucursal
+                        .Count(ps => ps.Id_Producto == p.Id_Producto && ps.Activo),
                     p.Tipo_Fiscal,
                     p.Activo
                 }

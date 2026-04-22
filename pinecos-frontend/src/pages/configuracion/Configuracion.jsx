@@ -43,6 +43,27 @@ function Configuracion() {
   const [sucursales, setSucursales] = useState([]);
   const [sucursalSar, setSucursalSar] = useState('');
   const [listaSar, setListaSar] = useState([]);
+  const [resumenSar, setResumenSar] = useState({
+    total: 0,
+    reservados: 0,
+    emitidos: 0,
+    fallidos: 0,
+    pendientes: 0,
+    porSucursal: [],
+    fallosRecientes: []
+  });
+  const [eventosSar, setEventosSar] = useState({
+    total: 0,
+    page: 1,
+    pageSize: 20,
+    data: []
+  });
+  const [filtroEstadoEvento, setFiltroEstadoEvento] = useState('');
+  const [filtroSucursalEvento, setFiltroSucursalEvento] = useState('');
+  const [soloNoRevisados, setSoloNoRevisados] = useState(false);
+  const [eventoSeleccionado, setEventoSeleccionado] = useState(null);
+  const [comentarioEvento, setComentarioEvento] = useState('');
+  const [seleccionEventos, setSeleccionEventos] = useState([]);
   const [canalesForm, setCanalesForm] = useState({
     pos: ['POS 1', 'Transferencia'],
     delivery: ['PEDIDOS_YA'],
@@ -97,6 +118,160 @@ function Configuracion() {
       setListaSar(res.data || []);
     } catch {
       setListaSar([]);
+    }
+  };
+
+  const cargarSarResumenOperativo = async (idSucursal = null) => {
+    try {
+      const params = idSucursal ? { idSucursal: Number(idSucursal) } : undefined;
+      const res = await api.get('/FacturacionSar/resumen-operativo', { params });
+      setResumenSar({
+        total: Number(res.data?.total || 0),
+        reservados: Number(res.data?.reservados || 0),
+        emitidos: Number(res.data?.emitidos || 0),
+        fallidos: Number(res.data?.fallidos || 0),
+        pendientes: Number(res.data?.pendientes || 0),
+        porSucursal: res.data?.porSucursal || [],
+        fallosRecientes: res.data?.fallosRecientes || []
+      });
+    } catch {
+      setResumenSar({
+        total: 0,
+        reservados: 0,
+        emitidos: 0,
+        fallidos: 0,
+        pendientes: 0,
+        porSucursal: [],
+        fallosRecientes: []
+      });
+    }
+  };
+
+  const cargarSarEventos = async ({
+    page = 1,
+    estado = filtroEstadoEvento,
+    idSucursal = filtroSucursalEvento,
+    soloPendientesRevision = soloNoRevisados
+  } = {}) => {
+    try {
+      const params = {
+        page,
+        pageSize: 20,
+        soloNoRevisados: !!soloPendientesRevision
+      };
+      if (estado) params.estado = estado;
+      if (idSucursal) params.idSucursal = Number(idSucursal);
+      const res = await api.get('/FacturacionSar/eventos', { params });
+      setEventosSar({
+        total: Number(res.data?.total || 0),
+        page: Number(res.data?.page || page),
+        pageSize: Number(res.data?.pageSize || 20),
+        data: res.data?.data || []
+      });
+      setSeleccionEventos([]);
+    } catch {
+      setEventosSar({
+        total: 0,
+        page: 1,
+        pageSize: 20,
+        data: []
+      });
+    }
+  };
+
+  const toggleSeleccionEvento = (idEvento) => {
+    setSeleccionEventos((prev) =>
+      prev.includes(idEvento) ? prev.filter((x) => x !== idEvento) : [...prev, idEvento]
+    );
+  };
+
+  const toggleSeleccionTodosVisibles = (checked) => {
+    if (!checked) {
+      setSeleccionEventos([]);
+      return;
+    }
+    setSeleccionEventos((eventosSar.data || []).map((x) => x.id_Facturacion_Sar_Correlativo_Evento));
+  };
+
+  const actualizarRevisionEvento = async (revisado) => {
+    if (!eventoSeleccionado?.id_Facturacion_Sar_Correlativo_Evento) return;
+    setMensaje('');
+    setError('');
+    try {
+      await api.patch(`/FacturacionSar/eventos/${eventoSeleccionado.id_Facturacion_Sar_Correlativo_Evento}/revision`, {
+        revisado,
+        comentarioOperacion: comentarioEvento
+      });
+      setMensaje(revisado ? 'Evento marcado como revisado' : 'Evento marcado como pendiente');
+      await cargarSarResumenOperativo(sucursalSar);
+      await cargarSarEventos({ page: eventosSar.page || 1 });
+      const eventoActualizado = {
+        ...eventoSeleccionado,
+        revisado,
+        comentario_Operacion: comentarioEvento
+      };
+      setEventoSeleccionado(eventoActualizado);
+    } catch (err) {
+      setError(err?.response?.data?.message || 'No se pudo actualizar la revision del evento');
+    }
+  };
+
+  const revisarEventosMasivo = async (revisado) => {
+    const confirmacion = window.confirm(
+      revisado
+        ? 'Se marcaran como revisados todos los eventos del filtro actual. Continuar?'
+        : 'Se marcaran como pendientes todos los eventos del filtro actual. Continuar?'
+    );
+    if (!confirmacion) return;
+
+    setMensaje('');
+    setError('');
+    try {
+      const params = {};
+      if (filtroEstadoEvento) params.estado = filtroEstadoEvento;
+      if (filtroSucursalEvento) params.idSucursal = Number(filtroSucursalEvento);
+      if (soloNoRevisados) params.soloNoRevisados = true;
+
+      const res = await api.patch('/FacturacionSar/eventos/revision-masiva', {
+        revisado,
+        comentarioOperacion: comentarioEvento
+      }, { params });
+
+      await cargarSarResumenOperativo(sucursalSar);
+      await cargarSarEventos({ page: 1 });
+      setEventoSeleccionado(null);
+      setMensaje(res?.data?.message || 'Actualizacion masiva completada');
+    } catch (err) {
+      setError(err?.response?.data?.message || 'No se pudo actualizar revision masiva');
+    }
+  };
+
+  const revisarEventosSeleccionados = async (revisado) => {
+    if (!seleccionEventos.length) {
+      setError('Selecciona al menos un evento');
+      return;
+    }
+    const confirmacion = window.confirm(
+      revisado
+        ? `Se marcaran como revisados ${seleccionEventos.length} eventos seleccionados. Continuar?`
+        : `Se marcaran como pendientes ${seleccionEventos.length} eventos seleccionados. Continuar?`
+    );
+    if (!confirmacion) return;
+
+    setMensaje('');
+    setError('');
+    try {
+      const res = await api.patch('/FacturacionSar/eventos/revision-seleccion', {
+        idsEvento: seleccionEventos,
+        revisado,
+        comentarioOperacion: comentarioEvento
+      });
+      await cargarSarResumenOperativo(sucursalSar);
+      await cargarSarEventos({ page: eventosSar.page || 1 });
+      setEventoSeleccionado(null);
+      setMensaje(res?.data?.message || 'Actualizacion por seleccion completada');
+    } catch (err) {
+      setError(err?.response?.data?.message || 'No se pudo actualizar revision de eventos seleccionados');
     }
   };
 
@@ -160,6 +335,8 @@ function Configuracion() {
       const sucursalInicial = sucursalSar || (sucursalesData[0] ? String(sucursalesData[0].id_Sucursal) : '');
       if (sucursalInicial) await cargarConfiguracionSucursal(sucursalInicial);
       await cargarSarLista();
+      await cargarSarResumenOperativo();
+      await cargarSarEventos();
     } catch (err) {
       setError(err?.response?.data?.message || 'Error al cargar configuracion');
     } finally {
@@ -244,6 +421,8 @@ function Configuracion() {
       });
       await cargarSarLista();
       await cargarSarSucursal(idSucursal);
+      await cargarSarResumenOperativo();
+      await cargarSarEventos({ page: 1 });
       setMensaje('Configuracion SAR guardada correctamente');
     } catch (err) {
       setError(err?.response?.data?.message || 'Error al guardar configuracion SAR');
@@ -448,6 +627,8 @@ function Configuracion() {
     cargarAjustesVentaSucursal(sucursalSar).catch((err) => {
       setError(err?.response?.data?.message || 'Error al cargar ajustes de venta');
     });
+    cargarSarResumenOperativo(sucursalSar).catch(() => {});
+    cargarSarEventos({ page: 1 }).catch(() => {});
   }, [sucursalSar]);
 
   if (loading) return <div>Cargando configuracion...</div>;
@@ -756,6 +937,19 @@ function Configuracion() {
 
         <div className="card shadow-sm mt-3">
           <div className="card-body">
+            <h6 className="mb-2">Panel operativo fiscal</h6>
+            <div className="row g-2 mb-3">
+              <div className="col-md-2"><div className="border rounded p-2 bg-light"><div className="small text-muted">Total</div><div className="fw-bold">{resumenSar.total}</div></div></div>
+              <div className="col-md-2"><div className="border rounded p-2 bg-light"><div className="small text-muted">Emitidos</div><div className="fw-bold text-success">{resumenSar.emitidos}</div></div></div>
+              <div className="col-md-2"><div className="border rounded p-2 bg-light"><div className="small text-muted">Reservados</div><div className="fw-bold text-warning">{resumenSar.reservados}</div></div></div>
+              <div className="col-md-2"><div className="border rounded p-2 bg-light"><div className="small text-muted">Fallidos</div><div className="fw-bold text-danger">{resumenSar.fallidos}</div></div></div>
+              <div className="col-md-2"><div className="border rounded p-2 bg-light"><div className="small text-muted">Pendientes</div><div className="fw-bold">{resumenSar.pendientes}</div></div></div>
+              <div className="col-md-2 d-flex align-items-end">
+                <button type="button" className="btn btn-sm btn-outline-secondary w-100" onClick={() => cargarSarResumenOperativo(sucursalSar)}>
+                  Actualizar
+                </button>
+              </div>
+            </div>
             <h6 className="mb-3">Resumen por sucursal</h6>
             <div className="table-responsive">
               <table className="table table-bordered align-middle table-sm">
@@ -790,6 +984,241 @@ function Configuracion() {
                 </tbody>
               </table>
             </div>
+
+            <h6 className="mb-3 mt-4">Ultimos fallos de correlativo</h6>
+            <div className="table-responsive">
+              <table className="table table-bordered align-middle table-sm">
+                <thead className="table-light">
+                  <tr>
+                    <th style={{ width: 40 }}>
+                      <input
+                        type="checkbox"
+                        className="form-check-input"
+                        checked={eventosSar.data.length > 0 && seleccionEventos.length === eventosSar.data.length}
+                        onChange={(e) => toggleSeleccionTodosVisibles(e.target.checked)}
+                        title="Seleccionar visibles"
+                      />
+                    </th>
+                    <th>Fecha</th>
+                    <th>Sucursal</th>
+                    <th>Factura</th>
+                    <th>Origen</th>
+                    <th>Motivo</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {resumenSar.fallosRecientes.map((x) => (
+                    <tr key={x.id_Facturacion_Sar_Correlativo_Evento}>
+                      <td>{x.fecha ? new Date(x.fecha).toLocaleString('es-HN') : '-'}</td>
+                      <td>{nombreSucursalPorId(x.id_Sucursal)}</td>
+                      <td className="font-monospace small">{x.numero_Factura || '-'}</td>
+                      <td>{x.origen || '-'}</td>
+                      <td className="small">{x.motivo_Fallo || '-'}</td>
+                    </tr>
+                  ))}
+                  {resumenSar.fallosRecientes.length === 0 && (
+                    <tr><td colSpan="5" className="text-center">Sin fallos recientes</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <h6 className="mb-3 mt-4">Bitacora de eventos fiscales</h6>
+            <div className="row g-2 mb-2">
+              <div className="col-md-4">
+                <label className="form-label mb-1">Estado</label>
+                <select
+                  className="form-select form-select-sm"
+                  value={filtroEstadoEvento}
+                  onChange={(e) => setFiltroEstadoEvento(e.target.value)}
+                >
+                  <option value="">Todos</option>
+                  <option value="RESERVADO">RESERVADO</option>
+                  <option value="EMITIDO">EMITIDO</option>
+                  <option value="FALLIDO">FALLIDO</option>
+                </select>
+              </div>
+              <div className="col-md-4">
+                <label className="form-label mb-1">Sucursal</label>
+                <select
+                  className="form-select form-select-sm"
+                  value={filtroSucursalEvento}
+                  onChange={(e) => setFiltroSucursalEvento(e.target.value)}
+                >
+                  <option value="">Todas</option>
+                  {sucursales.map((s) => (
+                    <option key={s.id_Sucursal} value={s.id_Sucursal}>{s.nombre}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="col-md-4 d-flex align-items-end gap-2">
+                <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => cargarSarEventos({ page: 1 })}>
+                  Filtrar
+                </button>
+                <button type="button" className="btn btn-sm btn-outline-success" onClick={() => revisarEventosMasivo(true)}>
+                  Revisar visibles
+                </button>
+                <button type="button" className="btn btn-sm btn-outline-warning" onClick={() => revisarEventosMasivo(false)}>
+                  Pendiente visibles
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-secondary"
+                  onClick={() => {
+                    setFiltroEstadoEvento('');
+                    setFiltroSucursalEvento('');
+                    setSoloNoRevisados(false);
+                    setEventoSeleccionado(null);
+                    cargarSarEventos({ page: 1, estado: '', idSucursal: '', soloPendientesRevision: false });
+                  }}
+                >
+                  Limpiar
+                </button>
+              </div>
+              <div className="col-12">
+                <div className="form-check mt-1">
+                  <input
+                    className="form-check-input"
+                    type="checkbox"
+                    id="soloNoRevisadosEventosSar"
+                    checked={soloNoRevisados}
+                    onChange={(e) => setSoloNoRevisados(e.target.checked)}
+                  />
+                  <label className="form-check-label small" htmlFor="soloNoRevisadosEventosSar">
+                    Mostrar solo eventos no revisados
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div className="table-responsive">
+              <table className="table table-bordered align-middle table-sm">
+                <thead className="table-light">
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Sucursal</th>
+                    <th>Factura</th>
+                    <th>Estado</th>
+                    <th>Origen</th>
+                    <th>Venta</th>
+                    <th>Accion</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {eventosSar.data.map((x) => (
+                    <tr key={x.id_Facturacion_Sar_Correlativo_Evento}>
+                      <td>
+                        <input
+                          type="checkbox"
+                          className="form-check-input"
+                          checked={seleccionEventos.includes(x.id_Facturacion_Sar_Correlativo_Evento)}
+                          onChange={() => toggleSeleccionEvento(x.id_Facturacion_Sar_Correlativo_Evento)}
+                        />
+                      </td>
+                      <td>{x.fecha_Creacion ? new Date(x.fecha_Creacion).toLocaleString('es-HN') : '-'}</td>
+                      <td>{nombreSucursalPorId(x.id_Sucursal)}</td>
+                      <td className="font-monospace small">{x.numero_Factura || '-'}</td>
+                      <td>
+                        <span className={`status-pill ${x.estado === 'EMITIDO' ? 'active' : x.estado === 'FALLIDO' ? 'inactive' : 'warning'}`}>
+                          {x.estado}
+                        </span>
+                      </td>
+                      <td>{x.origen || '-'}</td>
+                      <td>{x.id_Venta || '-'}</td>
+                      <td>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-dark"
+                          onClick={() => {
+                            setEventoSeleccionado(x);
+                            setComentarioEvento(x.comentario_Operacion || '');
+                          }}
+                        >
+                          Ver detalle
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {eventosSar.data.length === 0 && (
+                    <tr><td colSpan="8" className="text-center">Sin eventos para los filtros seleccionados</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="d-flex flex-wrap gap-2 align-items-center mt-2">
+              <span className="small text-muted">Seleccionados: {seleccionEventos.length}</span>
+              <button type="button" className="btn btn-sm btn-outline-success" disabled={!seleccionEventos.length} onClick={() => revisarEventosSeleccionados(true)}>
+                Revisar seleccionados
+              </button>
+              <button type="button" className="btn btn-sm btn-outline-warning" disabled={!seleccionEventos.length} onClick={() => revisarEventosSeleccionados(false)}>
+                Pendiente seleccionados
+              </button>
+            </div>
+
+            <div className="d-flex justify-content-between align-items-center mt-2">
+              <div className="small text-muted">
+                Mostrando {eventosSar.data.length} de {eventosSar.total} eventos
+              </div>
+              <div className="d-flex gap-2">
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-secondary"
+                  disabled={eventosSar.page <= 1}
+                  onClick={() => cargarSarEventos({ page: Math.max(1, eventosSar.page - 1) })}
+                >
+                  Anterior
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-secondary"
+                  disabled={eventosSar.page * eventosSar.pageSize >= eventosSar.total}
+                  onClick={() => cargarSarEventos({ page: eventosSar.page + 1 })}
+                >
+                  Siguiente
+                </button>
+              </div>
+            </div>
+
+            {eventoSeleccionado && (
+              <div className="alert alert-light border mt-3 mb-0">
+                <div className="d-flex justify-content-between align-items-center mb-2">
+                  <h6 className="mb-0">Detalle del evento #{eventoSeleccionado.id_Facturacion_Sar_Correlativo_Evento}</h6>
+                  <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => setEventoSeleccionado(null)}>
+                    Cerrar
+                  </button>
+                </div>
+                <div className="small">
+                  <div><strong>Sucursal:</strong> {nombreSucursalPorId(eventoSeleccionado.id_Sucursal)}</div>
+                  <div><strong>Factura:</strong> <span className="font-monospace">{eventoSeleccionado.numero_Factura || '-'}</span></div>
+                  <div><strong>Estado:</strong> {eventoSeleccionado.estado || '-'}</div>
+                  <div><strong>Origen:</strong> {eventoSeleccionado.origen || '-'}</div>
+                  <div><strong>Venta vinculada:</strong> {eventoSeleccionado.id_Venta || '-'}</div>
+                  <div><strong>Creado:</strong> {eventoSeleccionado.fecha_Creacion ? new Date(eventoSeleccionado.fecha_Creacion).toLocaleString('es-HN') : '-'}</div>
+                  <div><strong>Actualizado:</strong> {eventoSeleccionado.fecha_Actualizacion ? new Date(eventoSeleccionado.fecha_Actualizacion).toLocaleString('es-HN') : '-'}</div>
+                  <div><strong>Revisado:</strong> {eventoSeleccionado.revisado ? 'SI' : 'NO'}</div>
+                  <div><strong>Motivo fallo:</strong> {eventoSeleccionado.motivo_Fallo || '-'}</div>
+                </div>
+                <div className="mt-2">
+                  <label className="form-label mb-1">Comentario operativo</label>
+                  <textarea
+                    className="form-control form-control-sm"
+                    rows={2}
+                    value={comentarioEvento}
+                    onChange={(e) => setComentarioEvento(e.target.value)}
+                    placeholder={eventoSeleccionado.comentario_Operacion || 'Sin comentario'}
+                  />
+                  <div className="d-flex gap-2 mt-2">
+                    <button type="button" className="btn btn-sm btn-outline-success" onClick={() => actualizarRevisionEvento(true)}>
+                      Marcar revisado
+                    </button>
+                    <button type="button" className="btn btn-sm btn-outline-warning" onClick={() => actualizarRevisionEvento(false)}>
+                      Marcar pendiente
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

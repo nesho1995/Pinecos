@@ -68,7 +68,7 @@ const sections = [
   }
 ];
 
-function Sidebar({ onNavigate }) {
+function Sidebar({ onNavigate, pendientesFiscales = 0 }) {
   const role = getUserRole();
   const visibleSections = sections
     .map((section) => ({
@@ -107,7 +107,12 @@ function Sidebar({ onNavigate }) {
                     className="sidebar-link"
                     onClick={onNavigate}
                   >
-                    {item.label}
+                    <span>{item.label}</span>
+                    {item.to === '/configuracion' && pendientesFiscales > 0 && (
+                      <span className="badge rounded-pill text-bg-danger ms-2" title="Pendientes fiscales por revisar">
+                        {pendientesFiscales}
+                      </span>
+                    )}
                   </NavLink>
                 ))}
               </nav>

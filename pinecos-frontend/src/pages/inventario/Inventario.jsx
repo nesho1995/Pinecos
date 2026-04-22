@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import api from '../../services/api';
 import { exportToExcelCsv } from '../../utils/excelExport';
+import { formatCurrencyHNL, formatDateTimeHN } from '../../utils/formatters';
 
 const emptyItem = {
   id_Sucursal: '',
@@ -559,6 +560,25 @@ function Inventario() {
   };
 
   const maxStock = Math.max(1, ...items.map((x) => Number(x.stock_Actual || 0)));
+  const tabOptions = ['resumen', 'checklist', 'items', 'movimientos', 'compras', 'ordenes', 'recetas', 'kardex'];
+
+  const handleTabKeydown = (event, currentTab) => {
+    const currentIndex = tabOptions.indexOf(currentTab);
+    if (currentIndex < 0) return;
+    if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      setTab(tabOptions[(currentIndex + 1) % tabOptions.length]);
+    } else if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      setTab(tabOptions[(currentIndex - 1 + tabOptions.length) % tabOptions.length]);
+    } else if (event.key === 'Home') {
+      event.preventDefault();
+      setTab(tabOptions[0]);
+    } else if (event.key === 'End') {
+      event.preventDefault();
+      setTab(tabOptions[tabOptions.length - 1]);
+    }
+  };
 
   const exportarItems = () => {
     exportToExcelCsv(
@@ -584,7 +604,7 @@ function Inventario() {
       'inventario_movimientos.csv',
       ['Fecha', 'Sucursal', 'Item', 'Tipo', 'Cantidad', 'Unidad', 'Costo unitario', 'Referencia', 'Observacion', 'Usuario'],
       movimientos.map((m) => [
-        m.fecha ? new Date(m.fecha).toLocaleString('es-HN') : '',
+        formatDateTimeHN(m.fecha),
         m.sucursal,
         m.item,
         m.tipo,
@@ -604,7 +624,7 @@ function Inventario() {
       ['Id compra', 'Fecha', 'Proveedor', 'Sucursal', 'Usuario', 'Total', 'Observacion'],
       compras.map((c) => [
         c.id_Compra_Proveedor,
-        c.fecha ? new Date(c.fecha).toLocaleString('es-HN') : '',
+        formatDateTimeHN(c.fecha),
         c.proveedor,
         c.sucursal,
         c.usuario,
@@ -636,7 +656,7 @@ function Inventario() {
       ['Id', 'Fecha', 'Estado', 'Proveedor', 'Sucursal', 'Total', 'Observacion'],
       ordenesCompra.map((x) => [
         x.id_Compra_Proveedor,
-        x.fecha ? new Date(x.fecha).toLocaleString('es-HN') : '',
+        formatDateTimeHN(x.fecha),
         x.estado,
         x.proveedor,
         x.sucursal,
@@ -718,18 +738,18 @@ function Inventario() {
       </div>
 
       <div className="reports-tabs inventario-tabs mb-3" role="tablist" aria-label="Secciones inventario">
-        <button type="button" className={`btn btn-sm ${tab === 'resumen' ? 'btn-dark' : 'btn-outline-secondary'}`} onClick={() => setTab('resumen')}>Resumen</button>
-        <button type="button" className={`btn btn-sm ${tab === 'checklist' ? 'btn-dark' : 'btn-outline-secondary'}`} onClick={() => setTab('checklist')}>Checklist</button>
-        <button type="button" className={`btn btn-sm ${tab === 'items' ? 'btn-dark' : 'btn-outline-secondary'}`} onClick={() => setTab('items')}>Insumos</button>
-        <button type="button" className={`btn btn-sm ${tab === 'movimientos' ? 'btn-dark' : 'btn-outline-secondary'}`} onClick={() => setTab('movimientos')}>Movimientos</button>
-        <button type="button" className={`btn btn-sm ${tab === 'compras' ? 'btn-dark' : 'btn-outline-secondary'}`} onClick={() => setTab('compras')}>Compras</button>
-        <button type="button" className={`btn btn-sm ${tab === 'ordenes' ? 'btn-dark' : 'btn-outline-secondary'}`} onClick={() => setTab('ordenes')}>Ordenes OC</button>
-        <button type="button" className={`btn btn-sm ${tab === 'recetas' ? 'btn-dark' : 'btn-outline-secondary'}`} onClick={() => setTab('recetas')}>Recetas</button>
-        <button type="button" className={`btn btn-sm ${tab === 'kardex' ? 'btn-dark' : 'btn-outline-secondary'}`} onClick={() => setTab('kardex')}>Kardex</button>
+        <button type="button" role="tab" aria-selected={tab === 'resumen'} aria-controls="panel-inventario-resumen" id="tab-inventario-resumen" className={`btn btn-sm ${tab === 'resumen' ? 'btn-dark' : 'btn-outline-secondary'}`} onKeyDown={(e) => handleTabKeydown(e, 'resumen')} onClick={() => setTab('resumen')}>Resumen</button>
+        <button type="button" role="tab" aria-selected={tab === 'checklist'} aria-controls="panel-inventario-checklist" id="tab-inventario-checklist" className={`btn btn-sm ${tab === 'checklist' ? 'btn-dark' : 'btn-outline-secondary'}`} onKeyDown={(e) => handleTabKeydown(e, 'checklist')} onClick={() => setTab('checklist')}>Checklist</button>
+        <button type="button" role="tab" aria-selected={tab === 'items'} aria-controls="panel-inventario-items" id="tab-inventario-items" className={`btn btn-sm ${tab === 'items' ? 'btn-dark' : 'btn-outline-secondary'}`} onKeyDown={(e) => handleTabKeydown(e, 'items')} onClick={() => setTab('items')}>Insumos</button>
+        <button type="button" role="tab" aria-selected={tab === 'movimientos'} aria-controls="panel-inventario-movimientos" id="tab-inventario-movimientos" className={`btn btn-sm ${tab === 'movimientos' ? 'btn-dark' : 'btn-outline-secondary'}`} onKeyDown={(e) => handleTabKeydown(e, 'movimientos')} onClick={() => setTab('movimientos')}>Movimientos</button>
+        <button type="button" role="tab" aria-selected={tab === 'compras'} aria-controls="panel-inventario-compras" id="tab-inventario-compras" className={`btn btn-sm ${tab === 'compras' ? 'btn-dark' : 'btn-outline-secondary'}`} onKeyDown={(e) => handleTabKeydown(e, 'compras')} onClick={() => setTab('compras')}>Compras</button>
+        <button type="button" role="tab" aria-selected={tab === 'ordenes'} aria-controls="panel-inventario-ordenes" id="tab-inventario-ordenes" className={`btn btn-sm ${tab === 'ordenes' ? 'btn-dark' : 'btn-outline-secondary'}`} onKeyDown={(e) => handleTabKeydown(e, 'ordenes')} onClick={() => setTab('ordenes')}>Ordenes OC</button>
+        <button type="button" role="tab" aria-selected={tab === 'recetas'} aria-controls="panel-inventario-recetas" id="tab-inventario-recetas" className={`btn btn-sm ${tab === 'recetas' ? 'btn-dark' : 'btn-outline-secondary'}`} onKeyDown={(e) => handleTabKeydown(e, 'recetas')} onClick={() => setTab('recetas')}>Recetas</button>
+        <button type="button" role="tab" aria-selected={tab === 'kardex'} aria-controls="panel-inventario-kardex" id="tab-inventario-kardex" className={`btn btn-sm ${tab === 'kardex' ? 'btn-dark' : 'btn-outline-secondary'}`} onKeyDown={(e) => handleTabKeydown(e, 'kardex')} onClick={() => setTab('kardex')}>Kardex</button>
       </div>
 
       {tab === 'resumen' && (
-        <div className="row g-3">
+        <div className="row g-3" role="tabpanel" id="panel-inventario-resumen" aria-labelledby="tab-inventario-resumen">
           <div className="col-md-4">
             <div className="card shadow-sm">
               <div className="card-body">
@@ -766,7 +786,7 @@ function Inventario() {
             <div className="card shadow-sm">
               <div className="card-body">
                 <div className="small text-muted">Valor total de stock</div>
-                <div className="h3 mb-0">L {Number(dashboardAvanzado.valorStockTotal || 0).toFixed(2)}</div>
+                <div className="h3 mb-0">{formatCurrencyHNL(dashboardAvanzado.valorStockTotal)}</div>
               </div>
             </div>
           </div>
@@ -845,7 +865,7 @@ function Inventario() {
       )}
 
       {tab === 'checklist' && (
-        <div className="row g-3">
+        <div className="row g-3" role="tabpanel" id="panel-inventario-checklist" aria-labelledby="tab-inventario-checklist">
           {!sucursalFiltro ? (
             <div className="col-12">
               <div className="alert alert-warning mb-0">Elige una sucursal arriba para ver el checklist operativo.</div>
@@ -918,7 +938,7 @@ function Inventario() {
                               <td>{o.id_Compra_Proveedor}</td>
                               <td>{o.estado}</td>
                               <td>{o.proveedor}</td>
-                              <td>L {Number(o.total || 0).toFixed(2)}</td>
+                              <td>{formatCurrencyHNL(o.total)}</td>
                             </tr>
                           ))}
                           {checklistData && (checklistData.ordenesPendientes || []).length === 0 && (
@@ -988,7 +1008,7 @@ function Inventario() {
       )}
 
       {tab === 'items' && (
-        <div className="row g-4">
+        <div className="row g-4" role="tabpanel" id="panel-inventario-items" aria-labelledby="tab-inventario-items">
           <div className="col-md-5">
             <div className="card shadow-sm">
               <div className="card-body">
@@ -1098,7 +1118,7 @@ function Inventario() {
       )}
 
       {tab === 'movimientos' && (
-        <div className="row g-4">
+        <div className="row g-4" role="tabpanel" id="panel-inventario-movimientos" aria-labelledby="tab-inventario-movimientos">
           <div className="col-md-5">
             <div className="card shadow-sm">
               <div className="card-body">
@@ -1168,11 +1188,11 @@ function Inventario() {
                     <tbody>
                       {movimientos.map((m) => (
                         <tr key={m.id_Movimiento_Inventario}>
-                          <td>{new Date(m.fecha).toLocaleString('es-HN')}</td>
+                          <td>{formatDateTimeHN(m.fecha)}</td>
                           <td>{m.item}</td>
                           <td>{m.tipo}</td>
                           <td>{Number(m.cantidad || 0).toFixed(3)} {m.unidad_Medida}</td>
-                          <td>L {Number(m.costo_Unitario || 0).toFixed(2)}</td>
+                          <td>{formatCurrencyHNL(m.costo_Unitario)}</td>
                           <td>{m.referencia}</td>
                         </tr>
                       ))}
@@ -1189,7 +1209,7 @@ function Inventario() {
       )}
 
       {tab === 'compras' && (
-        <div className="row g-4">
+        <div className="row g-4" role="tabpanel" id="panel-inventario-compras" aria-labelledby="tab-inventario-compras">
           <div className="col-md-6">
             <div className="card shadow-sm">
               <div className="card-body">
@@ -1270,10 +1290,10 @@ function Inventario() {
                     <tbody>
                       {compras.map((c) => (
                         <tr key={c.id_Compra_Proveedor}>
-                          <td>{new Date(c.fecha).toLocaleString('es-HN')}</td>
+                          <td>{formatDateTimeHN(c.fecha)}</td>
                           <td>{c.proveedor}</td>
                           <td>{c.sucursal}</td>
-                          <td>L {Number(c.total || 0).toFixed(2)}</td>
+                          <td>{formatCurrencyHNL(c.total)}</td>
                         </tr>
                       ))}
                       {compras.length === 0 && (
@@ -1289,7 +1309,7 @@ function Inventario() {
       )}
 
       {tab === 'ordenes' && (
-        <div className="row g-4">
+        <div className="row g-4" role="tabpanel" id="panel-inventario-ordenes" aria-labelledby="tab-inventario-ordenes">
           <div className="col-md-6">
             <div className="card shadow-sm">
               <div className="card-body">
@@ -1335,7 +1355,7 @@ function Inventario() {
                   </div>
                   <div className="col-12 d-flex justify-content-between align-items-center">
                     <strong>Total orden:</strong>
-                    <strong>L {Number(totalOrden || 0).toFixed(2)}</strong>
+                    <strong>{formatCurrencyHNL(totalOrden)}</strong>
                   </div>
                   <div className="col-12">
                     <button className="btn btn-dark w-100" type="submit">Crear orden (BORRADOR)</button>
@@ -1368,10 +1388,10 @@ function Inventario() {
                       {ordenesCompra.map((o) => (
                         <tr key={o.id_Compra_Proveedor}>
                           <td>{o.id_Compra_Proveedor}</td>
-                          <td>{new Date(o.fecha).toLocaleString('es-HN')}</td>
+                          <td>{formatDateTimeHN(o.fecha)}</td>
                           <td>{o.proveedor}</td>
                           <td><span className={`status-pill ${o.estado === 'RECIBIDA' ? 'active' : o.estado === 'CANCELADA' ? 'inactive' : 'warning'}`}>{o.estado}</span></td>
-                          <td>L {Number(o.total || 0).toFixed(2)}</td>
+                          <td>{formatCurrencyHNL(o.total)}</td>
                           <td>
                             <div className="d-flex gap-1 flex-wrap">
                               {o.estado === 'BORRADOR' && <button className="btn btn-sm btn-outline-primary" onClick={() => aprobarOrden(o.id_Compra_Proveedor)}>Aprobar</button>}
@@ -1396,7 +1416,7 @@ function Inventario() {
       )}
 
       {tab === 'recetas' && (
-        <div className="row g-4">
+        <div className="row g-4" role="tabpanel" id="panel-inventario-recetas" aria-labelledby="tab-inventario-recetas">
           <div className="col-md-6">
             <div className="card shadow-sm">
               <div className="card-body">
@@ -1487,7 +1507,7 @@ function Inventario() {
       )}
 
       {tab === 'kardex' && (
-        <div className="row g-4">
+        <div className="row g-4" role="tabpanel" id="panel-inventario-kardex" aria-labelledby="tab-inventario-kardex">
           <div className="col-12">
             <div className="card shadow-sm">
               <div className="card-body">
@@ -1546,11 +1566,11 @@ function Inventario() {
                       <tbody>
                         {(kardexData.movimientos || []).map((m) => (
                           <tr key={m.id_Movimiento_Inventario}>
-                            <td>{new Date(m.fecha).toLocaleString('es-HN')}</td>
+                            <td>{formatDateTimeHN(m.fecha)}</td>
                             <td>{m.tipo}</td>
                             <td>{Number(m.entrada || 0).toFixed(3)}</td>
                             <td>{Number(m.salida || 0).toFixed(3)}</td>
-                            <td>L {Number(m.costo_Unitario || 0).toFixed(2)}</td>
+                            <td>{formatCurrencyHNL(m.costo_Unitario)}</td>
                             <td>{Number(m.saldo || 0).toFixed(3)}</td>
                             <td>{m.referencia}</td>
                           </tr>

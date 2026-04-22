@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Pinecos;
 using Pinecos.Data;
+using System.Diagnostics;
 using System.Security.Claims;
 using System.Text;
 using System.Threading.RateLimiting;
@@ -132,8 +133,14 @@ builder.Services.AddRateLimiter(options =>
     options.OnRejected = async (context, token) =>
     {
         context.HttpContext.Response.ContentType = "application/json";
+        var traceId = Activity.Current?.Id ?? context.HttpContext.TraceIdentifier;
         await context.HttpContext.Response.WriteAsJsonAsync(
-            new { message = "Demasiadas solicitudes. Intenta de nuevo en unos segundos." },
+            new
+            {
+                code = "RATE_LIMITED",
+                message = "Demasiadas solicitudes. Intenta de nuevo en unos segundos.",
+                traceId
+            },
             cancellationToken: token);
     };
 
@@ -175,7 +182,13 @@ app.UseExceptionHandler(errorApp =>
     {
         context.Response.StatusCode = StatusCodes.Status500InternalServerError;
         context.Response.ContentType = "application/json";
-        await context.Response.WriteAsJsonAsync(new { message = "Error interno del servidor" });
+        var traceId = Activity.Current?.Id ?? context.TraceIdentifier;
+        await context.Response.WriteAsJsonAsync(new
+        {
+            code = "INTERNAL_SERVER_ERROR",
+            message = "Error interno del servidor",
+            traceId
+        });
     });
 });
 
@@ -194,7 +207,13 @@ app.Use(async (context, next) =>
             context.Response.StatusCode = StatusCodes.Status413PayloadTooLarge;
             context.Response.ContentType = "application/json";
             var mb = limite / 1_048_576.0;
-            await context.Response.WriteAsJsonAsync(new { message = $"El tamano del request excede el limite permitido ({mb:0.#} MB)." });
+            var traceId = Activity.Current?.Id ?? context.TraceIdentifier;
+            await context.Response.WriteAsJsonAsync(new
+            {
+                code = "PAYLOAD_TOO_LARGE",
+                message = $"El tamano del request excede el limite permitido ({mb:0.#} MB).",
+                traceId
+            });
             return;
         }
     }

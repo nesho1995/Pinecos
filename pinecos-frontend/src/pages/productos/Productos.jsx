@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import api from '../../services/api';
+import { formatCurrencyHNL } from '../../utils/formatters';
 
 function Productos() {
   const location = useLocation();
@@ -491,6 +492,7 @@ function Productos() {
                 <th>Nombre</th>
                 <th>Categoria</th>
                 <th>Costo</th>
+                <th>Precio venta</th>
                 <th>Fiscal</th>
                 <th>Estado</th>
                 <th style={{ width: 320 }}>Acciones</th>
@@ -502,7 +504,17 @@ function Productos() {
                   <td>{item.id_Producto}</td>
                   <td>{item.nombre}</td>
                   <td>{item.categoria}</td>
-                  <td>L {Number(item.costo || 0).toFixed(2)}</td>
+                  <td>{formatCurrencyHNL(item.costo)}</td>
+                  <td>
+                    {item.preciosConfigurados > 0 ? (
+                      <>
+                        {formatCurrencyHNL(item.precioReferencia)}
+                        {item.preciosConfigurados > 1 ? ` (${item.preciosConfigurados} sucursales)` : ''}
+                      </>
+                    ) : (
+                      <span className="text-muted">Sin precio</span>
+                    )}
+                  </td>
                   <td>{String(item.tipo_Fiscal || 'GRAVADO_15').replace('_', ' ')}</td>
                   <td>
                     <span className={`status-pill ${item.activo ? 'active' : 'inactive'}`}>
@@ -532,7 +544,7 @@ function Productos() {
               ))}
               {dataFiltrada.length === 0 && (
                 <tr>
-                  <td colSpan="7" className="text-center">No hay productos para mostrar</td>
+                  <td colSpan="8" className="text-center">No hay productos para mostrar</td>
                 </tr>
               )}
             </tbody>

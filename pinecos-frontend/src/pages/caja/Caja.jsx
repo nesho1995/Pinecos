@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import api from '../../services/api';
 import { getUsuario } from '../../utils/auth';
+import { formatCurrencyHNL, formatDateTimeHN } from '../../utils/formatters';
 
 const lineaCanal = (canal = '', monto = '') => ({ canal, monto });
 const cierreBase = {
@@ -37,6 +38,7 @@ function Caja() {
   const [cajaActual, setCajaActual] = useState(null);
   const [cuadrePrevio, setCuadrePrevio] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadingCuadre, setLoadingCuadre] = useState(false);
   const [mensaje, setMensaje] = useState('');
   const [error, setError] = useState('');
 
@@ -62,11 +64,16 @@ function Caja() {
       setCierre(cierreBase);
       return;
     }
-    const response = await api.get(`/Cajas/cuadre-previo/${idCaja}`);
-    setCuadrePrevio(response.data);
-    const esMismaCaja = Number(idCajaCargadaEnCierre) === Number(idCaja);
-    setCierre((prev) => buildCierreFromCanales(response.data?.canalesConfig, esMismaCaja ? prev : null));
-    setIdCajaCargadaEnCierre(idCaja);
+    setLoadingCuadre(true);
+    try {
+      const response = await api.get(`/Cajas/cuadre-previo/${idCaja}`);
+      setCuadrePrevio(response.data);
+      const esMismaCaja = Number(idCajaCargadaEnCierre) === Number(idCaja);
+      setCierre((prev) => buildCierreFromCanales(response.data?.canalesConfig, esMismaCaja ? prev : null));
+      setIdCajaCargadaEnCierre(idCaja);
+    } finally {
+      setLoadingCuadre(false);
+    }
   };
 
   const refrescarPantalla = async () => {
@@ -192,7 +199,36 @@ function Caja() {
 
   const totalDeclarado = Number(cierre.monto_Cierre || 0) + totalPosDeclarado + totalDeliveryDeclarado;
 
-  if (loading) return <div>Cargando caja...</div>;
+  if (loading) {
+    return (
+      <div>
+        <h2 className="mb-4">Caja</h2>
+        <div className="row g-4">
+          <div className="col-md-6">
+            <div className="card shadow-sm">
+              <div className="card-body placeholder-glow">
+                <span className="placeholder col-4 mb-3"></span>
+                <span className="placeholder col-8 mb-2"></span>
+                <span className="placeholder col-7 mb-2"></span>
+                <span className="placeholder col-6"></span>
+              </div>
+            </div>
+          </div>
+          <div className="col-md-6">
+            <div className="card shadow-sm">
+              <div className="card-body placeholder-glow">
+                <span className="placeholder col-5 mb-3"></span>
+                <span className="placeholder col-12 mb-2"></span>
+                <span className="placeholder col-12 mb-2"></span>
+                <span className="placeholder col-10 mb-2"></span>
+                <span className="placeholder col-8"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -237,8 +273,8 @@ function Caja() {
                 <p><strong>Sucursal:</strong> {cajaActual.id_Sucursal}</p>
                 <p><strong>Abierta por:</strong> {cajaActual.usuarioAperturaNombre || `Usuario #${cajaActual.id_Usuario_Apertura}`}</p>
                 <p><strong>Turno apertura:</strong> {cajaActual.turnoApertura || 'N/D'}</p>
-                <p><strong>Fecha apertura:</strong> {new Date(cajaActual.fecha_Apertura).toLocaleString('es-HN')}</p>
-                <p><strong>Monto inicial:</strong> L {Number(cajaActual.monto_Inicial || 0).toFixed(2)}</p>
+                <p><strong>Fecha apertura:</strong> {formatDateTimeHN(cajaActual.fecha_Apertura)}</p>
+                <p><strong>Monto inicial:</strong> {formatCurrencyHNL(cajaActual.monto_Inicial)}</p>
                 {idUsuario > 0 && Number(cajaActual.id_Usuario_Apertura) !== idUsuario && (
                   <div className="alert alert-info mt-2 mb-0">
                     Esta caja fue abierta por otro usuario de tu sucursal, pero esta disponible para operar.
@@ -252,6 +288,11 @@ function Caja() {
             <div className="card shadow-sm">
               <div className="card-body">
                 <h5>Cierre y cuadre diario</h5>
+                {loadingCuadre && (
+                  <div className="alert alert-secondary py-2">
+                    Actualizando cuadre previo...
+                  </div>
+                )}
                 <form onSubmit={cerrarCaja} className="row g-3">
                   <div className="col-12">
                     <label className="form-label">Efectivo final contado</label>
@@ -300,7 +341,7 @@ function Caja() {
                     <div className="p-3 rounded border bg-light">
                       <div className="d-flex justify-content-between align-items-baseline">
                         <span>Total declarado</span>
-                        <strong className="fs-5">L {totalDeclarado.toFixed(2)}</strong>
+                        <strong className="fs-5">{formatCurrencyHNL(totalDeclarado)}</strong>
                       </div>
                     </div>
                   </div>

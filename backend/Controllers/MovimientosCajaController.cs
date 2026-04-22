@@ -20,7 +20,13 @@ namespace Pinecos.Controllers
         }
 
         [HttpGet("caja/{idCaja}")]
-        public async Task<ActionResult> GetMovimientosCaja(int idCaja)
+        public async Task<ActionResult> GetMovimientosCaja(
+            int idCaja,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 50,
+            [FromQuery] DateTime? desde = null,
+            [FromQuery] DateTime? hasta = null,
+            [FromQuery] string? tipo = null)
         {
             var idSucursal = UserHelper.GetSucursalId(User);
             var rol = UserHelper.GetUserRole(User);
@@ -39,12 +45,51 @@ namespace Pinecos.Controllers
                     return Forbid();
             }
 
-            var movimientos = await _context.MovimientosCaja
-                .Where(x => x.Id_Caja == idCaja)
+            if (page <= 0) page = 1;
+            if (pageSize <= 0 || pageSize > 200) pageSize = 50;
+
+            var query = _context.MovimientosCaja
+                .AsNoTracking()
+                .Where(x => x.Id_Caja == idCaja);
+
+            if (desde.HasValue)
+                query = query.Where(x => x.Fecha >= desde.Value);
+            if (hasta.HasValue)
+                query = query.Where(x => x.Fecha <= hasta.Value);
+            if (!string.IsNullOrWhiteSpace(tipo))
+            {
+                var tipoNorm = tipo.Trim();
+                query = query.Where(x => x.Tipo == tipoNorm);
+            }
+
+            var total = await query.CountAsync();
+            var movimientos = await query
                 .OrderByDescending(x => x.Fecha)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
                 .ToListAsync();
 
-            return Ok(movimientos);
+            var resumen = await query
+                .GroupBy(x => 1)
+                .Select(g => new
+                {
+                    ingresos = g
+                        .Where(x => (x.Tipo ?? string.Empty).ToUpper().Contains("INGRESO") || (x.Tipo ?? string.Empty).ToUpper() == "ENTRADA")
+                        .Sum(x => (decimal?)x.Monto) ?? 0m,
+                    egresos = g
+                        .Where(x => (x.Tipo ?? string.Empty).ToUpper().Contains("EGRESO") || (x.Tipo ?? string.Empty).ToUpper() == "SALIDA")
+                        .Sum(x => (decimal?)x.Monto) ?? 0m
+                })
+                .FirstOrDefaultAsync();
+
+            return Ok(new
+            {
+                total,
+                page,
+                pageSize,
+                resumen = resumen ?? new { ingresos = 0m, egresos = 0m },
+                data = movimientos
+            });
         }
 
         [HttpPost]
