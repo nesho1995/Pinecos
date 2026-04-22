@@ -146,10 +146,9 @@ function Caja() {
         observacion: cierre.observacion
       };
 
-      const response = await api.post(`/Cajas/cerrar/${cajaActual.id_Caja}`, payload);
-      const cuadro = response?.data?.cuadre?.cuadro;
-      const dif = Number(response?.data?.cuadre?.diferencia || 0);
-      setMensaje(cuadro ? 'Caja cerrada y cuadra correctamente.' : `Caja cerrada pero NO cuadra. Diferencia: L ${dif.toFixed(2)}`);
+      await api.post(`/Cajas/cerrar/${cajaActual.id_Caja}`, payload);
+      // No mostrar al cajero si cuadra ni montos esperados/diferencia; eso lo revisa administración.
+      setMensaje('Caja cerrada correctamente.');
       setCierre(cierreBase);
       setIdCajaCargadaEnCierre(null);
 
@@ -174,9 +173,6 @@ function Caja() {
   );
 
   const totalDeclarado = Number(cierre.monto_Cierre || 0) + totalPosDeclarado + totalDeliveryDeclarado;
-  const totalEsperado = Number(cuadrePrevio?.resumen?.totalEsperado || 0);
-  const diferenciaPreview = totalDeclarado - totalEsperado;
-  const cuadroPreview = Math.abs(diferenciaPreview) <= 0.01;
 
   if (loading) return <div>Cargando caja...</div>;
 
@@ -283,11 +279,11 @@ function Caja() {
                   </div>
 
                   <div className="col-12">
-                    <div className={`p-3 rounded ${cuadroPreview ? 'bg-success-subtle border border-success' : 'bg-warning-subtle border border-warning'}`}>
-                      <div className="d-flex justify-content-between"><span>Declarado total</span><strong>L {totalDeclarado.toFixed(2)}</strong></div>
-                      <div className="d-flex justify-content-between"><span>Esperado total</span><strong>L {totalEsperado.toFixed(2)}</strong></div>
-                      <div className="d-flex justify-content-between"><span>Diferencia</span><strong>L {diferenciaPreview.toFixed(2)}</strong></div>
-                      <div className="mt-2 fw-semibold">{cuadroPreview ? 'Cuadra correctamente' : 'No cuadra'}</div>
+                    <div className="p-3 rounded border bg-light">
+                      <div className="d-flex justify-content-between align-items-baseline">
+                        <span>Total declarado</span>
+                        <strong className="fs-5">L {totalDeclarado.toFixed(2)}</strong>
+                      </div>
                     </div>
                   </div>
 
