@@ -25,6 +25,7 @@ function Mesas() {
   });
   const [filtroProducto, setFiltroProducto] = useState('');
   const [metodoPago, setMetodoPago] = useState('EFECTIVO');
+  const [canalPagoCodigo, setCanalPagoCodigo] = useState('');
   const [tipoServicio, setTipoServicio] = useState('COMER_AQUI');
   const [metodosPago, setMetodosPago] = useState([]);
   const [modoDescuento, setModoDescuento] = useState('NINGUNO');
@@ -38,7 +39,7 @@ function Mesas() {
   const [personasDivision, setPersonasDivision] = useState(2);
   const [dividirCuenta, setDividirCuenta] = useState(false);
   const [cobroMixto, setCobroMixto] = useState(false);
-  const [pagosMixtos, setPagosMixtos] = useState([{ nombre: 'Persona 1', metodo_Pago: 'EFECTIVO', monto: '' }]);
+  const [pagosMixtos, setPagosMixtos] = useState([{ nombre: 'Persona 1', metodo_Pago: 'EFECTIVO', canalPagoCodigo: '', monto: '' }]);
   const [asignacionDetalles, setAsignacionDetalles] = useState({});
   const [descuentoDetalles, setDescuentoDetalles] = useState({});
   const [vistaTablet, setVistaTablet] = useState('mesas');
@@ -260,6 +261,48 @@ function Mesas() {
     }
   }, [metodosPago, metodoPago]);
 
+  const metodoPagoActivo = useMemo(
+    () => (metodosPago || []).find((x) => String(x?.codigo || '').toUpperCase() === String(metodoPago || '').toUpperCase()) || null,
+    [metodosPago, metodoPago]
+  );
+  const categoriaMetodoPago = useMemo(() => {
+    const codigo = String(metodoPago || '').toUpperCase();
+    const cat = String(metodoPagoActivo?.categoria || '').toUpperCase();
+    if (cat) return cat;
+    if (codigo === 'POS' || codigo === 'TARJETA' || codigo === 'TARJETA_POS') return 'POS';
+    if (codigo === 'TRANSFERENCIA') return 'POS';
+    if (codigo === 'EFECTIVO') return 'EFECTIVO';
+    return 'OTRO';
+  }, [metodoPago, metodoPagoActivo]);
+  const resolverCategoriaMetodo = (codigoMetodo) => {
+    const codigo = String(codigoMetodo || '').toUpperCase();
+    const metodo = (metodosPago || []).find((x) => String(x?.codigo || '').toUpperCase() === codigo) || null;
+    const cat = String(metodo?.categoria || '').toUpperCase();
+    if (cat) return cat;
+    if (codigo === 'POS' || codigo === 'TARJETA' || codigo === 'TARJETA_POS' || codigo === 'TRANSFERENCIA') return 'POS';
+    if (codigo === 'EFECTIVO') return 'EFECTIVO';
+    return 'OTRO';
+  };
+  const obtenerCanalesPorMetodo = (codigoMetodo) => {
+    const categoria = resolverCategoriaMetodo(codigoMetodo);
+    if (categoria === 'EFECTIVO') return [];
+    return (metodosPago || []).filter((x) => String(x?.categoria || '').toUpperCase() === categoria);
+  };
+  const canalesPagoFiltrados = useMemo(() => {
+    if (categoriaMetodoPago === 'EFECTIVO') return [];
+    return (metodosPago || []).filter((x) => String(x?.categoria || '').toUpperCase() === categoriaMetodoPago);
+  }, [metodosPago, categoriaMetodoPago]);
+
+  useEffect(() => {
+    if (String(categoriaMetodoPago || '').toUpperCase() === 'EFECTIVO' || dividirCuenta) {
+      setCanalPagoCodigo('');
+      return;
+    }
+    if (!canalesPagoFiltrados.some((x) => String(x?.codigo || '') === String(canalPagoCodigo || ''))) {
+      setCanalPagoCodigo(canalesPagoFiltrados[0]?.codigo || '');
+    }
+  }, [categoriaMetodoPago, dividirCuenta, canalesPagoFiltrados, canalPagoCodigo]);
+
   useEffect(() => {
     if (!descuentosActivos.some((x) => x.codigo === modoDescuento)) {
       setModoDescuento(descuentosActivos[0]?.codigo || 'NINGUNO');
@@ -364,13 +407,21 @@ function Mesas() {
   }, [personasDivision, detalleCuenta, asignacionDetalles, subtotalCuenta, totalCuenta]);
   const pagosMixtosDetalle = useMemo(
     () => (pagosMixtos || [])
-      .map((p, idx) => ({
-        nombre: String(p?.nombre || '').trim() || `Persona ${idx + 1}`,
-        metodo_Pago: String(p?.metodo_Pago || '').trim(),
-        monto: redondear2(p?.monto)
-      }))
+      .map((p, idx) => {
+        const metodoCodigo = String(p?.metodo_Pago || '').trim().toUpperCase();
+        const categoria = resolverCategoriaMetodo(metodoCodigo);
+        const canales = obtenerCanalesPorMetodo(metodoCodigo);
+        const canalSeleccionado = canales.find((x) => String(x?.codigo || '') === String(p?.canalPagoCodigo || '')) || null;
+        return {
+          nombre: String(p?.nombre || '').trim() || `Persona ${idx + 1}`,
+          metodo_Pago: categoria === 'EFECTIVO'
+            ? metodoCodigo
+            : (canalSeleccionado?.nombre || canalSeleccionado?.codigo || metodoCodigo),
+          monto: redondear2(p?.monto)
+        };
+      })
       .filter((p) => p.metodo_Pago && p.monto > 0),
-    [pagosMixtos]
+    [pagosMixtos, metodosPago]
   );
   const pagosMixtosNormalizados = useMemo(() => {
     const acumulado = {};
@@ -387,6 +438,52 @@ function Mesas() {
     [pagosMixtosDetalle]
   );
   const diferenciaPagosMixtos = redondear2(totalCuenta - totalPagosMixtos);
+  const tieneCanalesInvalidosEnDivision = useMemo(() => {
+    if (!dividirCuenta) return false;
+    return (pagosMixtos || []).some((p) => {
+      const metodo = String(p?.metodo_Pago || '').toUpperCase();
+      const categoria = resolverCategoriaMetodo(metodo);
+      if (categoria === 'EFECTIVO') return false;
+      const canales = obtenerCanalesPorMetodo(metodo);
+      if (!canales.length) return true;
+      const canal = String(p?.canalPagoCodigo || '');
+      return !canal || !canales.some((x) => String(x?.codigo || '') === canal);
+    });
+  }, [dividirCuenta, pagosMixtos, metodosPago]);
+  const bloqueoPreventivoCobro = useMemo(() => {
+    if (dividirCuenta) return tieneCanalesInvalidosEnDivision;
+    if (String(categoriaMetodoPago || '').toUpperCase() === 'EFECTIVO') return false;
+    if (canalesPagoFiltrados.length === 0) return true;
+    return !canalPagoCodigo;
+  }, [dividirCuenta, tieneCanalesInvalidosEnDivision, categoriaMetodoPago, canalesPagoFiltrados, canalPagoCodigo]);
+  const validacionCaiLista = useMemo(() => {
+    const emiteCai = emitirFactura && !!facturacionSar?.habilitadoCai;
+    if (!emiteCai) return true;
+    const nom = String(facturaCliente?.nombreCliente || '').trim();
+    const dir = String(facturaCliente?.direccionCliente || '').trim();
+    const tel = String(facturaCliente?.telefonoCliente || '').trim();
+    const esOt = String(facturaCliente?.tipoCliente || '').toUpperCase() === 'OBLIGADO_TRIBUTARIO';
+    const rtnDigits = String(facturaCliente?.rtnCliente || '').replace(/\D/g, '');
+    const idn = String(facturaCliente?.identidadCliente || '').trim();
+    if (nom.length < 3 || dir.length < 5 || tel.length < 5) return false;
+    if (esOt) return rtnDigits.length === 14;
+    return idn.length >= 5;
+  }, [emitirFactura, facturacionSar, facturaCliente]);
+  const checklistCobro = useMemo(() => {
+    const cajaLista = !!cajaActual?.abierta && !cargandoCaja;
+    const cuentaConProductos = !!(detalleCuenta?.detalles?.length > 0);
+    const pagosCuadrados = dividirCuenta ? Math.abs(diferenciaPagosMixtos) <= 0.01 : true;
+    const canalesListos = !bloqueoPreventivoCobro;
+    const caiListo = validacionCaiLista;
+    return [
+      { key: 'caja', label: 'Caja abierta', ok: cajaLista },
+      { key: 'consumo', label: 'Cuenta con consumo', ok: cuentaConProductos },
+      { key: 'pagos', label: dividirCuenta ? 'Division cuadra al total' : 'Metodo/cobro listo', ok: pagosCuadrados },
+      { key: 'canal', label: 'Canales validados', ok: canalesListos },
+      { key: 'cai', label: emitirFactura ? 'Datos CAI completos' : 'CAI no requerido', ok: caiListo }
+    ];
+  }, [cajaActual, cargandoCaja, detalleCuenta, dividirCuenta, diferenciaPagosMixtos, bloqueoPreventivoCobro, validacionCaiLista, emitirFactura]);
+  const listoParaCobrar = checklistCobro.every((x) => x.ok);
 
   useEffect(() => {
     setCobroMixto(dividirCuenta);
@@ -400,9 +497,16 @@ function Mesas() {
       const base = Array.from({ length: cantidad }, (_, idx) => ({
         nombre: prev[idx]?.nombre || `Persona ${idx + 1}`,
         metodo_Pago: prev[idx]?.metodo_Pago || metodoDefault,
+        canalPagoCodigo: prev[idx]?.canalPagoCodigo || '',
         monto: prev[idx]?.monto || ''
       }));
-      return base;
+      return base.map((p) => {
+        const categoria = resolverCategoriaMetodo(p.metodo_Pago);
+        if (categoria === 'EFECTIVO') return { ...p, canalPagoCodigo: '' };
+        const canales = obtenerCanalesPorMetodo(p.metodo_Pago);
+        const esValido = canales.some((x) => String(x?.codigo || '') === String(p.canalPagoCodigo || ''));
+        return { ...p, canalPagoCodigo: esValido ? p.canalPagoCodigo : (canales[0]?.codigo || '') };
+      });
     });
   }, [dividirCuenta, personasDivision, metodoPago, metodosPago]);
 
@@ -428,7 +532,7 @@ function Mesas() {
 
   useEffect(() => {
     if (!cobroMixto) {
-      setPagosMixtos([{ nombre: 'Cliente', metodo_Pago: metodoPago || 'EFECTIVO', monto: totalCuenta > 0 ? totalCuenta.toFixed(2) : '' }]);
+      setPagosMixtos([{ nombre: 'Cliente', metodo_Pago: metodoPago || 'EFECTIVO', canalPagoCodigo: '', monto: totalCuenta > 0 ? totalCuenta.toFixed(2) : '' }]);
     }
   }, [cobroMixto, metodoPago, totalCuenta]);
 
@@ -518,7 +622,20 @@ function Mesas() {
   };
 
   const actualizarPagoMixto = (index, campo, valor) => {
-    setPagosMixtos((prev) => prev.map((linea, i) => (i === index ? { ...linea, [campo]: valor } : linea)));
+    setPagosMixtos((prev) => prev.map((linea, i) => {
+      if (i !== index) return linea;
+      if (campo !== 'metodo_Pago') return { ...linea, [campo]: valor };
+      const metodoNuevo = String(valor || '').toUpperCase();
+      const categoria = resolverCategoriaMetodo(metodoNuevo);
+      if (categoria === 'EFECTIVO') return { ...linea, metodo_Pago: metodoNuevo, canalPagoCodigo: '' };
+      const canales = obtenerCanalesPorMetodo(metodoNuevo);
+      const canalValido = canales.some((x) => String(x?.codigo || '') === String(linea?.canalPagoCodigo || ''));
+      return {
+        ...linea,
+        metodo_Pago: metodoNuevo,
+        canalPagoCodigo: canalValido ? String(linea?.canalPagoCodigo || '') : (canales[0]?.codigo || '')
+      };
+    }));
   };
 
   const asignarDetalleAPersona = (idDetalle, personaIndex) => {
@@ -536,7 +653,12 @@ function Mesas() {
     const personas = Array.from({ length: cantidad }, (_, idx) => {
       const pago = pagosMixtos[idx] || {};
       const nombre = String(pago?.nombre || '').trim() || `Persona ${idx + 1}`;
-      const metodoPagoPersona = String(pago?.metodo_Pago || metodoPago || 'EFECTIVO').trim();
+      const metodoPersonaCodigo = String(pago?.metodo_Pago || metodoPago || 'EFECTIVO').trim().toUpperCase();
+      const canalesPersona = obtenerCanalesPorMetodo(metodoPersonaCodigo);
+      const canalPersona = canalesPersona.find((x) => String(x?.codigo || '') === String(pago?.canalPagoCodigo || '')) || null;
+      const metodoPagoPersona = resolverCategoriaMetodo(metodoPersonaCodigo) === 'EFECTIVO'
+        ? metodoPersonaCodigo
+        : (canalPersona?.nombre || canalPersona?.codigo || metodoPersonaCodigo);
       const items = (detalleCuenta?.detalles || [])
         .filter((d) => Number(asignacionDetalles[d.id_Detalle_Cuenta_Mesa] ?? 0) === idx)
         .map((d) => ({
@@ -578,6 +700,25 @@ function Mesas() {
       if (pagosMixtosNormalizados.length === 0) return setError('Debes ingresar al menos un pago en cobro mixto');
       if (Math.abs(diferenciaPagosMixtos) > 0.01) return setError('La suma de pagos mixtos debe ser igual al total');
       if ((pagosMixtos || []).some((p) => !String(p?.nombre || '').trim())) return setError('Cada persona debe tener nombre');
+      const codigosPermitidos = new Set((metodosPago || []).map((m) => String(m?.codigo || '').toUpperCase()));
+      const metodoInvalido = (pagosMixtos || []).some((p) => !codigosPermitidos.has(String(p?.metodo_Pago || '').toUpperCase()));
+      if (metodoInvalido) return setError('Hay metodos de pago no permitidos en la configuracion actual.');
+      const canalInvalido = (pagosMixtos || []).some((p) => {
+        const metodo = String(p?.metodo_Pago || '').toUpperCase();
+        const categoria = resolverCategoriaMetodo(metodo);
+        if (categoria === 'EFECTIVO') return false;
+        const canales = obtenerCanalesPorMetodo(metodo);
+        if (!canales.length) return true;
+        const canal = String(p?.canalPagoCodigo || '');
+        return !canal || !canales.some((x) => String(x?.codigo || '') === canal);
+      });
+      if (canalInvalido) return setError('Cada pago no efectivo debe tener un canal valido configurado.');
+    } else {
+      const esEfectivo = String(categoriaMetodoPago || '').toUpperCase() === 'EFECTIVO';
+      if (!esEfectivo) {
+        if (canalesPagoFiltrados.length === 0) return setError('Configura canales en administracion para este metodo de pago.');
+        if (!canalPagoCodigo) return setError('Selecciona un canal de pago antes de cobrar.');
+      }
     }
 
     const emiteCai = emitirFactura && !!facturacionSar?.habilitadoCai;
@@ -600,11 +741,14 @@ function Mesas() {
 
     try {
       setProcesando(true);
-      const metodoPagoFinal = dividirCuenta ? 'MIXTO' : metodoPago;
+      const canalPagoSeleccionado = canalesPagoFiltrados.find((x) => String(x?.codigo || '') === String(canalPagoCodigo || '')) || null;
+      const metodoPagoFinal = dividirCuenta
+        ? 'MIXTO'
+        : canalPagoSeleccionado?.nombre || canalPagoSeleccionado?.codigo || metodoPago;
       const detalleDivision = dividirCuenta
         ? pagosMixtosDetalle.map((p) => `${p.nombre}:${p.monto.toFixed(2)}(${p.metodo_Pago})`).join('; ')
         : '';
-      const observacionCobro = `Cobro de mesa | Desc:${modoDescuento} | Imp:${modoImpuesto}${detalleDivision ? ` | DIVISION:${detalleDivision}` : ''}`;
+      const observacionCobro = `Cobro de mesa | TipoPago:${dividirCuenta ? 'MIXTO' : metodoPago}${canalPagoSeleccionado ? ` | Canal:${canalPagoSeleccionado.nombre || canalPagoSeleccionado.codigo}` : ''} | Desc:${modoDescuento} | Imp:${modoImpuesto}${detalleDivision ? ` | DIVISION:${detalleDivision}` : ''}`;
       const emiteCaiReq = emitirFactura && !!facturacionSar?.habilitadoCai;
       const response = await api.post(`/CuentasMesa/${detalleCuenta.cuenta.id_Cuenta_Mesa}/cobrar`, {
         id_Caja: cajaActual.id_Caja,
@@ -646,10 +790,11 @@ function Mesas() {
       setEmitirFactura(false);
       setFacturaCliente(facturaClienteVacio());
       setMetodoPago('EFECTIVO');
+      setCanalPagoCodigo('');
       setTipoServicio('COMER_AQUI');
       setDividirCuenta(false);
       setCobroMixto(false);
-      setPagosMixtos([{ nombre: 'Persona 1', metodo_Pago: 'EFECTIVO', monto: '' }]);
+      setPagosMixtos([{ nombre: 'Persona 1', metodo_Pago: 'EFECTIVO', canalPagoCodigo: '', monto: '' }]);
       setAsignacionDetalles({});
       setDescuentoDetalles({});
       setPersonasDivision(2);
@@ -689,7 +834,7 @@ function Mesas() {
       setFiltroProducto('');
       setDividirCuenta(false);
       setCobroMixto(false);
-      setPagosMixtos([{ nombre: 'Persona 1', metodo_Pago: 'EFECTIVO', monto: '' }]);
+      setPagosMixtos([{ nombre: 'Persona 1', metodo_Pago: 'EFECTIVO', canalPagoCodigo: '', monto: '' }]);
       setAsignacionDetalles({});
       setDescuentoDetalles({});
       setPersonasDivision(2);
@@ -712,11 +857,12 @@ function Mesas() {
     setImpuestoManual('0');
     setEmitirFactura(false);
     setMetodoPago('EFECTIVO');
+    setCanalPagoCodigo('');
     setTipoServicio('COMER_AQUI');
     setPersonasDivision(2);
     setDividirCuenta(false);
     setCobroMixto(false);
-    setPagosMixtos([{ nombre: 'Persona 1', metodo_Pago: 'EFECTIVO', monto: '' }]);
+    setPagosMixtos([{ nombre: 'Persona 1', metodo_Pago: 'EFECTIVO', canalPagoCodigo: '', monto: '' }]);
     setAsignacionDetalles({});
     setDescuentoDetalles({});
     setFiltroProducto('');
@@ -1101,6 +1247,11 @@ function Mesas() {
                         <div className="pro-checkout-flow-title">4 · Forma de cobro y pago</div>
                         <div className="row g-2 mesas-cobro-shell">
                         <div className="col-12">
+                          <div className="mesas-cobro-helper small text-muted">
+                            Define si cobras en un solo pago o dividido. Si no es efectivo, selecciona siempre el canal para cuadrar caja correctamente.
+                          </div>
+                        </div>
+                        <div className="col-12">
                           <label className="form-label mb-1">Modo de cobro</label>
                           <select
                             className="form-select"
@@ -1125,6 +1276,32 @@ function Mesas() {
                               : undefined}
                           />
                         </div>
+                        {!dividirCuenta && String(categoriaMetodoPago || '').toUpperCase() !== 'EFECTIVO' && (
+                          <div className="col-12">
+                            <label className="form-label mb-1">Canal de pago</label>
+                            <select
+                              className="form-select"
+                              value={canalPagoCodigo}
+                              onChange={(e) => setCanalPagoCodigo(e.target.value)}
+                              disabled={procesando}
+                            >
+                              {canalesPagoFiltrados.length === 0 ? (
+                                <option value="">Configura canales en Administracion</option>
+                              ) : (
+                                canalesPagoFiltrados.map((canal) => (
+                                  <option key={canal.codigo} value={canal.codigo}>
+                                    {canal.nombre}
+                                  </option>
+                                ))
+                              )}
+                            </select>
+                            <div className={`mesas-canal-hint small mt-1 ${canalesPagoFiltrados.length === 0 ? 'text-danger' : 'text-success'}`}>
+                              {canalesPagoFiltrados.length === 0
+                                ? 'No hay canales disponibles para este metodo.'
+                                : `Canal activo: ${canalesPagoFiltrados.find((x) => String(x?.codigo || '') === String(canalPagoCodigo || ''))?.nombre || 'Selecciona canal'}`}
+                            </div>
+                          </div>
+                        )}
                         {dividirCuenta && (
                           <div className="col-12">
                             <div className="border rounded p-3 mesas-mixto-wrap">
@@ -1149,7 +1326,9 @@ function Mesas() {
                                 <strong className="small">Division final antes de cobrar</strong>
                                 <span className="small text-muted">Personas: {Math.max(1, Number(personasDivision || 1))}</span>
                               </div>
-                              {(pagosMixtos || []).map((pago, idx) => (
+                              {(pagosMixtos || []).map((pago, idx) => {
+                                const canalesPersona = obtenerCanalesPorMetodo(pago?.metodo_Pago);
+                                return (
                                 <div className="mesas-mixto-line mb-2" key={`pago-mixto-${idx}`}>
                                   <div className="mesas-mixto-field mesas-mixto-nombre">
                                     <input
@@ -1161,6 +1340,7 @@ function Mesas() {
                                     />
                                   </div>
                                   <div className="mesas-mixto-field mesas-mixto-metodo">
+                                    <label className="form-label mb-1 small">Metodo</label>
                                     <select
                                       className="form-select"
                                       value={pago.metodo_Pago}
@@ -1171,6 +1351,29 @@ function Mesas() {
                                       ))}
                                     </select>
                                   </div>
+                                  {String(resolverCategoriaMetodo(pago?.metodo_Pago || 'EFECTIVO')).toUpperCase() !== 'EFECTIVO' && (
+                                    <div className="mesas-mixto-field mesas-mixto-metodo">
+                                      <label className="form-label mb-1 small">Canal</label>
+                                      <select
+                                        className="form-select"
+                                        value={String(pago?.canalPagoCodigo || '')}
+                                        onChange={(e) => actualizarPagoMixto(idx, 'canalPagoCodigo', e.target.value)}
+                                      >
+                                        {canalesPersona.length === 0 ? (
+                                          <option value="">Configura canales en Administracion</option>
+                                        ) : (
+                                          canalesPersona.map((c) => (
+                                            <option key={`mix-canal-${idx}-${c.codigo}`} value={c.codigo}>{c.nombre}</option>
+                                          ))
+                                        )}
+                                      </select>
+                                      {canalesPersona.length === 0 && (
+                                        <div className="small text-danger mt-1">
+                                          Sin canales para este metodo. Configuralos en Administracion para poder cobrar.
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
                                   <div className="mesas-mixto-field mesas-mixto-monto">
                                     <input
                                       type="number"
@@ -1186,7 +1389,7 @@ function Mesas() {
                                     <span className="badge text-bg-light">#{idx + 1}</span>
                                   </div>
                                 </div>
-                              ))}
+                              )})}
                               <div className="d-flex justify-content-between align-items-center">
                                 <span className="small text-muted">Edita nombres/metodos y al final asigna quien paga cada producto en "Consumo actual".</span>
                                 <div className={`small ${Math.abs(diferenciaPagosMixtos) <= 0.01 ? 'text-success' : 'text-danger'}`}>
@@ -1232,7 +1435,24 @@ function Mesas() {
                       </div>
 
                       <div className="d-grid gap-2 mt-2 mesas-actions-bar">
-                        <button className="btn btn-success" onClick={cobrarCuenta} disabled={cargandoCaja || !cajaActual?.abierta || procesando}>
+                        <div className={`mesas-cobro-status-card ${listoParaCobrar ? 'is-ready' : 'is-pending'}`}>
+                          <div className="mesas-cobro-status-title">
+                            {listoParaCobrar ? 'Listo para cobrar' : 'Falta completar para cobrar'}
+                          </div>
+                          <div className="mesas-cobro-checklist">
+                            {checklistCobro.map((item) => (
+                              <span key={item.key} className={`mesas-cobro-check ${item.ok ? 'ok' : 'bad'}`}>
+                                {item.ok ? 'OK' : 'FALTA'} · {item.label}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                        {bloqueoPreventivoCobro && (
+                          <div className="alert alert-warning py-2 mb-0 small">
+                            Falta seleccionar canal de pago valido para uno o mas cobros no-efectivo.
+                          </div>
+                        )}
+                        <button className="btn btn-success" onClick={cobrarCuenta} disabled={cargandoCaja || !cajaActual?.abierta || procesando || bloqueoPreventivoCobro || !listoParaCobrar}>
                           {procesando ? 'Procesando...' : 'Cobrar mesa'}
                         </button>
                         <button className="btn btn-outline-danger" onClick={cancelarCuenta} disabled={procesando}>

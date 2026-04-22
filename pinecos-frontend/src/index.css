@@ -623,9 +623,69 @@ body {
   padding: 8px;
 }
 
+.mesas-cobro-helper {
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  padding: 0.45rem 0.55rem;
+}
+
+.mesas-canal-hint {
+  font-weight: 600;
+}
+
 .mesas-actions-bar .btn {
   min-height: 38px;
   font-weight: 750;
+}
+
+.mesas-cobro-status-card {
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 0.55rem 0.65rem;
+  background: #f8fafc;
+}
+
+.mesas-cobro-status-card.is-ready {
+  border-color: #86efac;
+  background: #f0fdf4;
+}
+
+.mesas-cobro-status-card.is-pending {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.mesas-cobro-status-title {
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #334155;
+  margin-bottom: 0.35rem;
+}
+
+.mesas-cobro-checklist {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.mesas-cobro-check {
+  font-size: 0.73rem;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 0.2rem 0.45rem;
+}
+
+.mesas-cobro-check.ok {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.mesas-cobro-check.bad {
+  background: #fee2e2;
+  color: #991b1b;
 }
 
 .mesas-mixto-wrap {
@@ -647,6 +707,15 @@ body {
 .mesas-mixto-field .form-control,
 .mesas-mixto-field .form-select {
   min-height: 38px;
+}
+
+.mesas-mixto-field .form-label {
+  margin-bottom: 0.2rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #64748b;
 }
 
 .mesa-node {
@@ -874,6 +943,10 @@ body {
 
   .mesas-mixto-line {
     grid-template-columns: 1fr;
+  }
+
+  .mesas-cobro-helper {
+    font-size: 0.8rem;
   }
 
   .mesa-nombre {

@@ -196,7 +196,8 @@ function VentasPOS() {
     const codigo = String(metodoPago || '').toUpperCase();
     const cat = String(metodoPagoActivo?.categoria || '').toUpperCase();
     if (cat) return cat;
-    // Respaldo para configuraciones antiguas sin categoria correcta.
+    // Respaldo: el chip "Tarjeta / POS" usa codigo POS pero en catálogo suele ser TARJETA; debe cuadrar a categoria POS.
+    if (codigo === 'POS' || codigo === 'TARJETA' || codigo === 'TARJETA_POS') return 'POS';
     if (codigo === 'TRANSFERENCIA') return 'POS';
     if (codigo === 'EFECTIVO') return 'EFECTIVO';
     return 'OTRO';
