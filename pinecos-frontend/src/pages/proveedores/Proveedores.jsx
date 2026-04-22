@@ -226,19 +226,18 @@ function Proveedores() {
 
       <div className="card shadow-sm">
         <div className="card-body">
-          <div className="d-flex flex-wrap gap-2 justify-content-between mb-3">
-            <div className="d-flex flex-wrap gap-2 align-items-center">
+          <div className="module-filters-bar mb-3">
+            <div className="module-filters-main d-flex align-items-center">
               <input
                 type="text"
-                className="form-control"
-                style={{ maxWidth: 320 }}
+                className="form-control module-filter-input"
                 placeholder="Buscar proveedor..."
                 value={filtro}
                 onChange={(e) => setFiltro(e.target.value)}
               />
               <button type="button" className="btn btn-outline-success" onClick={exportarCsv}>Excel</button>
             </div>
-            <div className="d-flex flex-wrap gap-3 align-items-center">
+            <div className="d-flex flex-wrap gap-3 align-items-center module-filter-check">
               <span className="badge text-bg-light border">Total: {resumen.total}</span>
               <span className="badge text-bg-success-subtle border">Activos: {resumen.activos}</span>
               <span className="badge text-bg-danger-subtle border">Inactivos: {resumen.inactivos}</span>

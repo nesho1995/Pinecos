@@ -471,19 +471,17 @@ function Productos() {
 
       <div className="card shadow-sm">
         <div className="card-body">
-          <div className="d-flex flex-wrap gap-2 justify-content-between mb-3">
-            <div className="d-flex flex-wrap gap-2">
+          <div className="module-filters-bar mb-3">
+            <div className="module-filters-main">
               <input
                 type="text"
-                className="form-control"
-                style={{ maxWidth: 320 }}
+                className="form-control module-filter-input"
                 placeholder="Buscar producto..."
                 value={filtro}
                 onChange={(e) => setFiltro(e.target.value)}
               />
               <select
-                className="form-select"
-                style={{ maxWidth: 320 }}
+                className="form-select module-filter-select"
                 value={idSucursalListado}
                 onChange={(e) => setIdSucursalListado(e.target.value)}
               >
@@ -492,7 +490,7 @@ function Productos() {
                 ))}
               </select>
             </div>
-            <div className="form-check">
+            <div className="form-check module-filter-check">
               <input
                 type="checkbox"
                 className="form-check-input"

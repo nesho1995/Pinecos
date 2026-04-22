@@ -1064,10 +1064,10 @@ function Inventario() {
           <div className="col-md-7">
             <div className="card shadow-sm">
               <div className="card-body">
-                <div className="d-flex justify-content-between align-items-center mb-3">
+                <div className="module-filters-bar mb-3">
                   <h5 className="mb-0">Catalogo de insumos</h5>
-                  <div className="d-flex gap-2">
-                    <input className="form-control" style={{ maxWidth: 260 }} placeholder="Buscar..." value={filtroItems} onChange={(e) => setFiltroItems(e.target.value)} />
+                  <div className="module-filters-main d-flex">
+                    <input className="form-control module-filter-input" placeholder="Buscar..." value={filtroItems} onChange={(e) => setFiltroItems(e.target.value)} />
                     <button type="button" className="btn btn-outline-success btn-sm" onClick={exportarItems}>Excel</button>
                   </div>
                 </div>

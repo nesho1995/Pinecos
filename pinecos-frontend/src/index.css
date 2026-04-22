@@ -421,6 +421,34 @@ body {
   font-weight: 700;
 }
 
+.module-filters-bar {
+  display: flex;
+  gap: 0.6rem;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.module-filters-main {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  flex: 1 1 auto;
+}
+
+.module-filter-input,
+.module-filter-select {
+  flex: 0 0 320px;
+  max-width: 320px;
+  min-width: 260px;
+}
+
+.module-filter-check {
+  flex: 0 0 auto;
+  margin-bottom: 0;
+  white-space: nowrap;
+}
+
 .app-content .nav-pills .nav-link {
   border-radius: 999px;
 }
@@ -949,6 +977,17 @@ body {
   .app-content .table-responsive thead th,
   .app-content .compact-table-wrap thead th {
     position: static;
+  }
+
+  .module-filters-main {
+    width: 100%;
+  }
+
+  .module-filter-input,
+  .module-filter-select {
+    flex: 1 1 100%;
+    max-width: 100%;
+    min-width: 0;
   }
 
   .mesas-panel-card .card-body {

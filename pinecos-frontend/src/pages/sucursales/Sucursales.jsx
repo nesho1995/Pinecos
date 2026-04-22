@@ -175,16 +175,17 @@ function Sucursales() {
 
       <div className="card shadow-sm">
         <div className="card-body">
-          <div className="d-flex flex-wrap gap-2 justify-content-between mb-3">
-            <input
-              type="text"
-              className="form-control"
-              style={{ maxWidth: 300 }}
-              placeholder="Buscar sucursal..."
-              value={filtro}
-              onChange={(e) => setFiltro(e.target.value)}
-            />
-            <div className="form-check">
+          <div className="module-filters-bar mb-3">
+            <div className="module-filters-main">
+              <input
+                type="text"
+                className="form-control module-filter-input"
+                placeholder="Buscar sucursal..."
+                value={filtro}
+                onChange={(e) => setFiltro(e.target.value)}
+              />
+            </div>
+            <div className="form-check module-filter-check">
               <input
                 type="checkbox"
                 className="form-check-input"

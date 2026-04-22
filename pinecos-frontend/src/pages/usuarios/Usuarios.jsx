@@ -204,14 +204,17 @@ function Usuarios() {
 
       <div className="card shadow-sm">
         <div className="card-body">
-          <input
-            type="text"
-            className="form-control mb-3"
-            style={{ maxWidth: 320 }}
-            placeholder="Buscar usuario..."
-            value={filtro}
-            onChange={(e) => setFiltro(e.target.value)}
-          />
+          <div className="module-filters-bar mb-3">
+            <div className="module-filters-main">
+              <input
+                type="text"
+                className="form-control module-filter-input"
+                placeholder="Buscar usuario..."
+                value={filtro}
+                onChange={(e) => setFiltro(e.target.value)}
+              />
+            </div>
+          </div>
           <table className="table table-bordered align-middle">
             <thead>
               <tr>
