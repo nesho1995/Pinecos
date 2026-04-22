@@ -8,6 +8,7 @@ function Productos() {
   const [productos, setProductos] = useState([]);
   const [categorias, setCategorias] = useState([]);
   const [sucursales, setSucursales] = useState([]);
+  const [idSucursalListado, setIdSucursalListado] = useState('');
   const [precioVenta, setPrecioVenta] = useState({ id_Sucursal: '', precio: '' });
   const [mostrarInactivos, setMostrarInactivos] = useState(false);
   const [filtro, setFiltro] = useState('');
@@ -29,7 +30,10 @@ function Productos() {
   const cargarProductos = async () => {
     try {
       const response = await api.get('/Productos', {
-        params: { incluirInactivos: mostrarInactivos }
+        params: {
+          incluirInactivos: mostrarInactivos,
+          idSucursal: idSucursalListado || undefined
+        }
       });
       setProductos(response.data || []);
     } catch {
@@ -57,12 +61,17 @@ function Productos() {
 
   useEffect(() => {
     cargarProductos();
-  }, [mostrarInactivos]);
+  }, [mostrarInactivos, idSucursalListado]);
 
   useEffect(() => {
     cargarCategorias();
     cargarSucursales();
   }, []);
+
+  useEffect(() => {
+    if (idSucursalListado || !sucursales.length) return;
+    setIdSucursalListado(String(sucursales[0].id_Sucursal));
+  }, [sucursales, idSucursalListado]);
 
   useEffect(() => {
     if (location.hash !== '#importar-productos-excel') return;
@@ -463,14 +472,26 @@ function Productos() {
       <div className="card shadow-sm">
         <div className="card-body">
           <div className="d-flex flex-wrap gap-2 justify-content-between mb-3">
-            <input
-              type="text"
-              className="form-control"
-              style={{ maxWidth: 320 }}
-              placeholder="Buscar producto..."
-              value={filtro}
-              onChange={(e) => setFiltro(e.target.value)}
-            />
+            <div className="d-flex flex-wrap gap-2">
+              <input
+                type="text"
+                className="form-control"
+                style={{ maxWidth: 320 }}
+                placeholder="Buscar producto..."
+                value={filtro}
+                onChange={(e) => setFiltro(e.target.value)}
+              />
+              <select
+                className="form-select"
+                style={{ maxWidth: 320 }}
+                value={idSucursalListado}
+                onChange={(e) => setIdSucursalListado(e.target.value)}
+              >
+                {sucursales.map((s) => (
+                  <option key={s.id_Sucursal} value={s.id_Sucursal}>{s.nombre}</option>
+                ))}
+              </select>
+            </div>
             <div className="form-check">
               <input
                 type="checkbox"
@@ -506,13 +527,12 @@ function Productos() {
                   <td>{item.categoria}</td>
                   <td>{formatCurrencyHNL(item.costo)}</td>
                   <td>
-                    {item.preciosConfigurados > 0 ? (
+                    {item.precioReferencia > 0 ? (
                       <>
                         {formatCurrencyHNL(item.precioReferencia)}
-                        {item.preciosConfigurados > 1 ? ` (${item.preciosConfigurados} sucursales)` : ''}
                       </>
                     ) : (
-                      <span className="text-muted">Sin precio</span>
+                      <span className="text-muted">Sin precio en esta sucursal</span>
                     )}
                   </td>
                   <td>{String(item.tipo_Fiscal || 'GRAVADO_15').replace('_', ' ')}</td>

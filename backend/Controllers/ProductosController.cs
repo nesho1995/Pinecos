@@ -71,7 +71,9 @@ namespace Pinecos.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult> GetProductos([FromQuery] bool incluirInactivos = false)
+        public async Task<ActionResult> GetProductos(
+            [FromQuery] bool incluirInactivos = false,
+            [FromQuery] int? idSucursal = null)
         {
             var productosQuery = _context.Productos.AsQueryable();
             if (!incluirInactivos)
@@ -88,11 +90,19 @@ namespace Pinecos.Controllers
                     p.Id_Categoria,
                     categoria = c.Nombre,
                     p.Costo,
-                    precioReferencia = _context.ProductosSucursal
-                        .Where(ps => ps.Id_Producto == p.Id_Producto && ps.Activo)
-                        .OrderBy(ps => ps.Id_Producto_Sucursal)
-                        .Select(ps => (decimal?)ps.Precio)
-                        .FirstOrDefault(),
+                    precioReferencia = idSucursal.HasValue && idSucursal.Value > 0
+                        ? _context.ProductosSucursal
+                            .Where(ps =>
+                                ps.Id_Producto == p.Id_Producto &&
+                                ps.Activo &&
+                                ps.Id_Sucursal == idSucursal.Value)
+                            .Select(ps => (decimal?)ps.Precio)
+                            .FirstOrDefault()
+                        : _context.ProductosSucursal
+                            .Where(ps => ps.Id_Producto == p.Id_Producto && ps.Activo)
+                            .OrderBy(ps => ps.Id_Producto_Sucursal)
+                            .Select(ps => (decimal?)ps.Precio)
+                            .FirstOrDefault(),
                     preciosConfigurados = _context.ProductosSucursal
                         .Count(ps => ps.Id_Producto == p.Id_Producto && ps.Activo),
                     p.Tipo_Fiscal,

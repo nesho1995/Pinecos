@@ -85,7 +85,7 @@ function Sidebar({ onNavigate, pendientesFiscales = 0 }) {
             <img src="/PinecosCafe.jpeg" alt="Cafe Pinecos" className="brand-logo" />
           </div>
           <div className="brand-title">Pinecos</div>
-          <div className="brand-subtitle">Gestion comercial</div>
+          <div className="brand-subtitle">Desarrollado por NesSys</div>
         </div>
 
         <div className="sidebar-nav-groups">
@@ -118,9 +118,6 @@ function Sidebar({ onNavigate, pendientesFiscales = 0 }) {
               </nav>
             </div>
           ))}
-        </div>
-        <div className="small text-muted mt-3 pt-2 border-top">
-          Plataforma empresarial por <strong>NesSys</strong>
         </div>
       </div>
     </aside>
