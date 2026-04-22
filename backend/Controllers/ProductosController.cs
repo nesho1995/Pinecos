@@ -39,6 +39,7 @@ namespace Pinecos.Controllers
         public async Task<ActionResult> ImportarExcel(
             IFormFile? file,
             [FromQuery] bool crearCategorias = true,
+            [FromQuery] bool crearPresentaciones = true,
             [FromQuery] string formato = "basico",
             CancellationToken cancellationToken = default)
         {
@@ -57,6 +58,7 @@ namespace Pinecos.Controllers
                     stream,
                     _context,
                     crearCategorias,
+                    crearPresentaciones,
                     formato,
                     cancellationToken);
             }

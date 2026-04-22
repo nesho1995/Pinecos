@@ -28,9 +28,27 @@ namespace Pinecos.Helpers
                 ws.Cell(2, 1).Value = "Cafe latte";
                 ws.Cell(2, 2).Value = "Bebidas calientes";
                 ws.Cell(2, 3).Value = 25.00m;
-                ws.Cell(2, 4).Value = "12 OZ";
+                ws.Cell(2, 4).Value = "Con leche";
                 ws.Cell(2, 5).Value = 80.00m;
                 ws.Cell(2, 6).Value = "Nombre exacto de la sucursal";
+                ws.Cell(3, 1).Value = "Cafe latte";
+                ws.Cell(3, 2).Value = "Bebidas calientes";
+                ws.Cell(3, 3).Value = 25.00m;
+                ws.Cell(3, 4).Value = "Con agua";
+                ws.Cell(3, 5).Value = 75.00m;
+                ws.Cell(3, 6).Value = "Nombre exacto de la sucursal";
+                ws.Cell(4, 1).Value = "Cafe molido";
+                ws.Cell(4, 2).Value = "Empaque";
+                ws.Cell(4, 3).Value = 90.00m;
+                ws.Cell(4, 4).Value = "250 gramos";
+                ws.Cell(4, 5).Value = 140.00m;
+                ws.Cell(4, 6).Value = "Nombre exacto de la sucursal";
+                ws.Cell(5, 1).Value = "Cafe molido";
+                ws.Cell(5, 2).Value = "Empaque";
+                ws.Cell(5, 3).Value = 120.00m;
+                ws.Cell(5, 4).Value = "400 gramos";
+                ws.Cell(5, 5).Value = 210.00m;
+                ws.Cell(5, 6).Value = "Nombre exacto de la sucursal";
             }
             else
             {
@@ -58,6 +76,7 @@ namespace Pinecos.Helpers
             Stream stream,
             PinecosDbContext context,
             bool crearCategoriasFaltantes,
+            bool crearPresentacionesFaltantes,
             string formato = "basico",
             CancellationToken cancellationToken = default)
         {
@@ -212,9 +231,21 @@ namespace Pinecos.Helpers
                         string.Equals(p.Nombre.Trim(), presentacionNombre.Trim(), StringComparison.OrdinalIgnoreCase));
                     if (presentacion == null)
                     {
-                        resultado.Errores.Add(new ProductoImportLineaError(r,
-                            $"Presentacion no encontrada: '{presentacionNombre}'."));
-                        continue;
+                        if (!crearPresentacionesFaltantes)
+                        {
+                            resultado.Errores.Add(new ProductoImportLineaError(r,
+                                $"Presentacion no encontrada: '{presentacionNombre}'."));
+                            continue;
+                        }
+
+                        presentacion = new Presentacion
+                        {
+                            Nombre = presentacionNombre,
+                            Onzas = 0
+                        };
+                        context.Presentaciones.Add(presentacion);
+                        await context.SaveChangesAsync(cancellationToken);
+                        presentaciones.Add(presentacion);
                     }
 
                     idPresentacionImport = presentacion.Id_Presentacion;

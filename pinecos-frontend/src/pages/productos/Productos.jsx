@@ -25,6 +25,7 @@ function Productos() {
   const fileImportRef = useRef(null);
   const [importandoExcel, setImportandoExcel] = useState(false);
   const [crearCategoriasImport, setCrearCategoriasImport] = useState(true);
+  const [crearPresentacionesImport, setCrearPresentacionesImport] = useState(true);
   const [formatoImport, setFormatoImport] = useState('basico');
   const [detalleImport, setDetalleImport] = useState(null);
 
@@ -126,7 +127,7 @@ function Productos() {
       const formData = new FormData();
       formData.append('file', file);
       const res = await api.post(
-        `/Productos/excel/importar?crearCategorias=${crearCategoriasImport ? 'true' : 'false'}&formato=${formatoImport}`,
+        `/Productos/excel/importar?crearCategorias=${crearCategoriasImport ? 'true' : 'false'}&crearPresentaciones=${crearPresentacionesImport ? 'true' : 'false'}&formato=${formatoImport}`,
         formData
       );
       setDetalleImport(res.data);
@@ -308,7 +309,7 @@ function Productos() {
               <strong>Formato basico</strong>: <strong>nombre</strong>, <strong>categoria</strong>, <strong>costo</strong>, <strong>precio</strong> y <strong>sucursal</strong>.
             </li>
             <li>
-              <strong>Formato con presentacion</strong>: agrega <strong>presentacion</strong> (ej. 8 OZ, 12 OZ, 16 OZ) y tambien incluye <strong>precio</strong> + <strong>sucursal</strong>.
+              <strong>Formato con presentacion</strong>: agrega <strong>presentacion</strong> y tambien incluye <strong>precio</strong> + <strong>sucursal</strong>. Puedes usar nombres de negocio como <strong>Con agua</strong>, <strong>Con leche</strong>, <strong>250 gramos</strong> o <strong>400 gramos</strong>.
             </li>
             <li>
               Regla unica para ambos formatos: <strong>precio y sucursal son requeridos en cada fila</strong>, porque la carga se gestiona por sucursal.
@@ -357,6 +358,20 @@ function Productos() {
                 Crear categorias nuevas si no existen
               </label>
             </div>
+            {formatoImport === 'presentacion' && (
+              <div className="form-check mb-0 ms-md-2">
+                <input
+                  className="form-check-input"
+                  type="checkbox"
+                  id="crearPresImport"
+                  checked={crearPresentacionesImport}
+                  onChange={(e) => setCrearPresentacionesImport(e.target.checked)}
+                />
+                <label className="form-check-label small" htmlFor="crearPresImport">
+                  Crear presentaciones nuevas si no existen
+                </label>
+              </div>
+            )}
           </div>
           {detalleImport && (
             <div className="small border-top pt-3 mt-2">
