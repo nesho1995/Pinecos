@@ -12,7 +12,7 @@ namespace Pinecos.Models
         public string? Comentario_Revision { get; set; }
         public int? Id_Usuario_Revision { get; set; }
         public int? Id_Producto_Creado { get; set; }
-        public DateTime Fecha_Creacion { get; set; } = DateTime.UtcNow;
+        public DateTime Fecha_Creacion { get; set; } = Pinecos.Helpers.FechaHelper.AhoraHonduras();
         public DateTime? Fecha_Revision { get; set; }
     }
 }

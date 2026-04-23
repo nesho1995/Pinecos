@@ -57,7 +57,7 @@ namespace Pinecos.Controllers
                 Id_Usuario_Solicita = idUsuario.Value,
                 Nota_Solicitud = string.IsNullOrWhiteSpace(request.NotaSolicitud) ? null : request.NotaSolicitud.Trim(),
                 Estado = "PENDIENTE",
-                Fecha_Creacion = DateTime.UtcNow
+                Fecha_Creacion = FechaHelper.AhoraHonduras()
             };
 
             _context.Set<ProductoPendiente>().Add(model);
@@ -155,7 +155,7 @@ namespace Pinecos.Controllers
                     ? "Rechazado por administracion."
                     : request.ComentarioRevision.Trim();
                 model.Id_Usuario_Revision = idUsuario.Value;
-                model.Fecha_Revision = DateTime.UtcNow;
+                model.Fecha_Revision = FechaHelper.AhoraHonduras();
                 await _context.SaveChangesAsync();
                 return Ok(new { message = "Solicitud rechazada.", data = model });
             }
@@ -214,7 +214,7 @@ namespace Pinecos.Controllers
                     : request.ComentarioRevision.Trim();
                 model.Id_Usuario_Revision = idUsuario.Value;
                 model.Id_Producto_Creado = producto.Id_Producto;
-                model.Fecha_Revision = DateTime.UtcNow;
+                model.Fecha_Revision = FechaHelper.AhoraHonduras();
 
                 await _context.SaveChangesAsync();
                 await tx.CommitAsync();

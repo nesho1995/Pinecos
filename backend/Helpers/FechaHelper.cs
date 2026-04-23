@@ -2,8 +2,32 @@
 {
     public static class FechaHelper
     {
-        private static readonly TimeZoneInfo HondurasTimeZone =
-            TimeZoneInfo.FindSystemTimeZoneById("Central America Standard Time");
+        private static readonly TimeZoneInfo HondurasTimeZone = ResolverZonaHoraria();
+
+        private static TimeZoneInfo ResolverZonaHoraria()
+        {
+            var ids = new[]
+            {
+                "America/Tegucigalpa",            // Linux
+                "Central America Standard Time"   // Windows
+            };
+
+            foreach (var id in ids)
+            {
+                try
+                {
+                    return TimeZoneInfo.FindSystemTimeZoneById(id);
+                }
+                catch (TimeZoneNotFoundException)
+                {
+                }
+                catch (InvalidTimeZoneException)
+                {
+                }
+            }
+
+            return TimeZoneInfo.Utc;
+        }
 
         public static DateTime AhoraHonduras()
         {

@@ -117,7 +117,7 @@ namespace Pinecos.Helpers
                         SiguienteCorrelativo = kv.Value.SiguienteCorrelativo,
                         FechaLimiteEmision = kv.Value.FechaLimiteEmision,
                         FacturasRestantes = CalcularFacturasRestantes(kv.Value),
-                        CaiVencido = kv.Value.FechaLimiteEmision.HasValue && kv.Value.FechaLimiteEmision.Value.Date < DateTime.Now.Date,
+                        CaiVencido = kv.Value.FechaLimiteEmision.HasValue && kv.Value.FechaLimiteEmision.Value.Date < FechaHelper.AhoraHonduras().Date,
                         NumeroCertificadoImprenta = kv.Value.NumeroCertificadoImprenta ?? string.Empty
                     })
                     .OrderBy(x => x.IdSucursal)
@@ -151,7 +151,7 @@ namespace Pinecos.Helpers
                 if (string.IsNullOrWhiteSpace(config.RangoInicio) || string.IsNullOrWhiteSpace(config.RangoFin))
                     throw new InvalidOperationException("Debe configurar el rango de facturacion");
 
-                if (config.FechaLimiteEmision.HasValue && config.FechaLimiteEmision.Value.Date < DateTime.Now.Date)
+                if (config.FechaLimiteEmision.HasValue && config.FechaLimiteEmision.Value.Date < FechaHelper.AhoraHonduras().Date)
                     throw new InvalidOperationException("El CAI ya vencio. Actualice fecha limite");
 
                 var (prefixInicio, correlativoInicio) = ParseRango(config.RangoInicio);
@@ -286,7 +286,7 @@ namespace Pinecos.Helpers
                 return;
             }
 
-            config.CaiVencido = config.FechaLimiteEmision.HasValue && config.FechaLimiteEmision.Value.Date < DateTime.Now.Date;
+            config.CaiVencido = config.FechaLimiteEmision.HasValue && config.FechaLimiteEmision.Value.Date < FechaHelper.AhoraHonduras().Date;
 
             try
             {
