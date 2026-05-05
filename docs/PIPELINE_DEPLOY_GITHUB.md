@@ -54,12 +54,50 @@ Flujo:
    - reload nginx
    - health checks de API y web local
 
-## 5) Deploy manual en servidor (fallback)
+## 5) Deploy manual limpio en servidor (fallback recomendado)
+
+Este flujo solo toca Pinecos:
+
+- Repo: `/home/pinecos/app`
+- Backend publicado: `/home/pinecos/apps/api`
+- Frontend publico: `/var/www/pinecos`
+- Servicio API: `pinecos-api`
+
+No usa rutas de Seguros ni borra `/var/www` completo. El `rsync --delete` solo sincroniza dentro de `/var/www/pinecos`.
+
+Entrar al servidor:
+
+```powershell
+ssh root@178.156.210.184
+```
+
+Ejecutar deploy:
 
 ```bash
 chmod +x /home/pinecos/app/ops/deploy_prod.sh
 TARGET_BRANCH=main /home/pinecos/app/ops/deploy_prod.sh
 ```
+
+El script hace:
+
+1. Corrige owner del repo a `pinecos`.
+2. Actualiza codigo con `runuser -u pinecos -- git ...`.
+3. Publica backend .NET en `/home/pinecos/apps/api`.
+4. Reinicia y valida `pinecos-api`.
+5. Compila frontend con `npm ci && npm run build`.
+6. Publica `dist/` con `rsync -a --delete` hacia `/var/www/pinecos/`.
+7. Valida Nginx con `nginx -t`, recarga Nginx y corre health checks.
+
+Ver catalogos despues del deploy:
+
+```bash
+curl -I https://pinecoscafehn.com/catalogos/la-granja/
+curl -I https://pinecoscafehn.com/catalogos/metropolis/
+curl -I https://pinecoscafehn.com/catalogos/menu-pinecos-la-granja.pdf
+curl -I https://pinecoscafehn.com/catalogos/menu-pinecos-metropolis.pdf
+```
+
+Los PDF deben responder como `application/pdf`.
 
 ## 6) Rollback rapido (si fuera necesario)
 
