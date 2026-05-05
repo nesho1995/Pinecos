@@ -1,6 +1,22 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { QRCodeSVG } from 'qrcode.react';
 import api from '../../services/api';
+
+const catalogosPublicos = [
+  {
+    id: 'la-granja',
+    nombre: 'Pinecos La Granja',
+    url: '/catalogos/la-granja/',
+    archivo: '/catalogos/menu-pinecos-la-granja.pdf'
+  },
+  {
+    id: 'metropolis',
+    nombre: 'Pinecos Metropolis',
+    url: '/catalogos/metropolis/',
+    archivo: '/catalogos/menu-pinecos-metropolis.pdf'
+  }
+];
 
 function MenuSucursal() {
   const [sucursales, setSucursales] = useState([]);
@@ -179,6 +195,8 @@ function MenuSucursal() {
   }, [sucursalSeleccionada]);
 
   const nombreSucursalActiva = sucursales.find((s) => String(s.id_Sucursal) === String(sucursalSeleccionada))?.nombre;
+  const origenPublico = typeof window !== 'undefined' ? window.location.origin : '';
+  const getCatalogoUrl = (url) => `${origenPublico}${url}`;
 
   return (
     <div>
@@ -232,6 +250,52 @@ function MenuSucursal() {
               Debes elegir sucursal antes de guardar precios en los pasos A y C (el paso B no la necesita).
             </small>
           )}
+        </div>
+      </div>
+
+      <div className="card shadow-sm mb-4">
+        <div className="card-body">
+          <div className="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-3">
+            <div>
+              <h3 className="h5 mb-1">Catalogos publicos con QR</h3>
+              <p className="text-muted small mb-0">
+                Estos enlaces quedan disponibles para clientes al publicar el frontend. El QR usa el dominio actual de la app.
+              </p>
+            </div>
+          </div>
+
+          <div className="row g-3">
+            {catalogosPublicos.map((catalogo) => {
+              const url = getCatalogoUrl(catalogo.url);
+
+              return (
+                <div className="col-md-6" key={catalogo.id}>
+                  <div className="border rounded p-3 h-100">
+                    <div className="d-flex align-items-start gap-3 flex-wrap">
+                      <div className="bg-white border rounded p-2">
+                        <QRCodeSVG value={url} size={132} includeMargin />
+                      </div>
+
+                      <div className="flex-grow-1" style={{ minWidth: '220px' }}>
+                        <h4 className="h6 mb-2">{catalogo.nombre}</h4>
+                        <div className="small text-break mb-3">
+                          <a href={catalogo.url} target="_blank" rel="noreferrer">{url}</a>
+                        </div>
+                        <div className="d-flex gap-2 flex-wrap">
+                          <a className="btn btn-sm btn-dark" href={catalogo.url} target="_blank" rel="noreferrer">
+                            Abrir catalogo
+                          </a>
+                          <a className="btn btn-sm btn-outline-secondary" href={catalogo.archivo} download>
+                            Descargar PDF
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 

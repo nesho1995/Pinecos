@@ -4,7 +4,8 @@ import api from '../../services/api';
 import { descargarTicketPdf, imprimirHtmlDirecto, imprimirTicketHtml } from '../../utils/printTicket';
 import { getUsuario } from '../../utils/auth';
 import { formatCurrencyHNL, formatDateTimeHN, formatTimeHN } from '../../utils/formatters';
-import FacturaCaiClienteForm, { facturaClienteVacio } from '../../components/factura/FacturaCaiClienteForm';
+import FacturaCaiClienteForm from '../../components/factura/FacturaCaiClienteForm';
+import { facturaClienteVacio } from '../../components/factura/facturaClienteVacio';
 import CheckoutPayMethodChips from '../../components/checkout/CheckoutPayMethodChips';
 import CheckoutServiceToggle from '../../components/checkout/CheckoutServiceToggle';
 

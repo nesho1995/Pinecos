@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import api from '../../services/api';
 import { imprimirTicketHtml, imprimirTicketsDivisionMesa } from '../../utils/printTicket';
 import { getUsuario } from '../../utils/auth';
-import FacturaCaiClienteForm, { facturaClienteVacio } from '../../components/factura/FacturaCaiClienteForm';
+import FacturaCaiClienteForm from '../../components/factura/FacturaCaiClienteForm';
+import { facturaClienteVacio } from '../../components/factura/facturaClienteVacio';
 import CheckoutPayMethodChips from '../../components/checkout/CheckoutPayMethodChips';
 import CheckoutServiceToggle from '../../components/checkout/CheckoutServiceToggle';
 

@@ -2,20 +2,6 @@
  * Datos del adquirente para factura CAI (SAR Honduras).
  * Consumidor final vs obligado tributario: campos exigidos validados tambien en backend.
  */
-export const facturaClienteVacio = () => ({
-  tipoCliente: 'CONSUMIDOR_FINAL',
-  nombreCliente: '',
-  rtnCliente: '',
-  identidadCliente: '',
-  direccionCliente: '',
-  telefonoCliente: '',
-  condicionPago: 'CONTADO',
-  tipoFacturaFiscal: 'GRAVADO_15',
-  numeroOrdenCompraExenta: '',
-  numeroConstanciaRegistroExonerado: '',
-  numeroRegistroSag: ''
-});
-
 function FacturaCaiClienteForm({ value, onChange, idPrefix = 'fcai' }) {
   const onlyDigits = (raw) => String(raw || '').replace(/\D+/g, '');
   const set = (field, v) => onChange({ ...value, [field]: v });

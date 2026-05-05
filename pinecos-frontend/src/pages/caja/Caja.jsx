@@ -36,7 +36,7 @@ function Caja() {
   const usuario = getUsuario();
   const idUsuario = Number(usuario?.id_Usuario ?? usuario?.id_usuario ?? 0);
   const [cajaActual, setCajaActual] = useState(null);
-  const [cuadrePrevio, setCuadrePrevio] = useState(null);
+  const [, setCuadrePrevio] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadingCuadre, setLoadingCuadre] = useState(false);
   const [mensaje, setMensaje] = useState('');
