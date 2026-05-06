@@ -9,7 +9,7 @@ API_SERVICE="${API_SERVICE:-pinecos-api}"
 TARGET_BRANCH="${TARGET_BRANCH:-main}"
 SKIP_GIT_PULL="${SKIP_GIT_PULL:-0}"
 API_HEALTH_URL="${API_HEALTH_URL:-http://127.0.0.1:5152/api/Sucursales}"
-WEB_HEALTH_URL="${WEB_HEALTH_URL:-http://127.0.0.1/}"
+WEB_HEALTH_URL="${WEB_HEALTH_URL:-https://pinecoscafehn.com}"
 
 log() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"
