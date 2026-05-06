@@ -72,7 +72,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     needs: verify
-    if: github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch'
     steps:
       - name: Setup SSH
         env:
@@ -86,11 +86,9 @@ jobs:
           chmod 600 ~/.ssh/prod_key
           if [ -n "$PROD_KNOWN_HOST" ]; then
             printf '%s\n' "$PROD_KNOWN_HOST" >> ~/.ssh/known_hosts
-            echo "Host key cargado desde secret PROD_KNOWN_HOST."
           else
-            echo "PROD_KNOWN_HOST no configurado — se usara StrictHostKeyChecking=accept-new."
+            echo "PROD_KNOWN_HOST no configurado — usando StrictHostKeyChecking=accept-new."
           fi
-          echo "SSH listo."
 
       - name: Deploy via SSH
         env:
@@ -104,25 +102,18 @@ jobs:
           PROD_PORT="${PROD_PORT:-22}"
           PROD_USER="${PROD_USER:-root}"
           SSH_OPTS="-i ~/.ssh/prod_key -p $PROD_PORT"
-          if [ -z "${PROD_KNOWN_HOST:-}" ]; then
-            SSH_OPTS="$SSH_OPTS -o StrictHostKeyChecking=accept-new"
-          fi
+          [ -z "${PROD_KNOWN_HOST:-}" ] && SSH_OPTS="$SSH_OPTS -o StrictHostKeyChecking=accept-new"
 
           # shellcheck disable=SC2086
           ssh $SSH_OPTS "$PROD_USER@$PROD_HOST" 'bash -s' <<'ENDSSH'
             set -euo pipefail
-
-            echo "=== [1/2] Actualizando codigo en servidor ==="
             su - pinecos -c "
-              set -euo pipefail
               cd /home/pinecos/app
               git fetch --prune origin
               git checkout main
               git reset --hard origin/main
-              echo 'Commit desplegado:' \$(git log -1 --oneline)
+              echo Commit: \$(git log -1 --oneline)
             "
-
-            echo "=== [2/2] Ejecutando deploy_prod.sh ==="
             chmod +x /home/pinecos/app/ops/deploy_prod.sh
             SKIP_GIT_PULL=1 TARGET_BRANCH=main /home/pinecos/app/ops/deploy_prod.sh
           ENDSSH
