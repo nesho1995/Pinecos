@@ -6,6 +6,9 @@ on:
       - main
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
 concurrency:
   group: deploy-production
   cancel-in-progress: false
@@ -37,10 +40,10 @@ jobs:
             echo "No se encontraron proyectos de prueba .NET, se omite dotnet test."
           fi
 
-      - name: Setup Node 20
+      - name: Setup Node 24
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
           cache-dependency-path: pinecos-frontend/package-lock.json
 
@@ -71,34 +74,45 @@ jobs:
     needs: verify
     if: github.ref == 'refs/heads/main'
     steps:
+      - name: Setup SSH
+        env:
+          PROD_SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
+          PROD_KNOWN_HOST: ${{ secrets.PROD_KNOWN_HOST }}
+        run: |
+          set -euo pipefail
+          : "${PROD_SSH_KEY:?Secret PROD_SSH_KEY no configurado en GitHub Secrets}"
+          : "${PROD_KNOWN_HOST:?Secret PROD_KNOWN_HOST no configurado en GitHub Secrets}"
+          mkdir -p ~/.ssh
+          printf '%s\n' "$PROD_SSH_KEY" > ~/.ssh/prod_key
+          chmod 600 ~/.ssh/prod_key
+          printf '%s\n' "$PROD_KNOWN_HOST" >> ~/.ssh/known_hosts
+          echo "SSH configurado correctamente."
+
       - name: Deploy via SSH
         env:
           PROD_HOST: ${{ secrets.PROD_HOST }}
           PROD_PORT: ${{ secrets.PROD_PORT }}
           PROD_USER: ${{ secrets.PROD_USER }}
-          PROD_SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
-          PROD_KNOWN_HOST: ${{ secrets.PROD_KNOWN_HOST }}
         run: |
           set -euo pipefail
-          : "${PROD_HOST:?Secret PROD_HOST no configurado}"
-          : "${PROD_SSH_KEY:?Secret PROD_SSH_KEY no configurado}"
-          : "${PROD_KNOWN_HOST:?Secret PROD_KNOWN_HOST no configurado}"
-
+          : "${PROD_HOST:?Secret PROD_HOST no configurado en GitHub Secrets}"
           PROD_PORT="${PROD_PORT:-22}"
           PROD_USER="${PROD_USER:-root}"
 
-          mkdir -p ~/.ssh
-          printf '%s\n' "$PROD_SSH_KEY" > ~/.ssh/prod_key
-          chmod 600 ~/.ssh/prod_key
-          printf '%s\n' "$PROD_KNOWN_HOST" >> ~/.ssh/known_hosts
-
-          ssh -i ~/.ssh/prod_key -p "$PROD_PORT" "$PROD_USER@$PROD_HOST" 'bash -s' <<'EOF'
+          ssh -i ~/.ssh/prod_key -p "$PROD_PORT" "$PROD_USER@$PROD_HOST" 'bash -s' <<'ENDSSH'
             set -euo pipefail
 
-            # Primer paso: asegurar que el repo del servidor tenga el commit nuevo
-            su - pinecos -c "cd /home/pinecos/app && git fetch --prune origin && git checkout main && git pull --ff-only origin main"
+            echo "=== [1/2] Actualizando codigo en servidor ==="
+            su - pinecos -c "
+              set -euo pipefail
+              cd /home/pinecos/app
+              git fetch --prune origin
+              git checkout main
+              git reset --hard origin/main
+              echo 'Commit desplegado:' \$(git log -1 --oneline)
+            "
 
-            # Deploy productivo
+            echo "=== [2/2] Ejecutando deploy_prod.sh ==="
             chmod +x /home/pinecos/app/ops/deploy_prod.sh
             SKIP_GIT_PULL=1 TARGET_BRANCH=main /home/pinecos/app/ops/deploy_prod.sh
-          EOF
+          ENDSSH
