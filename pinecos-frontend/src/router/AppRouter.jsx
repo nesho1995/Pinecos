@@ -53,12 +53,12 @@ function AppRouter() {
           <Route path="sucursales" element={<RoleRoute allowedRoles={['ADMIN']}><Sucursales /></RoleRoute>} />
           <Route path="usuarios" element={<RoleRoute allowedRoles={['ADMIN']}><Usuarios /></RoleRoute>} />
           <Route path="configuracion" element={<RoleRoute allowedRoles={['ADMIN']}><Configuracion /></RoleRoute>} />
-          <Route path="caja" element={<RoleRoute allowedRoles={['ADMIN', 'CAJERO']}><Caja /></RoleRoute>} />
-          <Route path="movimientos-caja" element={<RoleRoute allowedRoles={['ADMIN', 'CAJERO']}><MovimientosCaja /></RoleRoute>} />
-          <Route path="gastos" element={<RoleRoute allowedRoles={['ADMIN', 'CAJERO']}><Gastos /></RoleRoute>} />
-          <Route path="ventas" element={<RoleRoute allowedRoles={['ADMIN', 'CAJERO']}><VentasPOS /></RoleRoute>} />
-          <Route path="productos-pendientes" element={<RoleRoute allowedRoles={['ADMIN', 'CAJERO']}><ProductosPendientes /></RoleRoute>} />
-          <Route path="mesas" element={<RoleRoute allowedRoles={['ADMIN', 'CAJERO']}><Mesas /></RoleRoute>} />
+          <Route path="caja" element={<RoleRoute allowedRoles={['ADMIN', 'CAJERO', 'SUPERVISOR']}><Caja /></RoleRoute>} />
+          <Route path="movimientos-caja" element={<RoleRoute allowedRoles={['ADMIN', 'CAJERO', 'SUPERVISOR']}><MovimientosCaja /></RoleRoute>} />
+          <Route path="gastos" element={<RoleRoute allowedRoles={['ADMIN', 'CAJERO', 'SUPERVISOR']}><Gastos /></RoleRoute>} />
+          <Route path="ventas" element={<RoleRoute allowedRoles={['ADMIN', 'CAJERO', 'SUPERVISOR']}><VentasPOS /></RoleRoute>} />
+          <Route path="productos-pendientes" element={<RoleRoute allowedRoles={['ADMIN', 'CAJERO', 'SUPERVISOR']}><ProductosPendientes /></RoleRoute>} />
+          <Route path="mesas" element={<RoleRoute allowedRoles={['ADMIN', 'CAJERO', 'SUPERVISOR']}><Mesas /></RoleRoute>} />
           <Route path="mesas-admin" element={<RoleRoute allowedRoles={['ADMIN']}><MesasAdmin /></RoleRoute>} />
           <Route path="reportes" element={<RoleRoute allowedRoles={['ADMIN']}><Reportes /></RoleRoute>} />
           <Route path="gestion-ventas" element={<RoleRoute allowedRoles={['ADMIN']}><GestionVentas /></RoleRoute>} />

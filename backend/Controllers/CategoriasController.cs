@@ -8,8 +8,7 @@ namespace Pinecos.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [AuthorizeRoles("ADMIN")]
-
+    [AuthorizeRoles("ADMIN", "SUPERVISOR")]
     public class CategoriasController : ControllerBase
     {
         private readonly PinecosDbContext _context;
@@ -41,6 +40,7 @@ namespace Pinecos.Controllers
         }
 
         [HttpPost]
+        [AuthorizeRoles("ADMIN")]
         public async Task<ActionResult> CrearCategoria([FromBody] Categoria categoria)
         {
             if (string.IsNullOrWhiteSpace(categoria.Nombre))
@@ -63,6 +63,7 @@ namespace Pinecos.Controllers
         }
 
         [HttpPut("{id}")]
+        [AuthorizeRoles("ADMIN")]
         public async Task<ActionResult> EditarCategoria(int id, [FromBody] Categoria categoria)
         {
             var categoriaDb = await _context.Categorias.FindAsync(id);
@@ -85,6 +86,7 @@ namespace Pinecos.Controllers
         }
 
         [HttpDelete("{id}")]
+        [AuthorizeRoles("ADMIN")]
         public async Task<ActionResult> EliminarCategoria(int id)
         {
             var categoriaDb = await _context.Categorias.FindAsync(id);

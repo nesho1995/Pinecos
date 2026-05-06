@@ -8,8 +8,7 @@ namespace Pinecos.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [AuthorizeRoles("ADMIN")]
-
+    [AuthorizeRoles("ADMIN", "SUPERVISOR")]
     public class SucursalesController : ControllerBase
     {
         private readonly PinecosDbContext _context;
@@ -46,6 +45,7 @@ namespace Pinecos.Controllers
         }
 
         [HttpPost]
+        [AuthorizeRoles("ADMIN")]
         public async Task<ActionResult> CrearSucursal([FromBody] Sucursal sucursal)
         {
             if (string.IsNullOrWhiteSpace(sucursal.Nombre))

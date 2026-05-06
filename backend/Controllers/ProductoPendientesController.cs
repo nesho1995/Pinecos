@@ -9,7 +9,7 @@ namespace Pinecos.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [AuthorizeRoles("ADMIN", "CAJERO")]
+    [AuthorizeRoles("ADMIN", "CAJERO", "SUPERVISOR")]
     public class ProductoPendientesController : ControllerBase
     {
         private readonly PinecosDbContext _context;
@@ -88,7 +88,7 @@ namespace Pinecos.Controllers
             if (!string.IsNullOrWhiteSpace(estadoNorm))
                 query = query.Where(x => x.Estado == estadoNorm);
 
-            if (rol == "ADMIN")
+            if (rol == "ADMIN" || rol == "SUPERVISOR")
             {
                 if (idSucursal.HasValue && idSucursal.Value > 0)
                     query = query.Where(x => x.Id_Sucursal == idSucursal.Value);
@@ -132,6 +132,79 @@ namespace Pinecos.Controllers
             .ToListAsync();
 
             return Ok(new { total, page, pageSize, data });
+        }
+
+        [HttpPost("crear-directo")]
+        [AuthorizeRoles("SUPERVISOR")]
+        public async Task<ActionResult> CrearDirecto([FromBody] CrearProductoDirectoRequest request)
+        {
+            var idUsuario = UserHelper.GetUserId(User);
+            var idSucursalToken = UserHelper.GetSucursalId(User);
+            if (!idUsuario.HasValue || !idSucursalToken.HasValue)
+                return Unauthorized(new { message = "No se pudo validar el usuario o sucursal en sesion." });
+
+            if (string.IsNullOrWhiteSpace(request.Nombre))
+                return BadRequest(new { message = "El nombre del producto es requerido." });
+
+            if (!request.IdCategoria.HasValue || request.IdCategoria.Value <= 0)
+                return BadRequest(new { message = "Selecciona una categoria." });
+
+            if (request.Precio <= 0)
+                return BadRequest(new { message = "El precio debe ser mayor a cero." });
+
+            var categoriaExiste = await _context.Categorias.AnyAsync(c => c.Id_Categoria == request.IdCategoria.Value);
+            if (!categoriaExiste)
+                return BadRequest(new { message = "La categoria seleccionada no existe." });
+
+            using var tx = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                var nombreNorm = request.Nombre.Trim().ToLower();
+                var producto = await _context.Productos.FirstOrDefaultAsync(p =>
+                    p.Activo && p.Nombre.Trim().ToLower() == nombreNorm);
+
+                if (producto == null)
+                {
+                    producto = new Producto
+                    {
+                        Nombre = request.Nombre.Trim(),
+                        Id_Categoria = request.IdCategoria.Value,
+                        Costo = Math.Max(0, request.Costo ?? 0),
+                        Tipo_Fiscal = FiscalTipoHelper.Normalizar(request.TipoFiscal),
+                        Activo = true
+                    };
+                    _context.Productos.Add(producto);
+                    await _context.SaveChangesAsync();
+                }
+
+                var productoSucursal = await _context.ProductosSucursal.FirstOrDefaultAsync(x =>
+                    x.Id_Producto == producto.Id_Producto && x.Id_Sucursal == idSucursalToken.Value);
+
+                if (productoSucursal == null)
+                {
+                    _context.ProductosSucursal.Add(new ProductoSucursal
+                    {
+                        Id_Producto = producto.Id_Producto,
+                        Id_Sucursal = idSucursalToken.Value,
+                        Precio = request.Precio,
+                        Activo = true
+                    });
+                }
+                else
+                {
+                    productoSucursal.Precio = request.Precio;
+                    productoSucursal.Activo = true;
+                }
+
+                await _context.SaveChangesAsync();
+                await tx.CommitAsync();
+                return Ok(new { message = "Producto creado y habilitado para venta.", data = producto });
+            }
+            catch
+            {
+                await tx.RollbackAsync();
+                throw;
+            }
         }
 
         [HttpPatch("{id:int}/resolver")]
@@ -243,5 +316,14 @@ namespace Pinecos.Controllers
         public string TipoFiscal { get; set; } = "GRAVADO_15";
         public decimal PrecioAprobado { get; set; }
         public string? ComentarioRevision { get; set; }
+    }
+
+    public sealed class CrearProductoDirectoRequest
+    {
+        public string Nombre { get; set; } = string.Empty;
+        public int? IdCategoria { get; set; }
+        public decimal Precio { get; set; }
+        public decimal? Costo { get; set; }
+        public string TipoFiscal { get; set; } = "GRAVADO_15";
     }
 }

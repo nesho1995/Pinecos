@@ -6,6 +6,8 @@ import { getUserRole } from '../../utils/auth';
 function ProductosPendientes() {
   const role = getUserRole();
   const esAdmin = role === 'ADMIN';
+  const esSupervisor = role === 'SUPERVISOR';
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [mensaje, setMensaje] = useState('');
@@ -19,6 +21,13 @@ function ProductosPendientes() {
     precioSugerido: '',
     notaSolicitud: ''
   });
+  const [formDirecto, setFormDirecto] = useState({
+    nombre: '',
+    idCategoria: '',
+    precio: '',
+    costo: '',
+    tipoFiscal: 'GRAVADO_15'
+  });
   const [resolucion, setResolucion] = useState({
     idCategoria: '',
     costoReferencia: '',
@@ -27,8 +36,8 @@ function ProductosPendientes() {
     comentarioRevision: ''
   });
 
-  const cargarCatalogosAdmin = async () => {
-    if (!esAdmin) return;
+  const cargarCatalogos = async () => {
+    if (!esAdmin && !esSupervisor) return;
     const [resSucursales, resCategorias] = await Promise.all([
       api.get('/Sucursales', { params: { incluirInactivas: false } }),
       api.get('/Categorias')
@@ -49,7 +58,7 @@ function ProductosPendientes() {
     try {
       setLoading(true);
       setError('');
-      await Promise.all([cargarCatalogosAdmin(), cargarSolicitudes()]);
+      await Promise.all([cargarCatalogos(), cargarSolicitudes()]);
     } catch (err) {
       setError(err?.response?.data?.message || 'No se pudo cargar el panel de productos pendientes');
     } finally {
@@ -79,6 +88,25 @@ function ProductosPendientes() {
     }
   };
 
+  const crearProductoDirecto = async (e) => {
+    e.preventDefault();
+    setMensaje('');
+    setError('');
+    try {
+      await api.post('/ProductoPendientes/crear-directo', {
+        nombre: formDirecto.nombre,
+        idCategoria: Number(formDirecto.idCategoria),
+        precio: Number(formDirecto.precio),
+        costo: formDirecto.costo !== '' ? Number(formDirecto.costo) : null,
+        tipoFiscal: formDirecto.tipoFiscal
+      });
+      setMensaje('Producto creado y habilitado para venta.');
+      setFormDirecto({ nombre: '', idCategoria: '', precio: '', costo: '', tipoFiscal: 'GRAVADO_15' });
+    } catch (err) {
+      setError(err?.response?.data?.message || 'No se pudo crear el producto');
+    }
+  };
+
   const resolver = async (item, aprobar) => {
     setMensaje('');
     setError('');
@@ -92,13 +120,7 @@ function ProductosPendientes() {
         comentarioRevision: resolucion.comentarioRevision
       });
       setMensaje(aprobar ? 'Solicitud aprobada y publicada en catalogo.' : 'Solicitud rechazada.');
-      setResolucion({
-        idCategoria: '',
-        costoReferencia: '',
-        tipoFiscal: 'GRAVADO_15',
-        precioAprobado: '',
-        comentarioRevision: ''
-      });
+      setResolucion({ idCategoria: '', costoReferencia: '', tipoFiscal: 'GRAVADO_15', precioAprobado: '', comentarioRevision: '' });
       await cargarSolicitudes();
     } catch (err) {
       setError(err?.response?.data?.message || 'No se pudo procesar la solicitud');
@@ -109,52 +131,113 @@ function ProductosPendientes() {
     <div>
       <h2 className="mb-3">Productos faltantes</h2>
       <p className="text-muted small mb-3">
-        Este panel evita perder ventas cuando no existe un producto en catalogo: caja lo solicita y administracion lo aprueba o rechaza con trazabilidad.
+        {esSupervisor
+          ? 'Crea productos directamente o solicita un producto que no existe en el catalogo.'
+          : 'Este panel evita perder ventas cuando no existe un producto en catalogo: caja lo solicita y administracion lo aprueba o rechaza con trazabilidad.'}
       </p>
 
       {mensaje && <div className="alert alert-success">{mensaje}</div>}
       {error && <div className="alert alert-danger">{error}</div>}
 
-      <div className="card shadow-sm mb-3">
-        <div className="card-body">
-          <h3 className="h6">Solicitar producto no encontrado</h3>
-          <form className="row g-2" onSubmit={enviarSolicitud}>
-            <div className="col-md-4">
-              <label className="form-label">Nombre del producto</label>
-              <input
-                className="form-control"
-                value={form.nombre}
-                onChange={(e) => setForm((p) => ({ ...p, nombre: e.target.value }))}
-                required
-              />
-            </div>
-            <div className="col-md-3">
-              <label className="form-label">Precio sugerido (L)</label>
-              <input
-                type="number"
-                min="0.01"
-                step="0.01"
-                className="form-control"
-                value={form.precioSugerido}
-                onChange={(e) => setForm((p) => ({ ...p, precioSugerido: e.target.value }))}
-                required
-              />
-            </div>
-            <div className="col-md-5">
-              <label className="form-label">Nota operativa (opcional)</label>
-              <input
-                className="form-control"
-                placeholder="Ej. cliente lo pide todos los dias"
-                value={form.notaSolicitud}
-                onChange={(e) => setForm((p) => ({ ...p, notaSolicitud: e.target.value }))}
-              />
-            </div>
-            <div className="col-12">
-              <button type="submit" className="btn btn-primary btn-sm">Enviar a administracion</button>
-            </div>
-          </form>
+      {esSupervisor ? (
+        <div className="card shadow-sm mb-3 border-success">
+          <div className="card-body">
+            <div className="caja-section-label mb-3">Crear producto directamente</div>
+            <form className="row g-2" onSubmit={crearProductoDirecto}>
+              <div className="col-md-4">
+                <label className="form-label">Nombre del producto</label>
+                <input
+                  className="form-control"
+                  value={formDirecto.nombre}
+                  onChange={(e) => setFormDirecto((p) => ({ ...p, nombre: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="col-md-3">
+                <label className="form-label">Categoria</label>
+                <select
+                  className="form-select"
+                  value={formDirecto.idCategoria}
+                  onChange={(e) => setFormDirecto((p) => ({ ...p, idCategoria: e.target.value }))}
+                  required
+                >
+                  <option value="">Seleccionar...</option>
+                  {categorias.map((c) => <option key={c.id_Categoria} value={c.id_Categoria}>{c.nombre}</option>)}
+                </select>
+              </div>
+              <div className="col-md-2">
+                <label className="form-label">Precio (L)</label>
+                <input
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  className="form-control"
+                  value={formDirecto.precio}
+                  onChange={(e) => setFormDirecto((p) => ({ ...p, precio: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="col-md-2">
+                <label className="form-label">Tipo fiscal</label>
+                <select
+                  className="form-select"
+                  value={formDirecto.tipoFiscal}
+                  onChange={(e) => setFormDirecto((p) => ({ ...p, tipoFiscal: e.target.value }))}
+                >
+                  <option value="GRAVADO_15">15%</option>
+                  <option value="GRAVADO_18">18%</option>
+                  <option value="EXENTO">Exento</option>
+                  <option value="EXONERADO">Exonerado</option>
+                </select>
+              </div>
+              <div className="col-12">
+                <button type="submit" className="btn btn-success btn-sm">Crear y publicar</button>
+              </div>
+            </form>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="card shadow-sm mb-3">
+          <div className="card-body">
+            <h3 className="h6">Solicitar producto no encontrado</h3>
+            <form className="row g-2" onSubmit={enviarSolicitud}>
+              <div className="col-md-4">
+                <label className="form-label">Nombre del producto</label>
+                <input
+                  className="form-control"
+                  value={form.nombre}
+                  onChange={(e) => setForm((p) => ({ ...p, nombre: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="col-md-3">
+                <label className="form-label">Precio sugerido (L)</label>
+                <input
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  className="form-control"
+                  value={form.precioSugerido}
+                  onChange={(e) => setForm((p) => ({ ...p, precioSugerido: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="col-md-5">
+                <label className="form-label">Nota operativa (opcional)</label>
+                <input
+                  className="form-control"
+                  placeholder="Ej. cliente lo pide todos los dias"
+                  value={form.notaSolicitud}
+                  onChange={(e) => setForm((p) => ({ ...p, notaSolicitud: e.target.value }))}
+                />
+              </div>
+              <div className="col-12">
+                <button type="submit" className="btn btn-primary btn-sm">Enviar a administracion</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       <div className="card shadow-sm">
         <div className="card-body">

@@ -7,7 +7,8 @@ namespace Pinecos.Helpers
         private static readonly HashSet<string> RolesPermitidos = new(StringComparer.OrdinalIgnoreCase)
         {
             "ADMIN",
-            "CAJERO"
+            "CAJERO",
+            "SUPERVISOR"
         };
 
         [GeneratedRegex("^[a-zA-Z0-9._-]{4,40}$", RegexOptions.Compiled)]

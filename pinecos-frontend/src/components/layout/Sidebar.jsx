@@ -8,12 +8,12 @@ const sections = [
     title: 'Mostrador',
     titleClass: 'sidebar-section-title--primary',
     items: [
-      { to: '/ventas', label: 'Punto de venta (POS)', roles: ['ADMIN', 'CAJERO'] },
-      { to: '/productos-pendientes', label: 'Productos faltantes', roles: ['ADMIN', 'CAJERO'] },
-      { to: '/mesas', label: 'Mesas y cuentas', roles: ['ADMIN', 'CAJERO'] },
-      { to: '/caja', label: 'Caja', roles: ['ADMIN', 'CAJERO'] },
-      { to: '/movimientos-caja', label: 'Movimientos de caja', roles: ['ADMIN', 'CAJERO'] },
-      { to: '/gastos', label: 'Gastos', roles: ['ADMIN', 'CAJERO'] }
+      { to: '/ventas', label: 'Punto de venta (POS)', roles: ['ADMIN', 'CAJERO', 'SUPERVISOR'] },
+      { to: '/productos-pendientes', label: 'Productos faltantes', roles: ['ADMIN', 'CAJERO', 'SUPERVISOR'] },
+      { to: '/mesas', label: 'Mesas y cuentas', roles: ['ADMIN', 'CAJERO', 'SUPERVISOR'] },
+      { to: '/caja', label: 'Caja', roles: ['ADMIN', 'CAJERO', 'SUPERVISOR'] },
+      { to: '/movimientos-caja', label: 'Movimientos de caja', roles: ['ADMIN', 'CAJERO', 'SUPERVISOR'] },
+      { to: '/gastos', label: 'Gastos', roles: ['ADMIN', 'CAJERO', 'SUPERVISOR'] }
     ]
   },
   {

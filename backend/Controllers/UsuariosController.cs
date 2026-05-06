@@ -97,7 +97,7 @@ namespace Pinecos.Controllers
                 return BadRequest(new { message = "La clave debe tener minimo 8 caracteres e incluir mayuscula, minuscula, numero y simbolo" });
 
             if (!SecurityValidationHelper.EsRolValido(usuario.Rol))
-                return BadRequest(new { message = "Rol invalido. Solo se permite ADMIN o CAJERO" });
+                return BadRequest(new { message = "Rol invalido. Solo se permite ADMIN, CAJERO o SUPERVISOR" });
 
             usuario.Nombre = usuario.Nombre.Trim();
             usuario.UsuarioLogin = usuario.UsuarioLogin.Trim();
@@ -153,7 +153,7 @@ namespace Pinecos.Controllers
                 return BadRequest(new { message = "El usuario debe tener entre 4 y 40 caracteres (letras, numeros, punto, guion o guion bajo)" });
 
             if (!SecurityValidationHelper.EsRolValido(usuario.Rol))
-                return BadRequest(new { message = "Rol invalido. Solo se permite ADMIN o CAJERO" });
+                return BadRequest(new { message = "Rol invalido. Solo se permite ADMIN, CAJERO o SUPERVISOR" });
 
             usuario.Nombre = usuario.Nombre.Trim();
             usuario.UsuarioLogin = usuario.UsuarioLogin.Trim();

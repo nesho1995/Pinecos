@@ -172,6 +172,7 @@ function Usuarios() {
               <label className="form-label">Rol</label>
               <select className="form-select" name="rol" value={form.rol} onChange={handleChange}>
                 <option value="ADMIN">ADMIN</option>
+                <option value="SUPERVISOR">SUPERVISOR</option>
                 <option value="CAJERO">CAJERO</option>
               </select>
             </div>
