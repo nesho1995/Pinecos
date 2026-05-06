@@ -15,6 +15,20 @@ log() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"
 }
 
+check_http_status() {
+  local url="$1"
+  local expected="${2:-200}"
+  local status
+  status="$(curl -k -sS -o /dev/null -w '%{http_code}' "$url")"
+  case ",$expected," in
+    *,"$status",*) return 0 ;;
+    *)
+      echo "ERROR: health check inesperado para $url: HTTP $status (esperado: $expected)" >&2
+      return 1
+      ;;
+  esac
+}
+
 assert_command() {
   local cmd="$1"
   if ! command -v "$cmd" >/dev/null 2>&1; then
@@ -99,7 +113,7 @@ nginx -t
 systemctl reload nginx
 
 log "Validando health checks"
-curl -fsS "$API_HEALTH_URL" >/dev/null
-curl -fsS "$WEB_HEALTH_URL" >/dev/null
+check_http_status "$API_HEALTH_URL" "200,401"
+check_http_status "$WEB_HEALTH_URL" "200"
 
 log "Deploy finalizado correctamente"

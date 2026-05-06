@@ -7,13 +7,11 @@ const catalogosPublicos = [
   {
     id: 'la-granja',
     nombre: 'Pinecos La Granja',
-    url: '/catalogos/la-granja/',
     archivo: '/catalogos/menu-pinecos-la-granja.pdf'
   },
   {
     id: 'metropolis',
     nombre: 'Pinecos Metropolis',
-    url: '/catalogos/metropolis/',
     archivo: '/catalogos/menu-pinecos-metropolis.pdf'
   }
 ];
@@ -196,7 +194,7 @@ function MenuSucursal() {
 
   const nombreSucursalActiva = sucursales.find((s) => String(s.id_Sucursal) === String(sucursalSeleccionada))?.nombre;
   const origenPublico = typeof window !== 'undefined' ? window.location.origin : '';
-  const getCatalogoUrl = (url) => `${origenPublico}${url}`;
+  const getCatalogoUrl = (archivo) => `${origenPublico}${archivo}`;
 
   return (
     <div>
@@ -266,7 +264,7 @@ function MenuSucursal() {
 
           <div className="row g-3">
             {catalogosPublicos.map((catalogo) => {
-              const url = getCatalogoUrl(catalogo.url);
+              const url = getCatalogoUrl(catalogo.archivo);
 
               return (
                 <div className="col-md-6" key={catalogo.id}>
@@ -279,10 +277,10 @@ function MenuSucursal() {
                       <div className="flex-grow-1" style={{ minWidth: '220px' }}>
                         <h4 className="h6 mb-2">{catalogo.nombre}</h4>
                         <div className="small text-break mb-3">
-                          <a href={catalogo.url} target="_blank" rel="noreferrer">{url}</a>
+                          <a href={catalogo.archivo} target="_blank" rel="noreferrer">{url}</a>
                         </div>
                         <div className="d-flex gap-2 flex-wrap">
-                          <a className="btn btn-sm btn-dark" href={catalogo.url} target="_blank" rel="noreferrer">
+                          <a className="btn btn-sm btn-dark" href={catalogo.archivo} target="_blank" rel="noreferrer">
                             Abrir catalogo
                           </a>
                           <a className="btn btn-sm btn-outline-secondary" href={catalogo.archivo} download>
