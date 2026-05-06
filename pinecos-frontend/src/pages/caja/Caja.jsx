@@ -94,17 +94,11 @@ function Caja() {
   };
 
   const handleAperturaChange = (e) => {
-    setApertura((prev) => ({
-      ...prev,
-      [e.target.name]: e.target.value
-    }));
+    setApertura((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
   const handleCierreChange = (e) => {
-    setCierre((prev) => ({
-      ...prev,
-      [e.target.name]: e.target.value
-    }));
+    setCierre((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
   const updateLineaMonto = (tipo, index, value) => {
@@ -119,14 +113,12 @@ function Caja() {
     e.preventDefault();
     setMensaje('');
     setError('');
-
     try {
       await api.post('/Cajas/abrir', {
         monto_Inicial: Number(apertura.monto_Inicial),
         turno: apertura.turno,
         observacion: apertura.observacion
       });
-
       setMensaje('Caja abierta correctamente');
       setApertura({ monto_Inicial: '', turno: '', observacion: '' });
       await refrescarPantalla();
@@ -139,11 +131,9 @@ function Caja() {
     e.preventDefault();
     setMensaje('');
     setError('');
-
     if (cierre.monto_Cierre === '') return setError('Debes ingresar el efectivo final');
     if ((cierre.pos || []).some((x) => x.monto === '')) return setError('Debes ingresar monto en todos los POS');
     if ((cierre.delivery || []).some((x) => x.monto === '')) return setError('Debes ingresar monto en todas las empresas de pedidos');
-
     try {
       const payload = {
         monto_Cierre: Number(cierre.monto_Cierre),
@@ -152,7 +142,6 @@ function Caja() {
         turno: cierre.turno || '',
         observacion: cierre.observacion
       };
-
       const response = await api.post(`/Cajas/cerrar/${cajaActual.id_Caja}`, payload);
       const okCuadre = response?.data?.cuadre?.cuadro === true;
       const dif = Number(response?.data?.cuadre?.diferencia ?? 0);
@@ -176,7 +165,6 @@ function Caja() {
       }
       setCierre(cierreBase);
       setIdCajaCargadaEnCierre(null);
-
       await refrescarPantalla();
     } catch (err) {
       setError(err?.response?.data?.message || 'Error al cerrar caja');
@@ -202,26 +190,28 @@ function Caja() {
   if (loading) {
     return (
       <div>
-        <h2 className="mb-4">Caja</h2>
+        <div className="caja-page-header mb-4">
+          <h4 className="mb-0 fw-bold">Caja</h4>
+        </div>
         <div className="row g-4">
-          <div className="col-md-6">
+          <div className="col-md-5">
             <div className="card shadow-sm">
               <div className="card-body placeholder-glow">
-                <span className="placeholder col-4 mb-3"></span>
-                <span className="placeholder col-8 mb-2"></span>
-                <span className="placeholder col-7 mb-2"></span>
-                <span className="placeholder col-6"></span>
+                <span className="placeholder col-4 mb-3 d-block"></span>
+                <span className="placeholder col-8 mb-2 d-block"></span>
+                <span className="placeholder col-7 mb-2 d-block"></span>
+                <span className="placeholder col-6 d-block"></span>
               </div>
             </div>
           </div>
-          <div className="col-md-6">
+          <div className="col-md-7">
             <div className="card shadow-sm">
               <div className="card-body placeholder-glow">
-                <span className="placeholder col-5 mb-3"></span>
-                <span className="placeholder col-12 mb-2"></span>
-                <span className="placeholder col-12 mb-2"></span>
-                <span className="placeholder col-10 mb-2"></span>
-                <span className="placeholder col-8"></span>
+                <span className="placeholder col-5 mb-3 d-block"></span>
+                <span className="placeholder col-12 mb-2 d-block"></span>
+                <span className="placeholder col-12 mb-2 d-block"></span>
+                <span className="placeholder col-10 mb-2 d-block"></span>
+                <span className="placeholder col-8 d-block"></span>
               </div>
             </div>
           </div>
@@ -232,14 +222,25 @@ function Caja() {
 
   return (
     <div>
-      <h2 className="mb-4">Caja</h2>
+      <div className="caja-page-header mb-4">
+        <div className="d-flex align-items-center gap-3 flex-wrap">
+          <div>
+            <h4 className="mb-0 fw-bold">Caja</h4>
+            <div className="small text-muted">Apertura y cierre de turno</div>
+          </div>
+          <span className={`badge ms-auto caja-status-badge ${cajaActual?.abierta ? 'caja-status-abierta' : 'caja-status-cerrada'}`}>
+            {cajaActual?.abierta ? '● Abierta' : '○ Cerrada'}
+          </span>
+        </div>
+      </div>
+
       {mensaje && <div className="alert alert-success">{mensaje}</div>}
       {error && <div className="alert alert-danger">{error}</div>}
 
       {!cajaActual?.abierta ? (
-        <div className="card shadow-sm">
+        <div className="card shadow-sm caja-form-card">
           <div className="card-body">
-            <h5 className="mb-3">Abrir caja</h5>
+            <div className="caja-section-label mb-3">Abrir caja</div>
             <form onSubmit={abrirCaja} className="row g-3">
               <div className="col-md-4">
                 <label className="form-label">Usuario de sesion</label>
@@ -251,32 +252,52 @@ function Caja() {
               </div>
               <div className="col-md-4">
                 <label className="form-label">Turno</label>
-                <input type="text" className="form-control" name="turno" value={apertura.turno || ''} onChange={handleAperturaChange} placeholder="Ejemplo: Manana / Tarde / Noche" />
+                <input type="text" className="form-control" name="turno" value={apertura.turno || ''} onChange={handleAperturaChange} placeholder="Manana / Tarde / Noche" />
               </div>
               <div className="col-md-8">
                 <label className="form-label">Observacion</label>
                 <input type="text" className="form-control" name="observacion" value={apertura.observacion} onChange={handleAperturaChange} />
               </div>
               <div className="col-md-4 d-flex align-items-end">
-                <button className="btn btn-dark w-100">Abrir</button>
+                <button className="btn btn-success w-100 fw-semibold">Abrir caja</button>
               </div>
             </form>
           </div>
         </div>
       ) : (
         <div className="row g-4">
-          <div className="col-md-6">
-            <div className="card shadow-sm">
+          <div className="col-md-5">
+            <div className="card shadow-sm caja-info-card h-100">
               <div className="card-body">
-                <h5>Caja abierta</h5>
-                <p><strong>Caja:</strong> {cajaActual.id_Caja}</p>
-                <p><strong>Sucursal:</strong> {cajaActual.id_Sucursal}</p>
-                <p><strong>Abierta por:</strong> {cajaActual.usuarioAperturaNombre || 'Usuario de caja'}</p>
-                <p><strong>Turno apertura:</strong> {cajaActual.turnoApertura || 'N/D'}</p>
-                <p><strong>Fecha apertura:</strong> {formatDateTimeHN(cajaActual.fecha_Apertura)}</p>
-                <p><strong>Monto inicial:</strong> {formatCurrencyHNL(cajaActual.monto_Inicial)}</p>
+                <div className="caja-section-label mb-3">Estado de caja</div>
+                <div className="caja-stat-grid">
+                  <div className="caja-stat-row">
+                    <span className="caja-stat-key">ID Caja</span>
+                    <span className="caja-stat-val">#{cajaActual.id_Caja}</span>
+                  </div>
+                  <div className="caja-stat-row">
+                    <span className="caja-stat-key">Sucursal</span>
+                    <span className="caja-stat-val">{cajaActual.id_Sucursal}</span>
+                  </div>
+                  <div className="caja-stat-row">
+                    <span className="caja-stat-key">Abierta por</span>
+                    <span className="caja-stat-val">{cajaActual.usuarioAperturaNombre || 'Usuario de caja'}</span>
+                  </div>
+                  <div className="caja-stat-row">
+                    <span className="caja-stat-key">Turno</span>
+                    <span className="caja-stat-val">{cajaActual.turnoApertura || 'N/D'}</span>
+                  </div>
+                  <div className="caja-stat-row">
+                    <span className="caja-stat-key">Fecha apertura</span>
+                    <span className="caja-stat-val">{formatDateTimeHN(cajaActual.fecha_Apertura)}</span>
+                  </div>
+                  <div className="caja-stat-row caja-stat-highlight">
+                    <span className="caja-stat-key">Monto inicial</span>
+                    <span className="caja-stat-val fw-bold">{formatCurrencyHNL(cajaActual.monto_Inicial)}</span>
+                  </div>
+                </div>
                 {idUsuario > 0 && Number(cajaActual.id_Usuario_Apertura) !== idUsuario && (
-                  <div className="alert alert-info mt-2 mb-0">
+                  <div className="alert alert-info mt-3 mb-0 small">
                     Esta caja fue abierta por otro usuario de tu sucursal, pero esta disponible para operar.
                   </div>
                 )}
@@ -284,70 +305,67 @@ function Caja() {
             </div>
           </div>
 
-          <div className="col-md-6">
-            <div className="card shadow-sm">
+          <div className="col-md-7">
+            <div className="card shadow-sm caja-form-card">
               <div className="card-body">
-                <h5>Cierre y cuadre diario</h5>
+                <div className="caja-section-label mb-3">Cierre y cuadre</div>
                 {loadingCuadre && (
-                  <div className="alert alert-secondary py-2">
-                    Actualizando cuadre previo...
-                  </div>
+                  <div className="alert alert-secondary py-2 small">Actualizando cuadre previo...</div>
                 )}
                 <form onSubmit={cerrarCaja} className="row g-3">
                   <div className="col-12">
-                    <label className="form-label">Efectivo final contado</label>
+                    <div className="caja-field-group-label">Efectivo</div>
+                    <label className="form-label mt-1">Efectivo final contado</label>
                     <input type="number" step="0.01" className="form-control" name="monto_Cierre" value={cierre.monto_Cierre} onChange={handleCierreChange} required />
                   </div>
 
                   <div className="col-12">
-                    <label className="form-label mb-1">Dinero en POS (definido por admin)</label>
+                    <div className="caja-field-group-label">Terminales POS</div>
                     {(cierre.pos || []).map((item, index) => (
                       <div className="row g-2 mb-2" key={`pos-${index}`}>
                         <div className="col-7">
                           <input type="text" className="form-control" value={item.canal} readOnly />
                         </div>
                         <div className="col-5">
-                          <input type="number" step="0.01" className="form-control" value={item.monto} onChange={(e) => updateLineaMonto('pos', index, e.target.value)} required />
+                          <input type="number" step="0.01" className="form-control" placeholder="Monto" value={item.monto} onChange={(e) => updateLineaMonto('pos', index, e.target.value)} required />
                         </div>
                       </div>
                     ))}
                   </div>
 
                   <div className="col-12">
-                    <label className="form-label mb-1">Empresas de pedidos (definido por admin)</label>
+                    <div className="caja-field-group-label">Delivery</div>
                     {(cierre.delivery || []).map((item, index) => (
                       <div className="row g-2 mb-2" key={`delivery-${index}`}>
                         <div className="col-7">
                           <input type="text" className="form-control" value={item.canal} readOnly />
                         </div>
                         <div className="col-5">
-                          <input type="number" step="0.01" className="form-control" value={item.monto} onChange={(e) => updateLineaMonto('delivery', index, e.target.value)} required />
+                          <input type="number" step="0.01" className="form-control" placeholder="Monto" value={item.monto} onChange={(e) => updateLineaMonto('delivery', index, e.target.value)} required />
                         </div>
                       </div>
                     ))}
                   </div>
 
-                  <div className="col-12">
+                  <div className="col-md-6">
                     <label className="form-label">Turno de cierre</label>
-                    <input type="text" className="form-control" name="turno" value={cierre.turno || ''} onChange={handleCierreChange} placeholder="Ejemplo: Manana / Tarde / Noche" />
+                    <input type="text" className="form-control" name="turno" value={cierre.turno || ''} onChange={handleCierreChange} placeholder="Manana / Tarde / Noche" />
                   </div>
 
-                  <div className="col-12">
+                  <div className="col-md-6">
                     <label className="form-label">Observacion</label>
                     <input type="text" className="form-control" name="observacion" value={cierre.observacion} onChange={handleCierreChange} />
                   </div>
 
                   <div className="col-12">
-                    <div className="p-3 rounded border bg-light">
-                      <div className="d-flex justify-content-between align-items-baseline">
-                        <span>Total declarado</span>
-                        <strong className="fs-5">{formatCurrencyHNL(totalDeclarado)}</strong>
-                      </div>
+                    <div className="caja-total-bar">
+                      <span>Total declarado</span>
+                      <strong className="fs-5">{formatCurrencyHNL(totalDeclarado)}</strong>
                     </div>
                   </div>
 
                   <div className="col-12">
-                    <button className="btn btn-danger w-100">Cerrar caja</button>
+                    <button className="btn btn-danger w-100 fw-semibold">Cerrar caja</button>
                   </div>
                 </form>
               </div>
@@ -360,4 +378,3 @@ function Caja() {
 }
 
 export default Caja;
-

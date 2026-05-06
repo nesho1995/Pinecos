@@ -28,10 +28,7 @@ function Gastos() {
   };
 
   const handleChange = (e) => {
-    setForm((prev) => ({
-      ...prev,
-      [e.target.name]: e.target.value
-    }));
+    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
   const cargarCajaActual = async () => {
@@ -50,20 +47,13 @@ function Gastos() {
     e.preventDefault();
     setError('');
     setMensaje('');
-
     try {
       await api.post('/Gastos', {
         categoria_Gasto: form.categoria_Gasto,
         descripcion: form.descripcion,
         monto: Number(form.monto)
       });
-
-      setForm({
-        categoria_Gasto: '',
-        descripcion: '',
-        monto: ''
-      });
-
+      setForm({ categoria_Gasto: '', descripcion: '', monto: '' });
       setMensaje('Gasto registrado correctamente');
       await cargarGastos();
     } catch (err) {
@@ -89,26 +79,29 @@ function Gastos() {
     );
   };
 
+  const totalGastos = gastos.reduce((acc, x) => acc + Number(x.monto || 0), 0);
+
   return (
     <div>
-      <h2 className="mb-4">Gastos</h2>
-
-      {!esAdmin && (
-        <div className="alert alert-info">
-          Vista de cajero: solo se muestran tus propios gastos.
+      <div className="caja-page-header mb-4">
+        <div className="d-flex align-items-center gap-3 flex-wrap">
+          <div>
+            <h4 className="mb-0 fw-bold">Gastos</h4>
+            <div className="small text-muted">Registro de egresos del dia</div>
+          </div>
+          <span className={`badge ms-auto caja-status-badge ${cargandoCaja ? 'bg-secondary' : cajaActual?.abierta ? 'caja-status-abierta' : 'caja-status-cerrada'}`}>
+            {cargandoCaja ? '...' : cajaActual?.abierta ? `● Caja #${cajaActual.id_Caja}` : '○ Sin caja'}
+          </span>
         </div>
-      )}
-
-      <div className={`alert ${cargandoCaja ? 'alert-secondary' : cajaActual?.abierta ? 'alert-success' : 'alert-warning'}`}>
-        {cargandoCaja
-          ? 'Validando estado de caja...'
-          : cajaActual?.abierta
-            ? `Caja abierta #${cajaActual.id_Caja}. Ya puedes registrar gastos.`
-            : 'No hay caja abierta en tu sucursal. Abre caja para registrar gastos.'}
       </div>
 
-      <div className="card shadow-sm mb-4">
+      {!esAdmin && (
+        <div className="alert alert-info small">Vista de cajero: solo se muestran tus propios gastos.</div>
+      )}
+
+      <div className="card shadow-sm caja-form-card mb-4">
         <div className="card-body">
+          <div className="caja-section-label mb-3">Registrar gasto</div>
           <form onSubmit={crearGasto} className="row g-3">
             <div className="col-md-3">
               <label className="form-label">Categoria</label>
@@ -123,7 +116,6 @@ function Gastos() {
                 disabled={cargandoCaja || !cajaActual?.abierta}
               />
             </div>
-
             <div className="col-md-5">
               <label className="form-label">Descripcion</label>
               <input
@@ -136,7 +128,6 @@ function Gastos() {
                 disabled={cargandoCaja || !cajaActual?.abierta}
               />
             </div>
-
             <div className="col-md-2">
               <label className="form-label">Monto</label>
               <input
@@ -151,12 +142,10 @@ function Gastos() {
                 disabled={cargandoCaja || !cajaActual?.abierta}
               />
             </div>
-
             <div className="col-md-2 d-flex align-items-end">
               <button className="btn btn-dark w-100" disabled={cargandoCaja || !cajaActual?.abierta}>Guardar</button>
             </div>
           </form>
-
           {mensaje && <div className="alert alert-success mt-3 mb-0">{mensaje}</div>}
           {error && <div className="alert alert-danger mt-3 mb-0">{error}</div>}
         </div>
@@ -164,14 +153,22 @@ function Gastos() {
 
       <div className="card shadow-sm">
         <div className="card-body">
-          <div className="d-flex justify-content-end mb-2">
+          <div className="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+            <div className="caja-section-label mb-0">
+              Historial
+              {gastos.length > 0 && (
+                <span className="caja-total-inline ms-2">
+                  Total: <strong>L {totalGastos.toFixed(2)}</strong>
+                </span>
+              )}
+            </div>
             <button className="btn btn-outline-success btn-sm" onClick={exportarExcel} disabled={!gastos.length}>
-              Excel
+              Exportar Excel
             </button>
           </div>
           <div className="compact-table-wrap">
-            <table className="table table-bordered align-middle mb-0">
-              <thead>
+            <table className="table table-hover align-middle mb-0">
+              <thead className="table-light">
                 <tr>
                   <th>No.</th>
                   <th>Fecha</th>
@@ -184,18 +181,20 @@ function Gastos() {
               <tbody>
                 {gastos.map((item) => (
                   <tr key={item.id_Gasto}>
-                    <td>{item.id_Gasto}</td>
-                    <td>{new Date(item.fecha).toLocaleString('es-HN')}</td>
-                    <td>{item.categoria_Gasto}</td>
+                    <td className="text-muted small">{item.id_Gasto}</td>
+                    <td className="small">{new Date(item.fecha).toLocaleString('es-HN')}</td>
+                    <td>
+                      <span className="badge caja-categoria-badge">{item.categoria_Gasto}</span>
+                    </td>
                     <td>{item.descripcion}</td>
-                    <td>L {Number(item.monto || 0).toFixed(2)}</td>
-                    {esAdmin && <td>{item.usuario || 'Sin dato'}</td>}
+                    <td className="fw-semibold text-danger">L {Number(item.monto || 0).toFixed(2)}</td>
+                    {esAdmin && <td className="small text-muted">{item.usuario || 'Sin dato'}</td>}
                   </tr>
                 ))}
                 {gastos.length === 0 && (
                   <tr>
-                    <td colSpan={esAdmin ? 6 : 5} className="text-center">
-                      No hay gastos para mostrar
+                    <td colSpan={esAdmin ? 6 : 5} className="text-center text-muted py-4">
+                      No hay gastos registrados
                     </td>
                   </tr>
                 )}
@@ -209,4 +208,3 @@ function Gastos() {
 }
 
 export default Gastos;
-

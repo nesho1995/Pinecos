@@ -948,7 +948,7 @@ function Mesas() {
 
       <div className={`row g-3 ${mesaVistaSoloCobro && detalleCuenta ? 'mesas-layout-solo-cobro' : ''}`}>
         <div
-          className={`col-12 col-xl-7 ${vistaTablet === 'mesas' ? '' : 'd-none d-xl-block'} ${
+          className={`col-12 col-xl-5 ${vistaTablet === 'mesas' ? '' : 'd-none d-xl-block'} ${
             mesaVistaSoloCobro && detalleCuenta ? 'd-none' : ''
           }`}
         >
@@ -989,7 +989,7 @@ function Mesas() {
         </div>
 
         <div
-          className={`${mesaVistaSoloCobro && detalleCuenta ? 'col-12' : 'col-12 col-xl-5'} ${
+          className={`${mesaVistaSoloCobro && detalleCuenta ? 'col-12' : 'col-12 col-xl-7'} ${
             vistaTablet === 'cuenta' ? '' : 'd-none d-xl-block'
           }`}
         >
