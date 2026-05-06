@@ -81,25 +81,35 @@ jobs:
         run: |
           set -euo pipefail
           : "${PROD_SSH_KEY:?Secret PROD_SSH_KEY no configurado en GitHub Secrets}"
-          : "${PROD_KNOWN_HOST:?Secret PROD_KNOWN_HOST no configurado en GitHub Secrets}"
           mkdir -p ~/.ssh
           printf '%s\n' "$PROD_SSH_KEY" > ~/.ssh/prod_key
           chmod 600 ~/.ssh/prod_key
-          printf '%s\n' "$PROD_KNOWN_HOST" >> ~/.ssh/known_hosts
-          echo "SSH configurado correctamente."
+          if [ -n "$PROD_KNOWN_HOST" ]; then
+            printf '%s\n' "$PROD_KNOWN_HOST" >> ~/.ssh/known_hosts
+            echo "Host key cargado desde secret PROD_KNOWN_HOST."
+          else
+            echo "PROD_KNOWN_HOST no configurado — se usara StrictHostKeyChecking=accept-new."
+          fi
+          echo "SSH listo."
 
       - name: Deploy via SSH
         env:
           PROD_HOST: ${{ secrets.PROD_HOST }}
           PROD_PORT: ${{ secrets.PROD_PORT }}
           PROD_USER: ${{ secrets.PROD_USER }}
+          PROD_KNOWN_HOST: ${{ secrets.PROD_KNOWN_HOST }}
         run: |
           set -euo pipefail
           : "${PROD_HOST:?Secret PROD_HOST no configurado en GitHub Secrets}"
           PROD_PORT="${PROD_PORT:-22}"
           PROD_USER="${PROD_USER:-root}"
+          SSH_OPTS="-i ~/.ssh/prod_key -p $PROD_PORT"
+          if [ -z "${PROD_KNOWN_HOST:-}" ]; then
+            SSH_OPTS="$SSH_OPTS -o StrictHostKeyChecking=accept-new"
+          fi
 
-          ssh -i ~/.ssh/prod_key -p "$PROD_PORT" "$PROD_USER@$PROD_HOST" 'bash -s' <<'ENDSSH'
+          # shellcheck disable=SC2086
+          ssh $SSH_OPTS "$PROD_USER@$PROD_HOST" 'bash -s' <<'ENDSSH'
             set -euo pipefail
 
             echo "=== [1/2] Actualizando codigo en servidor ==="
