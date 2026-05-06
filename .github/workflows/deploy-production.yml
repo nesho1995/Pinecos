@@ -52,7 +52,6 @@ jobs:
           npm run build
 
       - name: Run frontend smoke E2E (optional)
-        if: ${{ secrets.E2E_ADMIN_PASS != '' }}
         working-directory: pinecos-frontend
         env:
           E2E_ADMIN_PASS: ${{ secrets.E2E_ADMIN_PASS }}
@@ -60,6 +59,10 @@ jobs:
           E2E_API_URL: ${{ secrets.E2E_API_URL }}
           E2E_FRONTEND_URL: ${{ secrets.E2E_FRONTEND_URL }}
         run: |
+          if [ -z "$E2E_ADMIN_PASS" ]; then
+            echo "E2E_ADMIN_PASS no configurado, se omiten pruebas E2E."
+            exit 0
+          fi
           npx playwright install --with-deps chromium
           npm run e2e:smoke
 
