@@ -239,15 +239,6 @@ function Mesas() {
     });
   }, [menuItemsOrdenados, filtroProducto, categoriaMenu]);
 
-  const menuSeleccionado = useMemo(() => {
-    if (!formAgregar.id_Producto) return null;
-    return menuItems.find(
-      (x) =>
-        String(x.id_Producto) === String(formAgregar.id_Producto) &&
-        String(x.id_Presentacion ?? '') === String(formAgregar.id_Presentacion ?? '')
-    );
-  }, [menuItems, formAgregar]);
-
   const descuentosActivos = useMemo(
     () => (ajustesVenta.descuentos || []).filter((x) => x.activo),
     [ajustesVenta.descuentos]
@@ -581,33 +572,6 @@ function Mesas() {
       if (cuentaNueva) await cargarCuentaDetalle(cuentaNueva.id_Cuenta_Mesa);
     } catch (err) {
       setError(err?.response?.data?.message || 'Error al abrir cuenta');
-    } finally {
-      setProcesando(false);
-    }
-  };
-
-  const agregarProducto = async () => {
-    limpiarMensajes();
-    if (!detalleCuenta?.cuenta?.id_Cuenta_Mesa) return setError('No hay cuenta abierta');
-    if (!formAgregar.id_Producto) return setError('Selecciona un producto');
-    try {
-      setProcesando(true);
-      const tipoFiscalLinea = String(menuSeleccionado?.tipo_Fiscal || 'GRAVADO_15').toUpperCase();
-      await api.post(`/CuentasMesa/${detalleCuenta.cuenta.id_Cuenta_Mesa}/agregar-producto`, {
-        id_Producto: Number(formAgregar.id_Producto),
-        id_Presentacion: formAgregar.id_Presentacion ? Number(formAgregar.id_Presentacion) : null,
-        cantidad: 1,
-        tipo_Fiscal_Linea: tipoFiscalLinea,
-        es_Cortesia: !!formAgregar.es_Cortesia,
-        observacion: formAgregar.es_Cortesia ? '[CORTESIA]' : ''
-      });
-      setMensaje('Producto agregado');
-      setFormAgregar({ id_Producto: '', id_Presentacion: '', es_Cortesia: false });
-      await cargarCuentaDetalle(detalleCuenta.cuenta.id_Cuenta_Mesa);
-      await cargarCuentasAbiertas();
-      await cargarMesas(sucursalSeleccionada);
-    } catch (err) {
-      setError(err?.response?.data?.message || 'Error al agregar producto');
     } finally {
       setProcesando(false);
     }
