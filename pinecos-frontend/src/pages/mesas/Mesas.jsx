@@ -613,6 +613,29 @@ function Mesas() {
     }
   };
 
+  const agregarProductoRapido = async (item) => {
+    limpiarMensajes();
+    if (!detalleCuenta?.cuenta?.id_Cuenta_Mesa) return setError('No hay cuenta abierta');
+    try {
+      setProcesando(true);
+      await api.post(`/CuentasMesa/${detalleCuenta.cuenta.id_Cuenta_Mesa}/agregar-producto`, {
+        id_Producto: Number(item.id_Producto),
+        id_Presentacion: item.id_Presentacion ? Number(item.id_Presentacion) : null,
+        cantidad: 1,
+        tipo_Fiscal_Linea: String(item.tipo_Fiscal || 'GRAVADO_15').toUpperCase(),
+        es_Cortesia: !!formAgregar.es_Cortesia,
+        observacion: formAgregar.es_Cortesia ? '[CORTESIA]' : ''
+      });
+      await cargarCuentaDetalle(detalleCuenta.cuenta.id_Cuenta_Mesa);
+      await cargarCuentasAbiertas();
+      await cargarMesas(sucursalSeleccionada);
+    } catch (err) {
+      setError(err?.response?.data?.message || 'Error al agregar producto');
+    } finally {
+      setProcesando(false);
+    }
+  };
+
   const eliminarDetalle = async (idDetalle) => {
     limpiarMensajes();
     try {
@@ -892,18 +915,25 @@ function Mesas() {
 
   return (
     <div className="mesas-page">
-      <div className="mesas-page-hero card border-0 shadow-sm mb-4 overflow-hidden">
+      <div className="mesas-page-hero card border-0 mb-4 overflow-hidden">
         <div className="card-body py-3 px-4">
-          <div className="d-flex flex-wrap justify-content-between align-items-start gap-3">
+          <div className="d-flex flex-wrap justify-content-between align-items-center gap-3">
             <div>
-              <h2 className="mb-1">Mesas y cuentas</h2>
-              <p className="text-muted small mb-0">
-                Toca una mesa para abrir o cobrar la cuenta. En tablet usa las pestañas <strong>Mesas</strong> y <strong>Cuenta y cobro</strong>.
-              </p>
+              <h2 className="mb-0 fw-bold">Mesas y Cuentas</h2>
+              <div className="d-flex gap-3 mt-1 flex-wrap">
+                <span style={{fontSize:'0.8rem', color:'rgba(255,255,255,0.65)'}}>
+                  Toca una mesa para gestionar la cuenta
+                </span>
+                {mesasActivas.length > 0 && (
+                  <span style={{fontSize:'0.8rem', color:'rgba(255,255,255,0.85)', fontWeight:700}}>
+                    {cuentas.length} ocupada{cuentas.length !== 1 ? 's' : ''} · {mesasActivas.length - cuentas.length} libre{mesasActivas.length - cuentas.length !== 1 ? 's' : ''}
+                  </span>
+                )}
+              </div>
             </div>
             <div className="d-flex flex-wrap gap-2 align-items-center">
-              <span className={`badge rounded-pill px-3 py-2 ${cajaActual?.abierta ? 'text-bg-success' : 'text-bg-warning text-dark'}`}>
-                {cargandoCaja ? 'Caja...' : cajaActual?.abierta ? `Caja #${cajaActual.id_Caja} abierta` : 'Caja cerrada'}
+              <span className={`badge rounded-pill px-3 py-2 fs-6 ${cajaActual?.abierta ? 'bg-success' : 'bg-warning text-dark'}`} style={{fontWeight:700}}>
+                {cargandoCaja ? '⏳ Caja...' : cajaActual?.abierta ? `✓ Caja #${cajaActual.id_Caja}` : '⚠ Caja cerrada'}
               </span>
             </div>
           </div>
@@ -982,7 +1012,10 @@ function Mesas() {
                     <div className="mesa-inner">
                       <div className="mesa-nombre">{mesa.nombre}</div>
                       <div className={`mesa-estado ${cuenta ? 'ocupada' : 'libre'}`}>{cuenta ? 'OCUPADA' : 'LIBRE'}</div>
-                      <div className="mesa-capacidad">Cap. {capacidad}</div>
+                      {cuenta && cuenta.total != null
+                        ? <div className="mesa-total-badge">L {Number(cuenta.total || 0).toFixed(0)}</div>
+                        : <div className="mesa-capacidad">Cap. {capacidad}</div>
+                      }
                     </div>
                   </div>
                 );
@@ -1052,10 +1085,22 @@ function Mesas() {
                     </>
                   ) : (
                     <>
-                      <h6 className="mb-1">Cuenta #{detalleCuenta.cuenta.id_Cuenta_Mesa}</h6>
-                      <div className="small text-muted mb-2 mesas-atendio-chip">
-                        Atendio: <strong>{detalleCuenta?.atendidoPor?.nombre || detalleCuenta?.atendidoPor?.usuarioLogin || 'N/D'}</strong>
+                      <div className="d-flex align-items-center justify-content-between gap-2 mb-2 flex-wrap">
+                        <h6 className="mb-0">Cuenta #{detalleCuenta.cuenta.id_Cuenta_Mesa}</h6>
+                        <div className="small mesas-atendio-chip">
+                          {detalleCuenta?.atendidoPor?.nombre || detalleCuenta?.atendidoPor?.usuarioLogin || 'N/D'}
+                        </div>
                       </div>
+
+                      {subtotalCuenta > 0 && (
+                        <div className="mesas-account-summary mb-2">
+                          <div>
+                            <div className="mesas-account-summary-label">{detalleCuenta.detalles.length} producto{detalleCuenta.detalles.length !== 1 ? 's' : ''}</div>
+                            <div style={{fontSize:'0.7rem', color:'#166534', opacity:0.75}}>subtotal actual</div>
+                          </div>
+                          <div className="mesas-account-summary-amount">L {subtotalCuenta.toFixed(2)}</div>
+                        </div>
+                      )}
 
                       <div className="bg-white border rounded p-3 mb-3 mesas-totals-card">
                         <div className="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
@@ -1095,58 +1140,83 @@ function Mesas() {
                         <div className="pt-2">
                       <div className="mesas-section-card mb-3">
                         <div className="mesas-section-title">Consumo actual</div>
-                        <ul className="list-group mesas-detalle-list">
+                        <div className="mesas-detalle-list">
                         {detalleCuenta.detalles.length === 0 ? (
-                          <li className="list-group-item text-center">Sin productos</li>
+                          <div className="text-center text-muted small py-2">Sin productos</div>
                         ) : (
                           detalleCuenta.detalles.map((d) => (
-                            <li key={d.id_Detalle_Cuenta_Mesa} className="list-group-item d-flex justify-content-between align-items-start gap-2 mesas-detalle-item">
-                              <div>
-                                <strong>{d.producto}</strong>
-                                {d.esCortesia && <span className="badge text-bg-warning ms-2">Cortesia</span>}
-                                <div className="small">Cant: {d.cantidad}</div>
-                                <div className="small">Precio: L {Number(d.precio_Unitario || 0).toFixed(2)}</div>
-                                <div className="small">Subt: L {Number(d.subtotal || 0).toFixed(2)}</div>
-                                {dividirCuenta && (
-                                  <div className="mt-2">
-                                    <label className="form-label mb-1 small">Lo paga:</label>
-                                    <select
-                                      className="form-select form-select-sm"
-                                      value={asignacionDetalles[d.id_Detalle_Cuenta_Mesa] ?? 0}
-                                      onChange={(e) => asignarDetalleAPersona(d.id_Detalle_Cuenta_Mesa, e.target.value)}
-                                    >
-                                      {Array.from({ length: Math.max(1, Number(personasDivision || 1)) }, (_, idx) => (
-                                        <option key={`detalle-${d.id_Detalle_Cuenta_Mesa}-${idx}`} value={idx}>
-                                          {pagosMixtos[idx]?.nombre || `Persona ${idx + 1}`}
-                                        </option>
-                                      ))}
-                                    </select>
+                            <div key={d.id_Detalle_Cuenta_Mesa} className="mesas-order-item">
+                              <div className="mesas-order-item-left">
+                                <div className="mesas-order-item-name">
+                                  {d.producto}
+                                  {d.esCortesia && <span className="mesas-cortesia-badge">Cortesia</span>}
+                                </div>
+                                <div className="mesas-order-item-sub">
+                                  {Number(d.cantidad || 0)}× L {Number(d.precio_Unitario || 0).toFixed(2)}
+                                </div>
+                                {(dividirCuenta || modoDescuento !== 'NINGUNO') && (
+                                  <div className="mesas-order-item-extras">
+                                    {dividirCuenta && (
+                                      <select
+                                        className="form-select form-select-sm"
+                                        value={asignacionDetalles[d.id_Detalle_Cuenta_Mesa] ?? 0}
+                                        onChange={(e) => asignarDetalleAPersona(d.id_Detalle_Cuenta_Mesa, e.target.value)}
+                                      >
+                                        {Array.from({ length: Math.max(1, Number(personasDivision || 1)) }, (_, idx) => (
+                                          <option key={`detalle-${d.id_Detalle_Cuenta_Mesa}-${idx}`} value={idx}>
+                                            {pagosMixtos[idx]?.nombre || `Persona ${idx + 1}`}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    )}
+                                    {modoDescuento !== 'NINGUNO' && (
+                                      <div className="form-check mb-0">
+                                        <input
+                                          className="form-check-input"
+                                          type="checkbox"
+                                          id={`desc-detalle-${d.id_Detalle_Cuenta_Mesa}`}
+                                          checked={descuentoDetalles[d.id_Detalle_Cuenta_Mesa] ?? true}
+                                          disabled={!!d.esCortesia}
+                                          onChange={(e) => cambiarDescuentoDetalle(d.id_Detalle_Cuenta_Mesa, e.target.checked)}
+                                        />
+                                        <label className="form-check-label small" htmlFor={`desc-detalle-${d.id_Detalle_Cuenta_Mesa}`}>
+                                          Aplica desc.
+                                        </label>
+                                      </div>
+                                    )}
                                   </div>
                                 )}
-                                <div className="form-check mt-2">
-                                  <input
-                                    className="form-check-input"
-                                    type="checkbox"
-                                    id={`desc-detalle-${d.id_Detalle_Cuenta_Mesa}`}
-                                    checked={descuentoDetalles[d.id_Detalle_Cuenta_Mesa] ?? true}
-                                    disabled={!!d.esCortesia}
-                                    onChange={(e) => cambiarDescuentoDetalle(d.id_Detalle_Cuenta_Mesa, e.target.checked)}
-                                  />
-                                  <label className="form-check-label small" htmlFor={`desc-detalle-${d.id_Detalle_Cuenta_Mesa}`}>
-                                    Aplica descuento
-                                  </label>
-                                </div>
                               </div>
-                              <button className="btn btn-sm btn-danger" onClick={() => eliminarDetalle(d.id_Detalle_Cuenta_Mesa)} disabled={procesando}>X</button>
-                            </li>
+                              <div className="mesas-order-item-right">
+                                <span className="mesas-order-item-total">L {Number(d.subtotal || 0).toFixed(2)}</span>
+                                <button
+                                  className="mesas-order-item-del"
+                                  onClick={() => eliminarDetalle(d.id_Detalle_Cuenta_Mesa)}
+                                  disabled={procesando}
+                                  title="Eliminar"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            </div>
                           ))
                         )}
-                        </ul>
+                        </div>
                       </div>
 
                       <hr />
                       <div className="mesas-section-card mb-3">
-                      <h6 className="mesas-section-title mb-2">Agregar producto</h6>
+                      <div className="mesas-menu-header">
+                        <h6 className="mesas-section-title mb-0">Agregar producto</h6>
+                        <label className={`mesas-menu-cortesia-toggle ${formAgregar.es_Cortesia ? 'active' : ''}`}>
+                          <input
+                            type="checkbox"
+                            checked={!!formAgregar.es_Cortesia}
+                            onChange={(e) => setFormAgregar((prev) => ({ ...prev, es_Cortesia: e.target.checked }))}
+                          />
+                          Cortesia
+                        </label>
+                      </div>
                       <div className="mesas-categorias-quick mb-2">
                         <button
                           type="button"
@@ -1173,49 +1243,30 @@ function Mesas() {
                         value={filtroProducto}
                         onChange={(e) => setFiltroProducto(e.target.value)}
                       />
-                      <div className="border rounded mb-2 mesas-menu-scroll">
+                      <div className="mesas-menu-grid mb-2">
                         {menuItemsFiltrados.length === 0 ? (
-                          <div className="p-2 small text-muted">No hay productos para ese filtro.</div>
+                          <div className="p-2 small text-muted" style={{gridColumn:'1/-1'}}>Sin productos para ese filtro.</div>
                         ) : (
-                          menuItemsFiltrados.slice(0, 50).map((item) => {
-                            const seleccionado =
-                              String(formAgregar.id_Producto) === String(item.id_Producto) &&
-                              String(formAgregar.id_Presentacion ?? '') === String(item.id_Presentacion ?? '');
-                            return (
-                              <button
-                                type="button"
-                                key={`${item.id_Producto}-${item.id_Presentacion ?? 'n'}`}
-                                className={`list-group-item list-group-item-action d-flex justify-content-between align-items-center ${seleccionado ? 'active' : ''}`}
-                            onClick={() => setFormAgregar({
-                                  ...formAgregar,
-                                  id_Producto: String(item.id_Producto),
-                                  id_Presentacion: item.id_Presentacion ? String(item.id_Presentacion) : ''
-                                })}
-                              >
-                                <span className="text-start">{item.nombre}</span>
-                                <span className="small">L {Number(item.precio).toFixed(2)}</span>
-                              </button>
-                            );
-                          })
+                          menuItemsFiltrados.slice(0, 60).map((item) => (
+                            <button
+                              type="button"
+                              key={`${item.id_Producto}-${item.id_Presentacion ?? 'n'}`}
+                              className="mesas-menu-product-card"
+                              onClick={() => agregarProductoRapido(item)}
+                              disabled={procesando}
+                              title={`Agregar ${item.nombre}`}
+                            >
+                              <span className="mesas-menu-product-name">{item.nombre}</span>
+                              <span className="mesas-menu-product-price">L {Number(item.precio).toFixed(2)}</span>
+                            </button>
+                          ))
                         )}
                       </div>
-                      <div className="small text-muted mb-2">Cada toque en agregar crea una linea nueva.</div>
-                      <div className="form-control mb-3 bg-light">
-                        Precio: L {Number(formAgregar.es_Cortesia ? 0 : menuSeleccionado?.precio || 0).toFixed(2)}
+                      <div className="small text-muted">
+                        {formAgregar.es_Cortesia
+                          ? '★ Modo cortesia — se agrega sin costo'
+                          : 'Toca un producto para agregarlo a la cuenta'}
                       </div>
-                      <div className="form-check mb-2">
-                        <input
-                          className="form-check-input"
-                          type="checkbox"
-                          id="agregar-cortesia-mesa"
-                          checked={!!formAgregar.es_Cortesia}
-                          onChange={(e) => setFormAgregar((prev) => ({ ...prev, es_Cortesia: e.target.checked }))}
-                        />
-                        <label className="form-check-label" htmlFor="agregar-cortesia-mesa">
-                          Agregar como cortesia (sin cobro)
-                        </label>
-                      </div>
-                      <button className="btn btn-dark w-100 mb-3" onClick={agregarProducto} disabled={procesando}>Agregar a cuenta</button>
                       </div>
                         </div>
                       </details>
@@ -1317,15 +1368,26 @@ function Mesas() {
                           </div>
                         </div>
                         <div className="col-12">
-                          <label className="form-label mb-1">Modo de cobro</label>
-                          <select
-                            className="form-select"
-                            value={dividirCuenta ? 'DIVIDIR' : 'NORMAL'}
-                            onChange={(e) => setDividirCuenta(e.target.value === 'DIVIDIR')}
-                          >
-                            <option value="NORMAL">Un solo pago (rapido)</option>
-                            <option value="DIVIDIR">Dividir cuenta (quien paga cada consumo)</option>
-                          </select>
+                          <div className="small text-muted fw-semibold mb-1">Modo de cobro</div>
+                          <div className="d-flex gap-2">
+                            <button
+                              type="button"
+                              className={`btn flex-fill pro-service-btn ${!dividirCuenta ? 'btn-dark' : 'btn-outline-secondary'}`}
+                              onClick={() => setDividirCuenta(false)}
+                              disabled={procesando}
+                            >
+                              Pago unico
+                            </button>
+                            <button
+                              type="button"
+                              className={`btn flex-fill pro-service-btn ${dividirCuenta ? 'btn-warning' : 'btn-outline-secondary'}`}
+                              style={dividirCuenta ? {color:'#713f12', fontWeight:800} : {}}
+                              onClick={() => setDividirCuenta(true)}
+                              disabled={procesando}
+                            >
+                              Dividir cuenta
+                            </button>
+                          </div>
                         </div>
                         <div className="col-12">
                           <CheckoutPayMethodChips

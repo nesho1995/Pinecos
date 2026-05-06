@@ -1492,3 +1492,390 @@ body {
   padding: 0.65rem 0.75rem;
   border: 1px solid #e2e8f0;
 }
+
+/* === Mesa node – total badge === */
+.mesa-total-badge {
+  font-size: 0.67rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  background: rgba(0, 0, 0, 0.28);
+  border-radius: 6px;
+  padding: 1px 7px;
+  margin-top: 4px;
+  letter-spacing: 0.01em;
+}
+
+/* === Plano de mesas – aspecto restaurante premium === */
+.mesas-stage {
+  background-color: #f1f5f9 !important;
+  background-image:
+    linear-gradient(rgba(148, 163, 184, 0.18) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.18) 1px, transparent 1px) !important;
+  background-size: 30px 30px !important;
+}
+
+.mesa-node {
+  border-width: 2px !important;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.2), inset 0 1px 0 rgba(255,255,255,0.32) !important;
+}
+
+.mesa-node.mesa-libre {
+  --mesa-accent: #059669;
+}
+
+.mesa-node.mesa-ocupada {
+  --mesa-accent: #b91c1c;
+}
+
+.mesa-node.mesa-selected {
+  outline: 3px solid #3b82f6 !important;
+  outline-offset: 3px !important;
+  box-shadow: 0 8px 24px rgba(59,130,246,0.3), 0 6px 18px rgba(15,23,42,0.2), inset 0 1px 0 rgba(255,255,255,0.32) !important;
+}
+
+/* === Grid rapido de productos (menú táctil) === */
+.mesas-menu-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 2px;
+  scrollbar-width: thin;
+}
+
+.mesas-menu-product-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  background: #fff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.48rem 0.6rem;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.14s, background 0.14s, transform 0.12s, box-shadow 0.12s;
+  min-height: 58px;
+  width: 100%;
+  gap: 3px;
+}
+
+.mesas-menu-product-card:not(:disabled):hover {
+  border-color: #0f766e;
+  background: #f0fdf4;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(15, 118, 110, 0.14);
+}
+
+.mesas-menu-product-card:not(:disabled):active {
+  transform: scale(0.97);
+  background: #dcfce7;
+  border-color: #059669;
+}
+
+.mesas-menu-product-card:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+.mesas-menu-product-name {
+  font-size: 0.78rem;
+  font-weight: 650;
+  color: #1e293b;
+  line-height: 1.25;
+  word-break: break-word;
+}
+
+.mesas-menu-product-price {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: #0f766e;
+  font-variant-numeric: tabular-nums;
+}
+
+/* === Items de consumo – tarjetas tipo ticket === */
+.mesas-order-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #fff;
+  border: 1px solid #e8edf4;
+  border-radius: 10px;
+  padding: 0.48rem 0.6rem;
+  margin-bottom: 4px;
+  transition: background 0.12s;
+}
+
+.mesas-order-item:hover {
+  background: #fafbfd;
+}
+
+.mesas-order-item-left {
+  flex: 1;
+  min-width: 0;
+}
+
+.mesas-order-item-name {
+  font-size: 0.87rem;
+  font-weight: 700;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.mesas-order-item-sub {
+  font-size: 0.74rem;
+  color: #64748b;
+  margin-top: 1px;
+  font-variant-numeric: tabular-nums;
+}
+
+.mesas-order-item-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.3rem;
+  flex-shrink: 0;
+}
+
+.mesas-order-item-total {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #0f172a;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.mesas-order-item-del {
+  background: none;
+  border: 1px solid #fecaca;
+  border-radius: 7px;
+  color: #dc2626;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.14s, border-color 0.14s;
+  min-height: auto !important;
+  line-height: 1.5;
+}
+
+.mesas-order-item-del:hover {
+  background: #fee2e2;
+  border-color: #ef4444;
+}
+
+.mesas-order-item-del:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.mesas-order-item-extras {
+  margin-top: 0.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.mesas-cortesia-badge {
+  display: inline-flex;
+  align-items: center;
+  background: #fef3c7;
+  border: 1px solid #fde68a;
+  color: #92400e;
+  border-radius: 6px;
+  padding: 1px 7px;
+  font-size: 0.67rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* === Cabecera sección menú === */
+.mesas-menu-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.mesas-menu-cortesia-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: #fef9ee;
+  border: 1.5px solid #fde68a;
+  border-radius: 999px;
+  padding: 0.18rem 0.65rem;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  user-select: none;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #92400e;
+}
+
+.mesas-menu-cortesia-toggle.active {
+  background: #f59e0b;
+  border-color: #d97706;
+  color: #fff;
+}
+
+.mesas-menu-cortesia-toggle input[type="checkbox"] {
+  min-height: auto !important;
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  cursor: pointer;
+}
+
+/* === Totales mesa – plano lateral === */
+.mesas-account-summary {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(135deg, #f0fdf4, #ecfdf5);
+  border: 1px solid #bbf7d0;
+  border-radius: 12px;
+  padding: 0.55rem 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.mesas-account-summary-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #166534;
+}
+
+.mesas-account-summary-amount {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #14532d;
+  font-variant-numeric: tabular-nums;
+}
+
+/* === Hero header de mesas con estilo premium === */
+.mesas-page-hero {
+  background: linear-gradient(118deg, #064e3b 0%, #0f172a 55%, #1e3a5f 100%) !important;
+  border: none !important;
+  color: #fff;
+}
+
+.mesas-page-hero h2,
+.mesas-page-hero p,
+.mesas-page-hero .text-muted {
+  color: rgba(255,255,255,0.9) !important;
+}
+
+.mesas-page-hero p.text-muted {
+  color: rgba(255,255,255,0.65) !important;
+}
+
+/* === Checkout flow refinado === */
+.pro-checkout-flow-block {
+  background: #fff;
+  border: 1px solid #e8edf4;
+  border-radius: 12px;
+  padding: 0.75rem 0.85rem;
+  margin-top: 0.5rem !important;
+}
+
+.pro-checkout-flow-block--pay {
+  border-top: 1px solid #e2e8f0 !important;
+  margin-top: 0.5rem !important;
+  padding-top: 0 !important;
+  background: #fff;
+}
+
+.pro-checkout-flow-title {
+  font-size: 0.67rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #0f766e;
+  margin-bottom: 0.55rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.pro-checkout-flow-title::before {
+  content: '';
+  display: inline-block;
+  width: 3px;
+  height: 14px;
+  background: #0f766e;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.pro-checkout-flow-title--on-dark {
+  color: rgba(255,255,255,0.88);
+  opacity: 0.95;
+  margin-bottom: 0.35rem;
+}
+
+.pro-checkout-flow-title--on-dark::before {
+  background: rgba(255,255,255,0.5);
+}
+
+/* Total hero refinado */
+.pro-checkout-total-hero {
+  background: linear-gradient(145deg, #0f172a 0%, #064e3b 60%, #0d4f4a 100%) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 16px 32px rgba(15,23,42,0.25) !important;
+}
+
+.pro-checkout-total-hero .pro-checkout-total-amount {
+  font-size: clamp(2rem, 5vw, 2.6rem) !important;
+  letter-spacing: -0.03em !important;
+}
+
+/* Cobrar button extra prominente */
+.mesas-actions-bar .btn-success {
+  min-height: 56px !important;
+  font-size: 1.1rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.02em;
+  background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
+  border-color: #047857 !important;
+  box-shadow: 0 6px 20px rgba(5, 150, 105, 0.35) !important;
+}
+
+.mesas-actions-bar .btn-success:not(:disabled):hover {
+  background: linear-gradient(135deg, #047857 0%, #065f46 100%) !important;
+  box-shadow: 0 8px 24px rgba(5, 150, 105, 0.45) !important;
+}
+
+/* Checklist cobro mejorada */
+.mesas-cobro-status-card.is-ready {
+  border-color: #6ee7b7 !important;
+  background: linear-gradient(135deg, #ecfdf5, #f0fdf4) !important;
+  box-shadow: 0 2px 8px rgba(5, 150, 105, 0.1);
+}
+
+.mesas-cobro-status-card.is-pending {
+  border-color: #fcd34d !important;
+  background: linear-gradient(135deg, #fffbeb, #fef9ee) !important;
+}
+
+.mesas-cobro-status-title {
+  font-size: 0.75rem !important;
+}
+
+@media (max-width: 991px) {
+  .mesas-menu-grid {
+    grid-template-columns: repeat(3, 1fr);
+    max-height: 210px;
+  }
+  .mesas-menu-product-card {
+    min-height: 52px;
+  }
+}
