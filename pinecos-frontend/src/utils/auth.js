@@ -51,7 +51,13 @@ export const clearSession = () => {
 
 export const getUsuario = () => {
   const data = sessionStore.getItem('usuario');
-  return data ? JSON.parse(data) : null;
+  if (!data) return null;
+  try {
+    return JSON.parse(data);
+  } catch {
+    sessionStore.removeItem('usuario');
+    return null;
+  }
 };
 
 export const isAuthenticated = () => !!getToken();

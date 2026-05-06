@@ -9,7 +9,7 @@ namespace Pinecos.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [AuthorizeRoles("ADMIN", "CAJERO")]
+    [AuthorizeRoles("ADMIN", "CAJERO", "SUPERVISOR")]
     public class DashboardController : ControllerBase
     {
         private readonly PinecosDbContext _context;
@@ -152,7 +152,7 @@ namespace Pinecos.Controllers
         }
 
         [HttpGet("caja-actual")]
-        [AuthorizeRoles("ADMIN", "CAJERO")]
+        [AuthorizeRoles("ADMIN", "CAJERO", "SUPERVISOR")]
         public async Task<ActionResult> GetCajaActual([FromQuery] int? idSucursal = null)
         {
             var rol = UserHelper.GetUserRole(User);

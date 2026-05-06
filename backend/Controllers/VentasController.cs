@@ -11,7 +11,7 @@ namespace Pinecos.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [AuthorizeRoles("ADMIN", "CAJERO")]
+    [AuthorizeRoles("ADMIN", "CAJERO", "SUPERVISOR")]
     public class VentasController : ControllerBase
     {
         private readonly PinecosDbContext _context;

@@ -7,7 +7,7 @@ namespace Pinecos.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [AuthorizeRoles("ADMIN", "CAJERO")]
+    [AuthorizeRoles("ADMIN", "CAJERO", "SUPERVISOR")]
     public class AjustesVentaController : ControllerBase
     {
         private readonly IWebHostEnvironment _env;

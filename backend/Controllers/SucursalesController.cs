@@ -62,6 +62,7 @@ namespace Pinecos.Controllers
         }
 
         [HttpPut("{id}")]
+        [AuthorizeRoles("ADMIN")]
         public async Task<ActionResult> EditarSucursal(int id, [FromBody] Sucursal sucursal)
         {
             var sucursalDb = await _context.Sucursales.FindAsync(id);
@@ -87,6 +88,7 @@ namespace Pinecos.Controllers
         }
 
         [HttpDelete("{id}")]
+        [AuthorizeRoles("ADMIN")]
         public async Task<ActionResult> EliminarSucursal(int id)
         {
             var sucursalDb = await _context.Sucursales.FindAsync(id);
