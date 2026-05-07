@@ -54,6 +54,14 @@ builder.Services.AddAuthentication(options =>
     {
         OnTokenValidated = async context =>
         {
+            // Tokens temporales (seleccion de sucursal) no son validos para endpoints protegidos.
+            var isTempAuth = context.Principal?.FindFirst("temp_auth")?.Value == "true";
+            if (isTempAuth)
+            {
+                context.Fail("Token temporal no valido para esta operacion");
+                return;
+            }
+
             var userIdClaim = context.Principal?.FindFirst("id_usuario")?.Value;
             if (!int.TryParse(userIdClaim, out var userId))
             {
@@ -83,14 +91,23 @@ builder.Services.AddAuthentication(options =>
 
             var sucursalToken = context.Principal?.FindFirst("id_sucursal")?.Value ?? string.Empty;
             var sucursalDb = usuarioDb.Id_Sucursal?.ToString() ?? string.Empty;
+
             if (!string.Equals(sucursalToken, sucursalDb, StringComparison.Ordinal))
             {
-                context.Fail("Sesion invalida");
-                return;
+                // Acepta si la sucursal del token esta en usuario_sucursales del usuario.
+                var sucursalValida = false;
+                if (!string.IsNullOrEmpty(sucursalToken) && int.TryParse(sucursalToken, out var sucursalTokenId))
+                {
+                    sucursalValida = await db.UsuarioSucursales
+                        .AnyAsync(us => us.Id_Usuario == userId && us.Id_Sucursal == sucursalTokenId);
+                }
+                if (!sucursalValida)
+                {
+                    context.Fail("Sesion invalida");
+                    return;
+                }
             }
 
-            // Refuerza compatibilidad de autorizacion por rol para tokens antiguos
-            // con valor de rol no normalizado (ejemplo: "Cajero" vs "CAJERO").
             if (context.Principal?.Identity is ClaimsIdentity identity)
             {
                 if (!context.Principal.HasClaim(c => c.Type == "rol" && string.Equals(c.Value, rolDbUpper, StringComparison.OrdinalIgnoreCase)))
@@ -99,8 +116,8 @@ builder.Services.AddAuthentication(options =>
                 if (!context.Principal.HasClaim(c => c.Type == ClaimTypes.Role && string.Equals(c.Value, rolDbUpper, StringComparison.OrdinalIgnoreCase)))
                     identity.AddClaim(new Claim(ClaimTypes.Role, rolDbUpper));
 
-                if (!context.Principal.HasClaim(c => c.Type == "id_sucursal" && string.Equals(c.Value, sucursalDb, StringComparison.Ordinal)))
-                    identity.AddClaim(new Claim("id_sucursal", sucursalDb));
+                if (!context.Principal.HasClaim(c => c.Type == "id_sucursal" && string.Equals(c.Value, sucursalToken, StringComparison.Ordinal)))
+                    identity.AddClaim(new Claim("id_sucursal", sucursalToken));
             }
         }
     };

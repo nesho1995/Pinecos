@@ -683,7 +683,7 @@ function VentasPOS() {
     limpiarMensajes();
     if (!cajaActual?.abierta) return setError('No hay caja abierta');
     if (carrito.length === 0) return setError('Agrega productos al carrito');
-    if (preCuentaEstado !== 'VIGENTE') return setError('La pre-cuenta no esta vigente. Genera o regenera antes del cobro final');
+    if (tipoServicio !== 'LLEVAR' && preCuentaEstado !== 'VIGENTE') return setError('La pre-cuenta no esta vigente. Genera o regenera antes del cobro final');
     if (tieneLineasInvalidas) return setError('Hay productos con cantidad o precio invalidos en la cuenta');
     if (!Number.isFinite(total) || total < 0) return setError('El total no es valido');
     if (!soloCortesia && total <= 0) return setError('El total debe ser mayor a cero');
@@ -1357,26 +1357,32 @@ function VentasPOS() {
                 </div>
 
                 <div className="pro-checkout-flow-block pro-checkout-flow-block--confirm">
-                  <div className="pro-checkout-flow-title">6 · Pre-cuenta y cobro final</div>
-                  <div className="pro-checkout-steps pro-checkout-steps--on-light mb-2" aria-hidden="true">
-                    <span className={`pro-checkout-step ${preCuentaEstado === 'VIGENTE' ? 'pro-checkout-step--ok' : ''}`}>Pre-cuenta lista</span>
-                    <span className={`pro-checkout-step ${preCuentaEstado === 'VIGENTE' ? 'pro-checkout-step--ok' : preCuentaEstado === 'DESACTUALIZADA' ? 'pro-checkout-step--warn' : ''}`}>
-                      Total vigente
-                    </span>
-                    <span className="pro-checkout-step">Cobrar</span>
-                  </div>
+                  <div className="pro-checkout-flow-title">6 · {tipoServicio === 'LLEVAR' ? 'Cobro final' : 'Pre-cuenta y cobro final'}</div>
+                  {tipoServicio !== 'LLEVAR' && (
+                    <div className="pro-checkout-steps pro-checkout-steps--on-light mb-2" aria-hidden="true">
+                      <span className={`pro-checkout-step ${preCuentaEstado === 'VIGENTE' ? 'pro-checkout-step--ok' : ''}`}>Pre-cuenta lista</span>
+                      <span className={`pro-checkout-step ${preCuentaEstado === 'VIGENTE' ? 'pro-checkout-step--ok' : preCuentaEstado === 'DESACTUALIZADA' ? 'pro-checkout-step--warn' : ''}`}>
+                        Total vigente
+                      </span>
+                      <span className="pro-checkout-step">Cobrar</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="d-grid gap-2 mt-2 pos-checkout-actions">
-                  <button type="button" className="btn btn-outline-primary" onClick={generarPreCuenta} disabled={procesando || carrito.length === 0}>
-                    {preCuentaEstado === 'DESACTUALIZADA' ? 'Regenerar pre-cuenta' : 'Generar pre-cuenta'}
-                  </button>
-                  {preCuentaEstado !== 'VIGENTE' && (
-                    <div className="small text-warning text-center">
-                      Antes del cobro final debes generar una pre-cuenta vigente.
-                    </div>
+                  {tipoServicio !== 'LLEVAR' && (
+                    <>
+                      <button type="button" className="btn btn-outline-primary" onClick={generarPreCuenta} disabled={procesando || carrito.length === 0}>
+                        {preCuentaEstado === 'DESACTUALIZADA' ? 'Regenerar pre-cuenta' : 'Generar pre-cuenta'}
+                      </button>
+                      {preCuentaEstado !== 'VIGENTE' && (
+                        <div className="small text-warning text-center">
+                          Antes del cobro final debes generar una pre-cuenta vigente.
+                        </div>
+                      )}
+                    </>
                   )}
-                  <button type="button" className="btn btn-success" onClick={cobrarVenta} disabled={procesando || carrito.length === 0 || preCuentaEstado !== 'VIGENTE' || !efectivoValidoParaCobro}>
+                  <button type="button" className="btn btn-success" onClick={cobrarVenta} disabled={procesando || carrito.length === 0 || (tipoServicio !== 'LLEVAR' && preCuentaEstado !== 'VIGENTE') || !efectivoValidoParaCobro}>
                     {procesando ? 'Procesando...' : 'Cobro final'}
                   </button>
                   <div className="small text-muted text-center">Atajo: <kbd className="px-1">Alt</kbd> + <kbd className="px-1">C</kbd> (fuera de campos de texto)</div>

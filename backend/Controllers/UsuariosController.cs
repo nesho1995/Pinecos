@@ -46,7 +46,26 @@ namespace Pinecos.Controllers
                 .OrderBy(x => x.Id_Usuario)
                 .ToListAsync();
 
-            return Ok(usuarios);
+            var asignaciones = await _context.UsuarioSucursales
+                .Include(us => us.Sucursal)
+                .ToListAsync();
+
+            var resultado = usuarios.Select(u => new
+            {
+                u.Id_Usuario,
+                u.Nombre,
+                u.Usuario,
+                u.Rol,
+                u.Id_Sucursal,
+                u.Sucursal,
+                u.Activo,
+                SucursalesAsignadas = asignaciones
+                    .Where(a => a.Id_Usuario == u.Id_Usuario)
+                    .Select(a => new { a.Sucursal!.Id_Sucursal, a.Sucursal.Nombre })
+                    .ToList()
+            });
+
+            return Ok(resultado);
         }
 
         [HttpGet("{id}")]
@@ -193,6 +212,45 @@ namespace Pinecos.Controllers
             {
                 message = "Usuario actualizado correctamente"
             });
+        }
+
+        [HttpPut("{id}/sucursales")]
+        public async Task<ActionResult> ActualizarSucursales(int id, [FromBody] List<int> sucursalIds)
+        {
+            var usuarioExiste = await _context.Usuarios.AnyAsync(u => u.Id_Usuario == id);
+            if (!usuarioExiste)
+                return NotFound(new { message = "Usuario no encontrado" });
+
+            if (sucursalIds.Count > 0)
+            {
+                var sucursalesValidas = await _context.Sucursales
+                    .Where(s => sucursalIds.Contains(s.Id_Sucursal))
+                    .Select(s => s.Id_Sucursal)
+                    .ToListAsync();
+
+                var invalidas = sucursalIds.Except(sucursalesValidas).ToList();
+                if (invalidas.Count > 0)
+                    return BadRequest(new { message = $"Sucursales no validas: {string.Join(", ", invalidas)}" });
+            }
+
+            var actuales = await _context.UsuarioSucursales
+                .Where(us => us.Id_Usuario == id)
+                .ToListAsync();
+
+            _context.UsuarioSucursales.RemoveRange(actuales);
+
+            foreach (var idSucursal in sucursalIds.Distinct())
+            {
+                _context.UsuarioSucursales.Add(new UsuarioSucursal
+                {
+                    Id_Usuario = id,
+                    Id_Sucursal = idSucursal
+                });
+            }
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Sucursales actualizadas correctamente" });
         }
 
         [HttpDelete("{id}")]
