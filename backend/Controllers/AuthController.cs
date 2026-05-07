@@ -80,7 +80,6 @@ namespace Pinecos.Controllers
                     PrimerIntentoUtc = nowUtc
                 };
 
-                // Reinicia ventana de intentos cada 15 minutos.
                 if (nowUtc - estado.PrimerIntentoUtc > TimeSpan.FromMinutes(15))
                 {
                     estado.IntentosFallidos = 0;
@@ -99,7 +98,32 @@ namespace Pinecos.Controllers
 
             _cache.Remove(lockKey);
 
-            var token = GenerateToken(user!);
+            var sucursalesAsignadas = await _context.UsuarioSucursales
+                .Include(us => us.Sucursal)
+                .Where(us => us.Id_Usuario == user!.Id_Usuario)
+                .OrderBy(us => us.Sucursal!.Nombre)
+                .ToListAsync();
+
+            if (sucursalesAsignadas.Count > 1)
+            {
+                var selectionToken = GenerateTempToken(user!.Id_Usuario);
+                return Ok(new
+                {
+                    requiresSucursalSelection = true,
+                    selectionToken,
+                    sucursales = sucursalesAsignadas.Select(us => new
+                    {
+                        us.Sucursal!.Id_Sucursal,
+                        us.Sucursal.Nombre
+                    })
+                });
+            }
+
+            int? sucursalId = sucursalesAsignadas.Count == 1
+                ? sucursalesAsignadas[0].Id_Sucursal
+                : user!.Id_Sucursal;
+
+            var token = GenerateToken(user!, sucursalId);
 
             return Ok(new
             {
@@ -110,7 +134,44 @@ namespace Pinecos.Controllers
                     user.Nombre,
                     user.UsuarioLogin,
                     user.Rol,
-                    user.Id_Sucursal
+                    Id_Sucursal = sucursalId
+                }
+            });
+        }
+
+        [HttpPost("seleccionar-sucursal")]
+        [EnableRateLimiting("auth-login")]
+        public async Task<IActionResult> SeleccionarSucursal([FromBody] SeleccionarSucursalDto? body)
+        {
+            if (body == null || string.IsNullOrWhiteSpace(body.SelectionToken) || body.Id_Sucursal <= 0)
+                return BadRequest(new { message = "Datos invalidos" });
+
+            var userId = ValidarTempToken(body.SelectionToken);
+            if (userId == null)
+                return Unauthorized(new { message = "Token de seleccion invalido o expirado" });
+
+            var tieneAsignacion = await _context.UsuarioSucursales
+                .AnyAsync(us => us.Id_Usuario == userId && us.Id_Sucursal == body.Id_Sucursal);
+
+            if (!tieneAsignacion)
+                return BadRequest(new { message = "Sucursal no asignada a este usuario" });
+
+            var user = await _context.Usuarios.FindAsync(userId.Value);
+            if (user == null || !user.Activo)
+                return Unauthorized(new { message = "Usuario invalido" });
+
+            var token = GenerateToken(user, body.Id_Sucursal);
+
+            return Ok(new
+            {
+                token,
+                usuario = new
+                {
+                    user.Id_Usuario,
+                    user.Nombre,
+                    user.UsuarioLogin,
+                    user.Rol,
+                    Id_Sucursal = body.Id_Sucursal
                 }
             });
         }
@@ -133,12 +194,13 @@ namespace Pinecos.Controllers
             });
         }
 
-        private string GenerateToken(Usuario user)
+        private string GenerateToken(Usuario user, int? sucursalId = null)
         {
             var jwtKey = _config["Jwt:Key"] ?? throw new Exception("Jwt:Key no esta configurado");
             var issuer = _config["Jwt:Issuer"] ?? throw new Exception("Jwt:Issuer no esta configurado");
             var audience = _config["Jwt:Audience"] ?? throw new Exception("Jwt:Audience no esta configurado");
             var rolNormalizado = (user.Rol ?? string.Empty).Trim().ToUpperInvariant();
+            var resolvedSucursal = sucursalId ?? user.Id_Sucursal;
 
             var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
             var creds = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
@@ -148,7 +210,7 @@ namespace Pinecos.Controllers
                 new Claim("id_usuario", user.Id_Usuario.ToString()),
                 new Claim("usuario", user.UsuarioLogin),
                 new Claim("rol", rolNormalizado),
-                new Claim("id_sucursal", user.Id_Sucursal?.ToString() ?? ""),
+                new Claim("id_sucursal", resolvedSucursal?.ToString() ?? ""),
                 new Claim(ClaimTypes.Name, user.UsuarioLogin),
                 new Claim(ClaimTypes.Role, rolNormalizado)
             };
@@ -162,6 +224,67 @@ namespace Pinecos.Controllers
             );
 
             return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+
+        private string GenerateTempToken(int userId)
+        {
+            var jwtKey = _config["Jwt:Key"] ?? throw new Exception("Jwt:Key no esta configurado");
+            var issuer = _config["Jwt:Issuer"] ?? throw new Exception("Jwt:Issuer no esta configurado");
+            var audience = _config["Jwt:Audience"] ?? throw new Exception("Jwt:Audience no esta configurado");
+
+            var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
+            var creds = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
+
+            var claims = new[]
+            {
+                new Claim("id_usuario", userId.ToString()),
+                new Claim("temp_auth", "true")
+            };
+
+            var token = new JwtSecurityToken(
+                issuer: issuer,
+                audience: audience,
+                claims: claims,
+                expires: DateTime.UtcNow.AddMinutes(5),
+                signingCredentials: creds
+            );
+
+            return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+
+        private int? ValidarTempToken(string tokenStr)
+        {
+            try
+            {
+                var jwtKey = _config["Jwt:Key"] ?? throw new Exception("Jwt:Key no esta configurado");
+                var issuer = _config["Jwt:Issuer"] ?? throw new Exception("Jwt:Issuer no esta configurado");
+                var audience = _config["Jwt:Audience"] ?? throw new Exception("Jwt:Audience no esta configurado");
+
+                var handler = new JwtSecurityTokenHandler();
+                var principal = handler.ValidateToken(tokenStr, new TokenValidationParameters
+                {
+                    ValidateIssuerSigningKey = true,
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+                    ValidateIssuer = true,
+                    ValidIssuer = issuer,
+                    ValidateAudience = true,
+                    ValidAudience = audience,
+                    ValidateLifetime = true,
+                    ClockSkew = TimeSpan.Zero
+                }, out _);
+
+                var isTempAuth = principal.FindFirst("temp_auth")?.Value == "true";
+                if (!isTempAuth) return null;
+
+                var userIdStr = principal.FindFirst("id_usuario")?.Value;
+                if (int.TryParse(userIdStr, out var userId)) return userId;
+
+                return null;
+            }
+            catch
+            {
+                return null;
+            }
         }
     }
 }

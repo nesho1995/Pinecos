@@ -35,6 +35,7 @@ namespace Pinecos.Data
         public DbSet<RecetaProductoInsumo> RecetasProductoInsumo { get; set; }
         public DbSet<FacturacionSarCorrelativoEvento> FacturacionSarCorrelativoEventos { get; set; }
         public DbSet<ProductoPendiente> ProductoPendientes { get; set; }
+        public DbSet<UsuarioSucursal> UsuarioSucursales { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<Usuario>().ToTable("usuarios");
@@ -286,6 +287,17 @@ namespace Pinecos.Data
             modelBuilder.Entity<ProductoPendiente>().Property(x => x.Id_Producto_Creado).HasColumnName("id_producto_creado");
             modelBuilder.Entity<ProductoPendiente>().Property(x => x.Fecha_Creacion).HasColumnName("fecha_creacion");
             modelBuilder.Entity<ProductoPendiente>().Property(x => x.Fecha_Revision).HasColumnName("fecha_revision");
+
+            modelBuilder.Entity<UsuarioSucursal>().ToTable("usuario_sucursales");
+            modelBuilder.Entity<UsuarioSucursal>().HasKey(x => x.Id_Usuario_Sucursal);
+            modelBuilder.Entity<UsuarioSucursal>().Property(x => x.Id_Usuario_Sucursal).HasColumnName("id_usuario_sucursal");
+            modelBuilder.Entity<UsuarioSucursal>().Property(x => x.Id_Usuario).HasColumnName("id_usuario");
+            modelBuilder.Entity<UsuarioSucursal>().Property(x => x.Id_Sucursal).HasColumnName("id_sucursal");
+            modelBuilder.Entity<UsuarioSucursal>()
+                .HasOne(x => x.Sucursal)
+                .WithMany()
+                .HasForeignKey(x => x.Id_Sucursal);
+
             modelBuilder.Entity<Mesa>().ToTable("mesas");
             modelBuilder.Entity<CuentaMesa>().ToTable("cuentas_mesa");
             modelBuilder.Entity<DetalleCuentaMesa>().ToTable("detalle_cuenta_mesa");

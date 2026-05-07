@@ -14,6 +14,7 @@ function Usuarios() {
     id_Sucursal: '',
     activo: true
   });
+  const [sucursalesSeleccionadas, setSucursalesSeleccionadas] = useState([]);
   const [error, setError] = useState('');
   const [mensaje, setMensaje] = useState('');
 
@@ -47,22 +48,19 @@ function Usuarios() {
 
   const limpiarFormulario = () => {
     setEditandoId(null);
-    setForm({
-      nombre: '',
-      usuarioLogin: '',
-      clave: '',
-      rol: 'CAJERO',
-      id_Sucursal: '',
-      activo: true
-    });
+    setForm({ nombre: '', usuarioLogin: '', clave: '', rol: 'CAJERO', id_Sucursal: '', activo: true });
+    setSucursalesSeleccionadas([]);
   };
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setForm((prev) => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
+    setForm((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+  };
+
+  const toggleSucursal = (idSucursal) => {
+    setSucursalesSeleccionadas((prev) =>
+      prev.includes(idSucursal) ? prev.filter((id) => id !== idSucursal) : [...prev, idSucursal]
+    );
   };
 
   const guardarUsuario = async (e) => {
@@ -84,14 +82,22 @@ function Usuarios() {
     }
 
     try {
+      let userId = editandoId;
       if (editandoId) {
         await api.put(`/Usuarios/${editandoId}`, payload);
-        setMensaje('Usuario actualizado correctamente');
       } else {
         if (!payload.clave) return setError('La clave es obligatoria para crear usuario');
-        await api.post('/Usuarios', payload);
-        setMensaje('Usuario creado correctamente');
+        const res = await api.post('/Usuarios', payload);
+        userId = res.data?.data?.id_Usuario;
       }
+
+      if (userId && sucursalesSeleccionadas.length > 0) {
+        await api.put(`/Usuarios/${userId}/sucursales`, sucursalesSeleccionadas);
+      } else if (userId && sucursalesSeleccionadas.length === 0 && editandoId) {
+        await api.put(`/Usuarios/${userId}/sucursales`, []);
+      }
+
+      setMensaje(editandoId ? 'Usuario actualizado correctamente' : 'Usuario creado correctamente');
       limpiarFormulario();
       await cargarUsuarios();
     } catch (err) {
@@ -110,6 +116,7 @@ function Usuarios() {
       id_Sucursal: item.id_Sucursal || '',
       activo: item.activo ?? true
     });
+    setSucursalesSeleccionadas((item.sucursalesAsignadas || []).map((s) => s.id_Sucursal));
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -176,15 +183,6 @@ function Usuarios() {
                 <option value="CAJERO">CAJERO</option>
               </select>
             </div>
-            <div className="col-md-3">
-              <label className="form-label">Sucursal</label>
-              <select className="form-select" name="id_Sucursal" value={form.id_Sucursal} onChange={handleChange}>
-                <option value="">Sin sucursal</option>
-                {sucursales.map((suc) => (
-                  <option key={suc.id_Sucursal} value={suc.id_Sucursal}>{suc.nombre}</option>
-                ))}
-              </select>
-            </div>
             <div className="col-md-2 d-flex align-items-end">
               <div className="form-check">
                 <input type="checkbox" className="form-check-input" name="activo" checked={form.activo} onChange={handleChange} />
@@ -196,6 +194,30 @@ function Usuarios() {
             </div>
             <div className="col-md-2">
               <button className="btn btn-outline-secondary w-100" type="button" onClick={limpiarFormulario}>Limpiar</button>
+            </div>
+
+            <div className="col-12">
+              <label className="form-label fw-semibold">Sucursales asignadas</label>
+              <div className="d-flex flex-wrap gap-3 mt-1">
+                {sucursales.map((suc) => (
+                  <div key={suc.id_Sucursal} className="form-check">
+                    <input
+                      type="checkbox"
+                      className="form-check-input"
+                      id={`suc-${suc.id_Sucursal}`}
+                      checked={sucursalesSeleccionadas.includes(suc.id_Sucursal)}
+                      onChange={() => toggleSucursal(suc.id_Sucursal)}
+                    />
+                    <label className="form-check-label" htmlFor={`suc-${suc.id_Sucursal}`}>
+                      {suc.nombre}
+                    </label>
+                  </div>
+                ))}
+                {sucursales.length === 0 && <span className="text-muted small">No hay sucursales</span>}
+              </div>
+              <div className="text-muted small mt-1">
+                Si el usuario tiene varias sucursales, elegira en cual trabajar al iniciar sesion.
+              </div>
             </div>
           </form>
           {mensaje && <div className="alert alert-success mt-3 mb-0">{mensaje}</div>}
@@ -223,7 +245,7 @@ function Usuarios() {
                 <th>Nombre</th>
                 <th>Usuario</th>
                 <th>Rol</th>
-                <th>Sucursal</th>
+                <th>Sucursales</th>
                 <th>Estado</th>
                 <th style={{ width: 220 }}>Acciones</th>
               </tr>
@@ -235,7 +257,11 @@ function Usuarios() {
                   <td>{item.nombre}</td>
                   <td>{item.usuario}</td>
                   <td>{item.rol}</td>
-                  <td>{item.sucursal || '-'}</td>
+                  <td>
+                    {item.sucursalesAsignadas && item.sucursalesAsignadas.length > 0
+                      ? item.sucursalesAsignadas.map((s) => s.nombre).join(', ')
+                      : item.sucursal || '-'}
+                  </td>
                   <td>
                     <span className={`status-pill ${item.activo ? 'active' : 'inactive'}`}>
                       {item.activo ? 'Activo' : 'Inactivo'}
@@ -270,4 +296,3 @@ function Usuarios() {
 }
 
 export default Usuarios;
-
