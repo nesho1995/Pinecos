@@ -88,7 +88,7 @@ function Usuarios() {
       } else {
         if (!payload.clave) return setError('La clave es obligatoria para crear usuario');
         const res = await api.post('/Usuarios', payload);
-        userId = res.data?.data?.Id_Usuario;
+        userId = res.data?.data?.id_Usuario;
       }
 
       if (userId && sucursalesSeleccionadas.length > 0) {
