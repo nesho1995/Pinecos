@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import api from '../../services/api';
-import { imprimirTicketHtml, imprimirTicketsDivisionMesa } from '../../utils/printTicket';
+import { imprimirTicketHtml, imprimirTicketsDivisionMesa, imprimirPreTicketPersona } from '../../utils/printTicket';
 import { getUsuario } from '../../utils/auth';
 import FacturaCaiClienteForm from '../../components/factura/FacturaCaiClienteForm';
 import { facturaClienteVacio } from '../../components/factura/facturaClienteVacio';
@@ -45,6 +45,7 @@ function Mesas() {
   const [asignacionDetalles, setAsignacionDetalles] = useState({});
   const [descuentoDetalles, setDescuentoDetalles] = useState({});
   const [personasListas, setPersonasListas] = useState(new Set());
+  const [montoDadoPorPersona, setMontoDadoPorPersona] = useState({});
   const [vistaTablet, setVistaTablet] = useState('mesas');
   /** Oculta plano de mesas y acordeon de consumo para ver solo cobro */
   const [mesaVistaSoloCobro, setMesaVistaSoloCobro] = useState(false);
@@ -671,6 +672,40 @@ function Mesas() {
     setAsignacionDetalles((prev) => ({ ...prev, [idDetalle]: Number(personaIndex || 0) }));
   };
 
+  const imprimirPersonaEnCobrar = async (idx) => {
+    const detalles = detalleCuenta?.detalles || [];
+    const pago = pagosMixtos[idx] || {};
+    const itemsPersona = detalles.filter((d) => Number(asignacionDetalles[d.id_Detalle_Cuenta_Mesa]) === idx);
+    const totalPersona = montosAutoPorPersona[idx] || 0;
+    const esEfectivo = String(resolverCategoriaMetodo(pago?.metodo_Pago || 'EFECTIVO')).toUpperCase() === 'EFECTIVO';
+    const montoDado = esEfectivo ? Number(montoDadoPorPersona[idx] || 0) : 0;
+    const cambio = esEfectivo && montoDado > totalPersona ? montoDado - totalPersona : 0;
+    const canalesPersona = obtenerCanalesPorMetodo(pago?.metodo_Pago);
+    const canalPersona = canalesPersona.find((x) => String(x?.codigo || '') === String(pago?.canalPagoCodigo || '')) || null;
+    const metodoLabel = esEfectivo
+      ? 'Efectivo'
+      : (canalPersona?.nombre || canalPersona?.codigo || pago?.metodo_Pago || '');
+    const mesaActual = mesas.find((m) => m.id_Mesa === mesaSeleccionada);
+    const sucursalNombre = sucursales.find((s) => String(s.id_Sucursal) === String(sucursalSeleccionada))?.nombre || 'Sucursal';
+    await imprimirPreTicketPersona({
+      mesa: mesaActual?.nombre || mesaActual?.numero || String(mesaSeleccionada),
+      cuenta: String(detalleCuenta?.cuenta?.id_Cuenta_Mesa || ''),
+      sucursal: sucursalNombre,
+      tipoServicio,
+      moneda: 'L',
+      persona: {
+        nombre: String(pago?.nombre || '').trim() || `Persona ${idx + 1}`,
+        metodoPago: metodoLabel,
+        total: totalPersona,
+        items: itemsPersona.map((d) => ({ producto: d.producto, cantidad: d.cantidad, subtotal: d.subtotal }))
+      },
+      indicePersona: idx + 1,
+      totalPersonas: Math.max(2, Number(personasDivision || 2)),
+      montoDado,
+      cambio
+    });
+  };
+
   const construirPayloadDivisionTickets = (idVenta) => {
     if (!dividirCuenta || !detalleCuenta?.detalles?.length) return null;
 
@@ -833,15 +868,13 @@ function Mesas() {
       setDescuentoDetalles({});
       setPersonasDivision(2);
       setPersonasListas(new Set());
+      setMontoDadoPorPersona({});
 
       let mensajeExito = `Cuenta cobrada. Venta #${idVenta}`;
       try {
         if (payloadDivisionTickets) {
-          await imprimirTicketsDivisionMesa(payloadDivisionTickets);
           mensajeExito += ' | Tickets por persona impresos';
         }
-        // Siempre se imprime el comprobante final de la venta (ticket/factura CAI),
-        // incluso cuando hubo division por persona.
         await imprimirTicketHtml(idVenta);
       } catch (printErr) {
         setError(printErr?.message || 'Cuenta cobrada, pero no se pudo abrir la impresion');
@@ -874,6 +907,7 @@ function Mesas() {
       setDescuentoDetalles({});
       setPersonasDivision(2);
       setPersonasListas(new Set());
+      setMontoDadoPorPersona({});
       await cargarCuentasAbiertas();
       await cargarMesas(sucursalSeleccionada);
     } catch (err) {
@@ -1489,8 +1523,12 @@ function Mesas() {
                                 const canalesPersona = obtenerCanalesPorMetodo(pago?.metodo_Pago);
                                 const itemsPersona = detalles.filter(d => Number(asignacionDetalles[d.id_Detalle_Cuenta_Mesa]) === idx);
                                 const totalPersona = montosAutoPorPersona[idx] || 0;
+                                const esEfectivo = String(resolverCategoriaMetodo(pago?.metodo_Pago || 'EFECTIVO')).toUpperCase() === 'EFECTIVO';
+                                const montoDado = Number(montoDadoPorPersona[idx] || 0);
+                                const cambioPersona = esEfectivo && montoDado > totalPersona ? montoDado - totalPersona : 0;
                                 return (
                                   <div key={`persona-${idx}`} className={`mesas-persona-card mb-2 ${itemsPersona.length > 0 ? 'has-items' : ''}`}>
+                                    {/* Fila 1: número, nombre, total */}
                                     <div className="mesas-persona-header">
                                       <span className="mesas-persona-num">#{idx + 1}</span>
                                       <input
@@ -1500,8 +1538,12 @@ function Mesas() {
                                         value={pago.nombre || ''}
                                         onChange={(e) => actualizarPagoMixto(idx, 'nombre', e.target.value)}
                                       />
+                                      <span className="mesas-persona-total ms-auto">L {totalPersona.toFixed(2)}</span>
+                                    </div>
+                                    {/* Fila 2: método + canal */}
+                                    <div className="mesas-persona-pago">
                                       <select
-                                        className="form-select form-select-sm mesas-persona-metodo"
+                                        className="form-select form-select-sm"
                                         value={pago.metodo_Pago || 'EFECTIVO'}
                                         onChange={(e) => actualizarPagoMixto(idx, 'metodo_Pago', e.target.value)}
                                       >
@@ -1509,10 +1551,10 @@ function Mesas() {
                                           <option key={`pm-${idx}-${m.codigo}`} value={m.codigo}>{m.nombre}</option>
                                         ))}
                                       </select>
-                                      {String(resolverCategoriaMetodo(pago?.metodo_Pago || 'EFECTIVO')).toUpperCase() !== 'EFECTIVO' && (
+                                      {!esEfectivo && (
                                         canalesPersona.length > 0 ? (
                                           <select
-                                            className="form-select form-select-sm mesas-persona-canal"
+                                            className="form-select form-select-sm"
                                             value={String(pago?.canalPagoCodigo || '')}
                                             onChange={(e) => actualizarPagoMixto(idx, 'canalPagoCodigo', e.target.value)}
                                           >
@@ -1524,8 +1566,27 @@ function Mesas() {
                                           <span className="small text-danger">Sin canales</span>
                                         )
                                       )}
-                                      <span className="mesas-persona-total">L {totalPersona.toFixed(2)}</span>
                                     </div>
+                                    {/* Fila 3: efectivo → recibido + cambio */}
+                                    {esEfectivo && (
+                                      <div className="mesas-persona-efectivo">
+                                        <label className="small fw-semibold me-2">Recibido L</label>
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          step="0.01"
+                                          className="form-control form-control-sm"
+                                          style={{ width: 90 }}
+                                          value={montoDadoPorPersona[idx] || ''}
+                                          placeholder="0.00"
+                                          onChange={(e) => setMontoDadoPorPersona(prev => ({ ...prev, [idx]: e.target.value }))}
+                                        />
+                                        {montoDado > 0 && montoDado >= totalPersona && (
+                                          <span className="mesas-persona-cambio">Cambio L {cambioPersona.toFixed(2)}</span>
+                                        )}
+                                      </div>
+                                    )}
+                                    {/* Items */}
                                     {itemsPersona.length > 0 ? (
                                       <div className="mesas-persona-items">
                                         {itemsPersona.map(d => (
@@ -1538,16 +1599,18 @@ function Mesas() {
                                               type="button"
                                               className="btn-ghost-danger"
                                               title="Devolver al pool"
-                                              onClick={() => setAsignacionDetalles(prev => ({ ...prev, [d.id_Detalle_Cuenta_Mesa]: null }))}
-                                            >
-                                              ×
-                                            </button>
+                                              onClick={() => {
+                                                setAsignacionDetalles(prev => ({ ...prev, [d.id_Detalle_Cuenta_Mesa]: null }));
+                                                setPersonasListas(prev => { const n = new Set(prev); n.delete(idx); return n; });
+                                              }}
+                                            >×</button>
                                           </div>
                                         ))}
                                       </div>
                                     ) : (
                                       <div className="mesas-persona-empty">Sin productos asignados</div>
                                     )}
+                                    {/* Cobrar */}
                                     <div className="d-flex justify-content-end align-items-center gap-2 mt-2 pt-2 border-top">
                                       {personasListas.has(idx) && (
                                         <span className="badge bg-success">✓ Lista</span>
@@ -1556,11 +1619,14 @@ function Mesas() {
                                         type="button"
                                         className={`btn btn-sm ${personasListas.has(idx) ? 'btn-outline-secondary' : 'btn-primary'}`}
                                         disabled={itemsPersona.length === 0}
-                                        onClick={() => setPersonasListas(prev => {
-                                          const next = new Set(prev);
-                                          if (next.has(idx)) next.delete(idx); else next.add(idx);
-                                          return next;
-                                        })}
+                                        onClick={async () => {
+                                          if (personasListas.has(idx)) {
+                                            setPersonasListas(prev => { const n = new Set(prev); n.delete(idx); return n; });
+                                          } else {
+                                            try { await imprimirPersonaEnCobrar(idx); } catch { /* impresion fallida, igual marca lista */ }
+                                            setPersonasListas(prev => new Set([...prev, idx]));
+                                          }
+                                        }}
                                       >
                                         {personasListas.has(idx) ? 'Revertir' : 'Cobrar'}
                                       </button>
