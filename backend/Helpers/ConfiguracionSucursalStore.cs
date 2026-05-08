@@ -60,6 +60,7 @@ namespace Pinecos.Helpers
                 Direccion = config.Direccion ?? string.Empty,
                 Telefono = config.Telefono ?? string.Empty,
                 Rtn = config.Rtn ?? string.Empty,
+                Correo_Negocio = config.Correo_Negocio ?? string.Empty,
                 Mensaje_Ticket = config.Mensaje_Ticket ?? string.Empty,
                 Ancho_Ticket = string.IsNullOrWhiteSpace(config.Ancho_Ticket) ? "80mm" : config.Ancho_Ticket,
                 Logo_Url = config.Logo_Url ?? string.Empty,
@@ -77,6 +78,7 @@ namespace Pinecos.Helpers
             baseConfig.Direccion = overrideConfig.Direccion ?? string.Empty;
             baseConfig.Telefono = overrideConfig.Telefono ?? string.Empty;
             baseConfig.Rtn = overrideConfig.Rtn ?? string.Empty;
+            baseConfig.Correo_Negocio = overrideConfig.Correo_Negocio ?? string.Empty;
             baseConfig.Mensaje_Ticket = overrideConfig.Mensaje_Ticket ?? string.Empty;
             baseConfig.Ancho_Ticket = string.IsNullOrWhiteSpace(overrideConfig.Ancho_Ticket) ? "80mm" : overrideConfig.Ancho_Ticket;
             baseConfig.Logo_Url = overrideConfig.Logo_Url ?? string.Empty;
@@ -106,6 +108,7 @@ namespace Pinecos.Helpers
                 Direccion = baseConfig.Direccion,
                 Telefono = baseConfig.Telefono,
                 Rtn = baseConfig.Rtn,
+                Correo_Negocio = baseConfig.Correo_Negocio,
                 Mensaje_Ticket = baseConfig.Mensaje_Ticket,
                 Ancho_Ticket = baseConfig.Ancho_Ticket,
                 Logo_Url = baseConfig.Logo_Url,
@@ -136,6 +139,7 @@ namespace Pinecos.Helpers
                 Direccion = (config.Direccion ?? string.Empty).Trim(),
                 Telefono = (config.Telefono ?? string.Empty).Trim(),
                 Rtn = (config.Rtn ?? string.Empty).Trim(),
+                Correo_Negocio = (config.Correo_Negocio ?? string.Empty).Trim(),
                 Mensaje_Ticket = (config.Mensaje_Ticket ?? string.Empty).Trim(),
                 Ancho_Ticket = string.IsNullOrWhiteSpace(config.Ancho_Ticket) ? "80mm" : config.Ancho_Ticket.Trim(),
                 Logo_Url = (config.Logo_Url ?? string.Empty).Trim(),

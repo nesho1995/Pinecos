@@ -8,6 +8,7 @@ function Configuracion() {
     direccion: '',
     telefono: '',
     rtn: '',
+    correo_Negocio: '',
     mensaje_Ticket: '',
     ancho_Ticket: '80mm',
     logo_Url: '',
@@ -38,6 +39,7 @@ function Configuracion() {
   });
 
   const [loading, setLoading] = useState(true);
+  const [subiendoLogo, setSubiendoLogo] = useState(false);
   const [mensaje, setMensaje] = useState('');
   const [error, setError] = useState('');
   const [sucursales, setSucursales] = useState([]);
@@ -104,6 +106,7 @@ function Configuracion() {
       direccion: data.direccion || '',
       telefono: data.telefono || '',
       rtn: data.rtn || '',
+      correo_Negocio: data.correo_Negocio || '',
       mensaje_Ticket: data.mensaje_Ticket || '',
       ancho_Ticket: data.ancho_Ticket || '80mm',
       logo_Url: data.logo_Url || '',
@@ -373,6 +376,33 @@ function Configuracion() {
       setMensaje('Configuracion por sucursal guardada correctamente');
     } catch (err) {
       setError(err?.response?.data?.message || 'Error al guardar configuracion de sucursal');
+    }
+  };
+
+  const subirLogo = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+
+    setMensaje('');
+    setError('');
+    setSubiendoLogo(true);
+    try {
+      const idSucursal = Number(sucursalSar || 0);
+      if (!idSucursal) return setError('Selecciona una sucursal');
+      const data = new FormData();
+      data.append('file', file);
+      const res = await api.post('/Configuracion/logo', data, {
+        params: { idSucursal },
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      setForm((prev) => ({ ...prev, logo_Url: res.data?.logo_Url || prev.logo_Url }));
+      await cargarConfiguracionSucursal(idSucursal);
+      setMensaje('Logo cargado y asignado a la sucursal');
+    } catch (err) {
+      setError(err?.response?.data?.message || 'No se pudo subir el logo');
+    } finally {
+      setSubiendoLogo(false);
     }
   };
 
@@ -692,6 +722,11 @@ function Configuracion() {
             </div>
 
             <div className="col-md-4">
+              <label className="form-label">Correo</label>
+              <input type="email" className="form-control" name="correo_Negocio" value={form.correo_Negocio} onChange={handleChange} />
+            </div>
+
+            <div className="col-md-4">
               <label className="form-label">Moneda</label>
               <input type="text" className="form-control" name="moneda" value={form.moneda} onChange={handleChange} />
             </div>
@@ -712,7 +747,14 @@ function Configuracion() {
             <div className="col-md-12">
               <label className="form-label">Logo URL</label>
               <input type="text" className="form-control" name="logo_Url" value={form.logo_Url} onChange={handleChange} placeholder="/logo-pinecos.png" />
-              <small className="text-muted">Ejemplo local: /logo-pinecos.png (archivo en pinecos-frontend/public)</small>
+              <div className="d-flex flex-wrap gap-2 align-items-center mt-2">
+                <label className={`btn btn-sm ${subiendoLogo ? 'btn-outline-secondary disabled' : 'btn-outline-primary'} mb-0`}>
+                  {subiendoLogo ? 'Subiendo logo...' : 'Subir logo'}
+                  <input type="file" accept="image/png,image/jpeg,image/webp" className="d-none" onChange={subirLogo} disabled={subiendoLogo} />
+                </label>
+                {form.logo_Url && <span className="small text-muted">{form.logo_Url}</span>}
+              </div>
+              <small className="text-muted">PNG, JPG o WEBP, maximo 2 MB. Se usa en cotizaciones y documentos impresos.</small>
             </div>
 
             <div className="col-md-12">

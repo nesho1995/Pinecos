@@ -7,6 +7,7 @@ namespace Pinecos.DTOs
         public string Direccion { get; set; } = string.Empty;
         public string Telefono { get; set; } = string.Empty;
         public string Rtn { get; set; } = string.Empty;
+        public string Correo_Negocio { get; set; } = string.Empty;
         public string Mensaje_Ticket { get; set; } = string.Empty;
         public string Ancho_Ticket { get; set; } = "80mm";
         public string Logo_Url { get; set; } = string.Empty;

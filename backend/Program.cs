@@ -217,7 +217,8 @@ app.Use(async (context, next) =>
     {
         var path = context.Request.Path.Value ?? string.Empty;
         var esImportProductos = path.Contains("/Productos/excel/importar", StringComparison.OrdinalIgnoreCase);
-        var limite = esImportProductos ? 10_485_760L : 1_048_576L;
+        var esLogoConfig = path.Contains("/Configuracion/logo", StringComparison.OrdinalIgnoreCase);
+        var limite = esImportProductos ? 10_485_760L : esLogoConfig ? 2_097_152L : 1_048_576L;
         var length = context.Request.ContentLength;
         if (length.HasValue && length.Value > limite)
         {
@@ -270,6 +271,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
 

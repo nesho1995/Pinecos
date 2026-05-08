@@ -21,6 +21,7 @@ import EstadoCuenta from '../pages/estadocuenta/EstadoCuenta';
 import Proveedores from '../pages/proveedores/Proveedores';
 import Inventario from '../pages/inventario/Inventario';
 import ProductosPendientes from '../pages/productospendientes/ProductosPendientes';
+import Cotizaciones from '../pages/cotizaciones/Cotizaciones';
 import Layout from '../components/layout/Layout';
 import ProtectedRoute from '../components/ProtectedRoute';
 import RoleRoute from '../components/RoleRoute';
@@ -58,6 +59,7 @@ function AppRouter() {
           <Route path="gastos" element={<RoleRoute allowedRoles={['ADMIN', 'CAJERO', 'SUPERVISOR']}><Gastos /></RoleRoute>} />
           <Route path="ventas" element={<RoleRoute allowedRoles={['ADMIN', 'CAJERO', 'SUPERVISOR']}><VentasPOS /></RoleRoute>} />
           <Route path="productos-pendientes" element={<RoleRoute allowedRoles={['ADMIN', 'CAJERO', 'SUPERVISOR']}><ProductosPendientes /></RoleRoute>} />
+          <Route path="cotizaciones" element={<RoleRoute allowedRoles={['ADMIN', 'CAJERO', 'SUPERVISOR']}><Cotizaciones /></RoleRoute>} />
           <Route path="mesas" element={<RoleRoute allowedRoles={['ADMIN', 'CAJERO', 'SUPERVISOR']}><Mesas /></RoleRoute>} />
           <Route path="mesas-admin" element={<RoleRoute allowedRoles={['ADMIN']}><MesasAdmin /></RoleRoute>} />
           <Route path="reportes" element={<RoleRoute allowedRoles={['ADMIN']}><Reportes /></RoleRoute>} />

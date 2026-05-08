@@ -36,6 +36,8 @@ namespace Pinecos.Data
         public DbSet<FacturacionSarCorrelativoEvento> FacturacionSarCorrelativoEventos { get; set; }
         public DbSet<ProductoPendiente> ProductoPendientes { get; set; }
         public DbSet<UsuarioSucursal> UsuarioSucursales { get; set; }
+        public DbSet<Cotizacion> Cotizaciones { get; set; }
+        public DbSet<CotizacionDetalle> CotizacionDetalle { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<Usuario>().ToTable("usuarios");
@@ -61,6 +63,8 @@ namespace Pinecos.Data
             modelBuilder.Entity<RecetaProductoInsumo>().ToTable("receta_producto_insumo");
             modelBuilder.Entity<FacturacionSarCorrelativoEvento>().ToTable("facturacion_sar_correlativo_eventos");
             modelBuilder.Entity<ProductoPendiente>().ToTable("productos_pendientes");
+            modelBuilder.Entity<Cotizacion>().ToTable("cotizaciones");
+            modelBuilder.Entity<CotizacionDetalle>().ToTable("cotizacion_detalle");
 
             modelBuilder.Entity<Usuario>().HasKey(x => x.Id_Usuario);
             modelBuilder.Entity<Categoria>().HasKey(x => x.Id_Categoria);
@@ -85,6 +89,8 @@ namespace Pinecos.Data
             modelBuilder.Entity<RecetaProductoInsumo>().HasKey(x => x.Id_Receta_Producto_Insumo);
             modelBuilder.Entity<FacturacionSarCorrelativoEvento>().HasKey(x => x.Id_Facturacion_Sar_Correlativo_Evento);
             modelBuilder.Entity<ProductoPendiente>().HasKey(x => x.Id_Producto_Pendiente);
+            modelBuilder.Entity<Cotizacion>().HasKey(x => x.Id_Cotizacion);
+            modelBuilder.Entity<CotizacionDetalle>().HasKey(x => x.Id_Cotizacion_Detalle);
 
             modelBuilder.Entity<Usuario>().Property(x => x.Id_Usuario).HasColumnName("id_usuario");
             modelBuilder.Entity<Usuario>().Property(x => x.Nombre).HasColumnName("nombre");
@@ -198,6 +204,7 @@ namespace Pinecos.Data
             modelBuilder.Entity<ConfiguracionNegocio>().Property(x => x.Direccion).HasColumnName("direccion");
             modelBuilder.Entity<ConfiguracionNegocio>().Property(x => x.Telefono).HasColumnName("telefono");
             modelBuilder.Entity<ConfiguracionNegocio>().Property(x => x.Rtn).HasColumnName("rtn");
+            modelBuilder.Entity<ConfiguracionNegocio>().Property(x => x.Correo_Negocio).HasColumnName("correo_negocio");
             modelBuilder.Entity<ConfiguracionNegocio>().Property(x => x.Mensaje_Ticket).HasColumnName("mensaje_ticket");
             modelBuilder.Entity<ConfiguracionNegocio>().Property(x => x.Ancho_Ticket).HasColumnName("ancho_ticket");
             modelBuilder.Entity<ConfiguracionNegocio>().Property(x => x.Logo_Url).HasColumnName("logo_url");
@@ -287,6 +294,41 @@ namespace Pinecos.Data
             modelBuilder.Entity<ProductoPendiente>().Property(x => x.Id_Producto_Creado).HasColumnName("id_producto_creado");
             modelBuilder.Entity<ProductoPendiente>().Property(x => x.Fecha_Creacion).HasColumnName("fecha_creacion");
             modelBuilder.Entity<ProductoPendiente>().Property(x => x.Fecha_Revision).HasColumnName("fecha_revision");
+
+            modelBuilder.Entity<Cotizacion>().Property(x => x.Id_Cotizacion).HasColumnName("id_cotizacion");
+            modelBuilder.Entity<Cotizacion>().Property(x => x.Numero).HasColumnName("numero");
+            modelBuilder.Entity<Cotizacion>().Property(x => x.Fecha).HasColumnName("fecha");
+            modelBuilder.Entity<Cotizacion>().Property(x => x.Id_Sucursal).HasColumnName("id_sucursal");
+            modelBuilder.Entity<Cotizacion>().Property(x => x.Id_Usuario).HasColumnName("id_usuario");
+            modelBuilder.Entity<Cotizacion>().Property(x => x.Cliente_Nombre).HasColumnName("cliente_nombre");
+            modelBuilder.Entity<Cotizacion>().Property(x => x.Cliente_Rtn).HasColumnName("cliente_rtn");
+            modelBuilder.Entity<Cotizacion>().Property(x => x.Cliente_Direccion).HasColumnName("cliente_direccion");
+            modelBuilder.Entity<Cotizacion>().Property(x => x.Cliente_Telefono).HasColumnName("cliente_telefono");
+            modelBuilder.Entity<Cotizacion>().Property(x => x.Subtotal).HasColumnName("subtotal");
+            modelBuilder.Entity<Cotizacion>().Property(x => x.Descuento).HasColumnName("descuento");
+            modelBuilder.Entity<Cotizacion>().Property(x => x.Impuesto).HasColumnName("impuesto");
+            modelBuilder.Entity<Cotizacion>().Property(x => x.Total).HasColumnName("total");
+            modelBuilder.Entity<Cotizacion>().Property(x => x.Estado).HasColumnName("estado");
+            modelBuilder.Entity<Cotizacion>().Property(x => x.Observacion).HasColumnName("observacion");
+            modelBuilder.Entity<Cotizacion>().Property(x => x.Fecha_Creacion).HasColumnName("fecha_creacion");
+            modelBuilder.Entity<Cotizacion>().Property(x => x.Fecha_Actualizacion).HasColumnName("fecha_actualizacion");
+            modelBuilder.Entity<Cotizacion>().Property(x => x.Fecha_Anulacion).HasColumnName("fecha_anulacion");
+            modelBuilder.Entity<Cotizacion>().Property(x => x.Id_Usuario_Anulacion).HasColumnName("id_usuario_anulacion");
+            modelBuilder.Entity<Cotizacion>().Property(x => x.Motivo_Anulacion).HasColumnName("motivo_anulacion");
+
+            modelBuilder.Entity<CotizacionDetalle>().Property(x => x.Id_Cotizacion_Detalle).HasColumnName("id_cotizacion_detalle");
+            modelBuilder.Entity<CotizacionDetalle>().Property(x => x.Id_Cotizacion).HasColumnName("id_cotizacion");
+            modelBuilder.Entity<CotizacionDetalle>().Property(x => x.Id_Producto).HasColumnName("id_producto");
+            modelBuilder.Entity<CotizacionDetalle>().Property(x => x.Id_Presentacion).HasColumnName("id_presentacion");
+            modelBuilder.Entity<CotizacionDetalle>().Property(x => x.Descripcion).HasColumnName("descripcion");
+            modelBuilder.Entity<CotizacionDetalle>().Property(x => x.Cantidad).HasColumnName("cantidad");
+            modelBuilder.Entity<CotizacionDetalle>().Property(x => x.Precio_Unitario).HasColumnName("precio_unitario");
+            modelBuilder.Entity<CotizacionDetalle>().Property(x => x.Subtotal).HasColumnName("subtotal");
+            modelBuilder.Entity<CotizacionDetalle>().Property(x => x.Orden).HasColumnName("orden");
+            modelBuilder.Entity<CotizacionDetalle>()
+                .HasOne(x => x.Cotizacion)
+                .WithMany(x => x.Detalles)
+                .HasForeignKey(x => x.Id_Cotizacion);
 
             modelBuilder.Entity<UsuarioSucursal>().ToTable("usuario_sucursales");
             modelBuilder.Entity<UsuarioSucursal>().HasKey(x => x.Id_Usuario_Sucursal);

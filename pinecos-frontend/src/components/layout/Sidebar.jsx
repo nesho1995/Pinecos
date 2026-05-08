@@ -10,6 +10,7 @@ const sections = [
     items: [
       { to: '/ventas', label: 'Punto de venta (POS)', roles: ['ADMIN', 'CAJERO', 'SUPERVISOR'] },
       { to: '/productos-pendientes', label: 'Productos faltantes', roles: ['ADMIN', 'CAJERO', 'SUPERVISOR'] },
+      { to: '/cotizaciones', label: 'Cotizaciones', roles: ['ADMIN', 'CAJERO', 'SUPERVISOR'] },
       { to: '/mesas', label: 'Mesas y cuentas', roles: ['ADMIN', 'CAJERO', 'SUPERVISOR'] },
       { to: '/caja', label: 'Caja', roles: ['ADMIN', 'CAJERO', 'SUPERVISOR'] },
       { to: '/movimientos-caja', label: 'Movimientos de caja', roles: ['ADMIN', 'CAJERO', 'SUPERVISOR'] },
