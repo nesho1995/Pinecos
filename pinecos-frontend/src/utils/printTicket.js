@@ -230,6 +230,7 @@ const construirHtmlTicketPersona = ({
     : `<tr><td colspan="3" class="empty">Sin productos asignados</td></tr>`;
 
   const ventaLabel = idVenta ? `#${idVenta}` : 'Pendiente';
+  const tituloTicket = idVenta ? 'TICKET POR PERSONA' : 'COBRO DE PERSONA';
   const cambioHtml = cambio > 0 ? `
       <div class="cambio">Recibido: ${moneda} ${Number(montoDado).toFixed(2)}</div>
       <div class="cambio cambio--vuelto">Cambio: ${moneda} ${Number(cambio).toFixed(2)}</div>` : '';
@@ -242,35 +243,49 @@ const construirHtmlTicketPersona = ({
   <title>Division de cuenta ${ventaLabel} - Persona ${indicePersona}</title>
   <style>
     * { box-sizing: border-box; font-family: "Segoe UI", Tahoma, sans-serif; }
-    body { margin: 0; background: #fff; color: #0f172a; }
-    .shell { max-width: 820px; margin: 0 auto; padding: 10px; }
-    .meta { border: 1px solid #dbe3ee; border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; font-size: 13px; }
-    .ticket-card { border: 1px solid #dbe3ee; border-radius: 12px; padding: 10px; break-inside: avoid; }
-    .ticket-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 8px; }
-    .ticket-title { font-weight: 800; font-size: 15px; }
-    .ticket-sub { font-size: 12px; color: #475569; }
-    .ticket-total { font-weight: 800; font-size: 16px; }
-    table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    th, td { padding: 6px; border-bottom: 1px solid #e5e7eb; text-align: left; vertical-align: top; }
+    html, body { margin: 0; padding: 0; overflow-x: hidden; max-width: 100%; }
+    body { background: #fff; color: #111827; font-size: 10.5px; }
+    .shell { width: 100%; max-width: 58mm; margin: 0 auto; padding: 2.5mm 2mm; }
+    .center { text-align: center; }
+    .brand { font-size: 13px; font-weight: 900; letter-spacing: 0.02em; }
+    .doc-title { font-size: 11px; font-weight: 800; margin-top: 1mm; }
+    .muted { color: #4b5563; font-size: 9px; }
+    .linea { border-top: 1px dashed #9ca3af; margin: 5px 0; }
+    .meta { font-size: 9.5px; line-height: 1.35; }
+    .ticket-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 6px; margin-bottom: 5px; }
+    .ticket-title { font-weight: 800; font-size: 11.5px; overflow-wrap: anywhere; }
+    .ticket-sub { font-size: 9.5px; color: #475569; overflow-wrap: anywhere; }
+    .ticket-total { font-weight: 900; font-size: 13px; white-space: nowrap; }
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 9.5px; }
+    th, td { padding: 3px 1px; border-bottom: 1px solid #e5e7eb; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
     td.num, th.num { text-align: right; white-space: nowrap; }
+    th:nth-child(1), td:nth-child(1) { width: 52%; }
+    th:nth-child(2), td:nth-child(2) { width: 18%; }
+    th:nth-child(3), td:nth-child(3) { width: 30%; }
     .empty { text-align: center; color: #64748b; }
-    .cambio { margin-top: 6px; font-size: 13px; text-align: right; color: #475569; }
-    .cambio--vuelto { font-weight: 700; color: #15803d; font-size: 14px; }
-    .foot { margin-top: 10px; font-size: 12px; color: #475569; text-align: right; }
+    .cambio { margin-top: 4px; font-size: 10px; text-align: right; color: #475569; }
+    .cambio--vuelto { font-weight: 800; color: #15803d; font-size: 11px; }
+    .foot { margin-top: 6px; font-size: 9px; color: #475569; text-align: center; }
     @media print {
-      @page { size: auto; margin: 8mm; }
-      .shell { max-width: none; padding: 0; }
+      @page { size: 58mm auto; margin: 0.8mm 1mm; }
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     }
   </style>
 </head>
 <body>
   <div class="shell">
+    <div class="center brand">Cafe Pinecos</div>
+    <div class="center doc-title">${tituloTicket}</div>
+    <div class="center muted">${new Date().toLocaleString()}</div>
+    <div class="linea"></div>
     <div class="meta">
-      <div><strong>Venta:</strong> ${ventaLabel} | <strong>Mesa:</strong> ${escapeHtml(mesa || '-')} | <strong>Cuenta:</strong> ${escapeHtml(cuenta || '-')}</div>
+      <div><strong>Venta:</strong> ${ventaLabel}</div>
+      <div><strong>Mesa:</strong> ${escapeHtml(mesa || '-')} | <strong>Cuenta:</strong> ${escapeHtml(cuenta || '-')}</div>
       <div><strong>Sucursal:</strong> ${escapeHtml(sucursal || '-')} | <strong>Servicio:</strong> ${escapeHtml(formatTipoServicio(tipoServicio))}</div>
       <div><strong>Division:</strong> Persona ${indicePersona} de ${totalPersonas}</div>
     </div>
-    <div class="ticket-card">
+    <div class="linea"></div>
+    <div>
       <div class="ticket-head">
         <div>
           <div class="ticket-title">${escapeHtml(persona?.nombre || `Persona ${indicePersona}`)}</div>
@@ -286,6 +301,8 @@ const construirHtmlTicketPersona = ({
       </table>
       <div class="foot">Total persona: ${moneda} ${Number(persona?.total || 0).toFixed(2)}</div>
       ${cambioHtml}
+      <div class="linea"></div>
+      <div class="foot">Conserve este comprobante hasta cerrar la mesa</div>
       <div class="foot">Plataforma empresarial por NesSys</div>
     </div>
   </div>

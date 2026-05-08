@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import api from '../../services/api';
-import { imprimirTicketHtml, imprimirTicketsDivisionMesa } from '../../utils/printTicket';
+import { imprimirPreTicketPersona, imprimirTicketHtml } from '../../utils/printTicket';
 import { getUsuario } from '../../utils/auth';
 import FacturaCaiClienteForm from '../../components/factura/FacturaCaiClienteForm';
 import { facturaClienteVacio } from '../../components/factura/facturaClienteVacio';
@@ -274,31 +274,57 @@ function Mesas() {
   );
   const categoriaMetodoPago = useMemo(() => {
     const codigo = String(metodoPago || '').toUpperCase();
+    if (codigo === 'POS' || codigo === 'TARJETA' || codigo === 'TARJETA_POS') return 'POS';
+    if (codigo === 'TRANSFERENCIA') return 'TRANSFERENCIA';
+    if (codigo === 'EFECTIVO') return 'EFECTIVO';
     const cat = String(metodoPagoActivo?.categoria || '').toUpperCase();
     if (cat) return cat;
-    if (codigo === 'POS' || codigo === 'TARJETA' || codigo === 'TARJETA_POS') return 'POS';
-    if (codigo === 'TRANSFERENCIA') return 'POS';
-    if (codigo === 'EFECTIVO') return 'EFECTIVO';
     return 'OTRO';
   }, [metodoPago, metodoPagoActivo]);
   const resolverCategoriaMetodo = (codigoMetodo) => {
     const codigo = String(codigoMetodo || '').toUpperCase();
+    if (codigo === 'POS' || codigo === 'TARJETA' || codigo === 'TARJETA_POS') return 'POS';
+    if (codigo === 'TRANSFERENCIA') return 'TRANSFERENCIA';
+    if (codigo === 'EFECTIVO') return 'EFECTIVO';
     const metodo = (metodosPago || []).find((x) => String(x?.codigo || '').toUpperCase() === codigo) || null;
     const cat = String(metodo?.categoria || '').toUpperCase();
     if (cat) return cat;
-    if (codigo === 'POS' || codigo === 'TARJETA' || codigo === 'TARJETA_POS' || codigo === 'TRANSFERENCIA') return 'POS';
-    if (codigo === 'EFECTIVO') return 'EFECTIVO';
     return 'OTRO';
   };
+  const esCanalTransferencia = (item) => {
+    const texto = `${item?.codigo || ''} ${item?.nombre || ''}`.toUpperCase();
+    return texto.includes('TRANSFER');
+  };
+  const metodosCobroBase = useMemo(() => {
+    const activos = (metodosPago || []).filter((x) => x?.activo !== false);
+    const tieneEfectivo = activos.some((x) => String(x?.categoria || '').toUpperCase() === 'EFECTIVO' || String(x?.codigo || '').toUpperCase() === 'EFECTIVO');
+    const tieneNoEfectivo = activos.some((x) => String(x?.categoria || '').toUpperCase() !== 'EFECTIVO' && String(x?.codigo || '').toUpperCase() !== 'EFECTIVO');
+    return [
+      ...(tieneEfectivo ? [{ codigo: 'EFECTIVO', nombre: 'Efectivo', categoria: 'EFECTIVO', activo: true }] : []),
+      ...(tieneNoEfectivo ? [
+        { codigo: 'POS', nombre: 'Tarjeta / POS', categoria: 'POS', activo: true },
+        { codigo: 'TRANSFERENCIA', nombre: 'Transferencia', categoria: 'TRANSFERENCIA', activo: true }
+      ] : [])
+    ];
+  }, [metodosPago]);
   const obtenerCanalesPorMetodo = (codigoMetodo) => {
     const categoria = resolverCategoriaMetodo(codigoMetodo);
     if (categoria === 'EFECTIVO') return [];
+    const canalesNoEfectivo = (metodosPago || []).filter((x) => String(x?.categoria || '').toUpperCase() !== 'EFECTIVO');
+    if (categoria === 'TRANSFERENCIA') {
+      const especificos = canalesNoEfectivo.filter(esCanalTransferencia);
+      return especificos.length ? especificos : canalesNoEfectivo;
+    }
+    if (categoria === 'POS') {
+      const especificos = canalesNoEfectivo.filter((x) => !esCanalTransferencia(x));
+      return especificos.length ? especificos : canalesNoEfectivo;
+    }
     return (metodosPago || []).filter((x) => String(x?.categoria || '').toUpperCase() === categoria);
   };
   const canalesPagoFiltrados = useMemo(() => {
     if (categoriaMetodoPago === 'EFECTIVO') return [];
-    return (metodosPago || []).filter((x) => String(x?.categoria || '').toUpperCase() === categoriaMetodoPago);
-  }, [metodosPago, categoriaMetodoPago]);
+    return obtenerCanalesPorMetodo(metodoPago);
+  }, [metodosPago, categoriaMetodoPago, metodoPago]);
 
   useEffect(() => {
     if (String(categoriaMetodoPago || '').toUpperCase() === 'EFECTIVO' || dividirCuenta) {
@@ -387,11 +413,6 @@ function Mesas() {
 
   const subtotalBaseCuenta = subtotalCuenta - (impuestoIncluidoEnSubtotal ? impuestoNum : 0);
   const totalCuenta = subtotalBaseCuenta - descuentoNum + impuestoNum;
-  const totalPorPersona = useMemo(() => {
-    const personas = Number(personasDivision || 0);
-    if (!Number.isFinite(personas) || personas <= 0) return 0;
-    return totalCuenta / personas;
-  }, [totalCuenta, personasDivision]);
   const montosAutoPorPersona = useMemo(() => {
     const cantidad = Math.max(1, Number(personasDivision || 1));
     const acumulado = Array.from({ length: cantidad }, () => 0);
@@ -506,7 +527,7 @@ function Mesas() {
       { key: 'consumo', label: 'Cuenta con consumo', ok: cuentaConProductos },
       ...(dividirCuenta ? [
         { key: 'asignados', label: 'Todos los items asignados', ok: todosItemsAsignados },
-        { key: 'personas_listas', label: 'Cada persona marcada lista', ok: todasPersonasListas }
+        { key: 'personas_listas', label: 'Cada persona cobrada', ok: todasPersonasListas }
       ] : []),
       { key: 'pagos', label: dividirCuenta ? 'Division cuadra al total' : 'Metodo/cobro listo', ok: pagosCuadrados },
       { key: 'canal', label: 'Canales validados', ok: canalesListos },
@@ -523,7 +544,7 @@ function Mesas() {
   useEffect(() => {
     if (!dividirCuenta) return;
     const cantidad = Math.max(1, Number(personasDivision || 1));
-    const metodoDefault = metodosPago[0]?.codigo || metodoPago || 'EFECTIVO';
+    const metodoDefault = metodosCobroBase[0]?.codigo || metodoPago || 'EFECTIVO';
     setPagosMixtos((prev) => {
       const base = Array.from({ length: cantidad }, (_, idx) => ({
         nombre: prev[idx]?.nombre || `Persona ${idx + 1}`,
@@ -539,7 +560,7 @@ function Mesas() {
         return { ...p, canalPagoCodigo: esValido ? p.canalPagoCodigo : (canales[0]?.codigo || '') };
       });
     });
-  }, [dividirCuenta, personasDivision, metodoPago, metodosPago]);
+  }, [dividirCuenta, personasDivision, metodoPago, metodosPago, metodosCobroBase]);
 
   useEffect(() => {
     if (!dividirCuenta) return;
@@ -672,39 +693,36 @@ function Mesas() {
     setAsignacionDetalles((prev) => ({ ...prev, [idDetalle]: Number(personaIndex || 0) }));
   };
 
-  const construirPayloadDivisionTickets = (idVenta) => {
+  const construirPayloadPersonaTicket = (idx, idVenta = null) => {
     if (!dividirCuenta || !detalleCuenta?.detalles?.length) return null;
 
     const cantidad = Math.max(1, Number(personasDivision || 1));
+    if (idx < 0 || idx >= cantidad) return null;
+
     const nombreSucursalActual =
       sucursales.find((s) => String(s.id_Sucursal) === String(sucursalSeleccionada))?.nombre ||
       'Sucursal';
 
-    const personas = Array.from({ length: cantidad }, (_, idx) => {
-      const pago = pagosMixtos[idx] || {};
-      const nombre = String(pago?.nombre || '').trim() || `Persona ${idx + 1}`;
-      const metodoPersonaCodigo = String(pago?.metodo_Pago || metodoPago || 'EFECTIVO').trim().toUpperCase();
-      const canalesPersona = obtenerCanalesPorMetodo(metodoPersonaCodigo);
-      const canalPersona = canalesPersona.find((x) => String(x?.codigo || '') === String(pago?.canalPagoCodigo || '')) || null;
-      const metodoPagoPersona = resolverCategoriaMetodo(metodoPersonaCodigo) === 'EFECTIVO'
-        ? metodoPersonaCodigo
-        : (canalPersona?.nombre || canalPersona?.codigo || metodoPersonaCodigo);
-      const items = (detalleCuenta?.detalles || [])
-        .filter((d) => Number(asignacionDetalles[d.id_Detalle_Cuenta_Mesa] ?? 0) === idx)
-        .map((d) => ({
-          producto: d.producto,
-          cantidad: Number(d.cantidad || 0),
-          subtotal: Number(d.subtotal || 0)
-        }));
+    const pago = pagosMixtos[idx] || {};
+    const nombre = String(pago?.nombre || '').trim() || `Persona ${idx + 1}`;
+    const metodoPersonaCodigo = String(pago?.metodo_Pago || metodoPago || 'EFECTIVO').trim().toUpperCase();
+    const canalesPersona = obtenerCanalesPorMetodo(metodoPersonaCodigo);
+    const canalPersona = canalesPersona.find((x) => String(x?.codigo || '') === String(pago?.canalPagoCodigo || '')) || null;
+    const metodoPagoPersona = resolverCategoriaMetodo(metodoPersonaCodigo) === 'EFECTIVO'
+      ? metodoPersonaCodigo
+      : `${metodoPersonaCodigo === 'TRANSFERENCIA' ? 'Transferencia' : 'Tarjeta / POS'}${canalPersona ? ` - ${canalPersona.nombre || canalPersona.codigo}` : ''}`;
+    const items = (detalleCuenta?.detalles || [])
+      .filter((d) => Number(asignacionDetalles[d.id_Detalle_Cuenta_Mesa] ?? 0) === idx)
+      .map((d) => ({
+        producto: d.producto,
+        cantidad: Number(d.cantidad || 0),
+        subtotal: Number(d.subtotal || 0)
+      }));
 
-      const totalPersona = redondear2(Number(pago?.monto || montosAutoPorPersona[idx] || 0));
-      return {
-        nombre,
-        metodoPago: metodoPagoPersona || 'EFECTIVO',
-        total: totalPersona,
-        items
-      };
-    });
+    const totalPersona = redondear2(Number(pago?.monto || montosAutoPorPersona[idx] || 0));
+    const montoDado = Number(montoDadoPorPersona[idx] || 0);
+    const esEfectivo = resolverCategoriaMetodo(metodoPersonaCodigo) === 'EFECTIVO';
+    const cambio = esEfectivo && montoDado > totalPersona ? redondear2(montoDado - totalPersona) : 0;
 
     return {
       idVenta,
@@ -714,8 +732,67 @@ function Mesas() {
       tipoServicio: tipoServicio === 'LLEVAR' ? 'Para llevar' : 'Comer aqui',
       moneda: 'L',
       total: Number(totalCuenta || 0),
-      personas
+      persona: {
+        nombre,
+        metodoPago: metodoPagoPersona || 'EFECTIVO',
+        total: totalPersona,
+        items
+      },
+      indicePersona: idx + 1,
+      totalPersonas: cantidad,
+      montoDado,
+      cambio
     };
+  };
+
+  const cobrarPersonaDivision = async (idx) => {
+    limpiarMensajes();
+    if (!dividirCuenta) return;
+    if (!cajaActual?.abierta) return setError('Debes abrir caja primero');
+    if (personasListas.has(idx)) return;
+
+    const pago = pagosMixtos[idx] || {};
+    const nombre = String(pago?.nombre || '').trim();
+    if (!nombre) return setError(`Ingresa el nombre de la persona ${idx + 1}`);
+
+    const itemsPersona = (detalleCuenta?.detalles || []).filter((d) => Number(asignacionDetalles[d.id_Detalle_Cuenta_Mesa]) === idx);
+    if (itemsPersona.length === 0) return setError(`${nombre} no tiene productos asignados`);
+
+    const totalPersona = redondear2(montosAutoPorPersona[idx] || 0);
+    if (totalPersona <= 0) return setError(`El total de ${nombre} debe ser mayor a cero`);
+
+    const metodo = String(pago?.metodo_Pago || 'EFECTIVO').toUpperCase();
+    const categoria = resolverCategoriaMetodo(metodo);
+    if (categoria !== 'EFECTIVO') {
+      const canales = obtenerCanalesPorMetodo(metodo);
+      const canal = String(pago?.canalPagoCodigo || '');
+      if (!canal || !canales.some((x) => String(x?.codigo || '') === canal)) {
+        return setError(`${nombre} necesita un canal valido para ${metodo === 'TRANSFERENCIA' ? 'transferencia' : 'POS'}`);
+      }
+    } else {
+      const recibido = Number(montoDadoPorPersona[idx] || 0);
+      if (!recibido || recibido < totalPersona) return setError(`El efectivo recibido de ${nombre} debe cubrir su total`);
+    }
+
+    try {
+      setProcesando(true);
+      const payload = construirPayloadPersonaTicket(idx);
+      await imprimirPreTicketPersona(payload);
+      const newListas = new Set([...personasListas, idx]);
+      setPersonasListas(newListas);
+      setMensaje(`${nombre} cobrado e impreso. ${newListas.size}/${Math.max(2, Number(personasDivision || 2))} personas cobradas.`);
+
+      const nPer = Math.max(2, Number(personasDivision || 2));
+      const todasCobradas = Array.from({ length: nPer }, (_, i) => i).every((i) => newListas.has(i));
+      const puedeCerrar = todasCobradas && !!cajaActual?.abierta && !cargandoCaja && !bloqueoPreventivoCobro && todosItemsAsignados && validacionCaiLista && Math.abs(diferenciaPagosMixtos) <= 0.01;
+      if (puedeCerrar) {
+        await cobrarCuenta();
+      }
+    } catch (err) {
+      setError(err?.message || `No se pudo imprimir el ticket de ${nombre}`);
+    } finally {
+      setProcesando(false);
+    }
   };
 
   const cobrarCuenta = async () => {
@@ -735,7 +812,7 @@ function Mesas() {
       if (pagosMixtosNormalizados.length === 0) return setError('Debes ingresar al menos un pago en cobro mixto');
       if (Math.abs(diferenciaPagosMixtos) > 0.01) return setError('La suma de pagos mixtos debe ser igual al total');
       if ((pagosMixtos || []).some((p) => !String(p?.nombre || '').trim())) return setError('Cada persona debe tener nombre');
-      const codigosPermitidos = new Set((metodosPago || []).map((m) => String(m?.codigo || '').toUpperCase()));
+      const codigosPermitidos = new Set((metodosCobroBase || []).map((m) => String(m?.codigo || '').toUpperCase()));
       const metodoInvalido = (pagosMixtos || []).some((p) => !codigosPermitidos.has(String(p?.metodo_Pago || '').toUpperCase()));
       if (metodoInvalido) return setError('Hay metodos de pago no permitidos en la configuracion actual.');
       const canalInvalido = (pagosMixtos || []).some((p) => {
@@ -813,7 +890,6 @@ function Mesas() {
       });
 
       const idVenta = response.data.data.id_Venta;
-      const payloadDivisionTickets = construirPayloadDivisionTickets(idVenta);
       await cargarCuentasAbiertas();
       await cargarMesas(sucursalSeleccionada);
       setDetalleCuenta(null);
@@ -838,10 +914,6 @@ function Mesas() {
 
       let mensajeExito = `Cuenta cobrada. Venta #${idVenta}`;
       try {
-        if (payloadDivisionTickets) {
-          await imprimirTicketsDivisionMesa(payloadDivisionTickets);
-          mensajeExito += ' | Tickets por persona impresos';
-        }
         await imprimirTicketHtml(idVenta);
       } catch (printErr) {
         setError(printErr?.message || 'Cuenta cobrada, pero no se pudo abrir la impresion');
@@ -1387,8 +1459,8 @@ function Mesas() {
                             value={metodoPago}
                             onChange={setMetodoPago}
                             disabled={dividirCuenta || procesando}
-                            options={(metodosPago || []).length
-                              ? metodosPago.map((m) => ({
+                            options={(metodosCobroBase || []).length
+                              ? metodosCobroBase.map((m) => ({
                                   codigo: String(m.codigo || '').toUpperCase(),
                                   label: m.nombre || m.codigo,
                                   title: m.nombre
@@ -1425,6 +1497,7 @@ function Mesas() {
                         {dividirCuenta && (() => {
                           const detalles = detalleCuenta?.detalles || [];
                           const nPersonas = Math.max(2, Number(personasDivision || 2));
+                          const hayPersonasCobradas = personasListas.size > 0;
                           const sinAsignar = detalles.filter(d => {
                             const v = asignacionDetalles[d.id_Detalle_Cuenta_Mesa];
                             return v === null || v === undefined;
@@ -1443,6 +1516,7 @@ function Mesas() {
                                   className="form-control form-control-sm"
                                   style={{ width: 72 }}
                                   value={personasDivision}
+                                  disabled={hayPersonasCobradas}
                                   onChange={(e) => setPersonasDivision(e.target.value)}
                                 />
                                 <span className="small text-muted ms-auto">Total: L {Number(totalCuenta || 0).toFixed(2)}</span>
@@ -1468,6 +1542,7 @@ function Mesas() {
                                               key={idx}
                                               type="button"
                                               className="btn btn-xs btn-outline-primary"
+                                              disabled={personasListas.has(idx)}
                                               onClick={() => asignarDetalleAPersona(d.id_Detalle_Cuenta_Mesa, idx)}
                                             >
                                               {pagosMixtos[idx]?.nombre?.trim() || `P${idx + 1}`}
@@ -1490,11 +1565,12 @@ function Mesas() {
                                 const canalesPersona = obtenerCanalesPorMetodo(pago?.metodo_Pago);
                                 const itemsPersona = detalles.filter(d => Number(asignacionDetalles[d.id_Detalle_Cuenta_Mesa]) === idx);
                                 const totalPersona = montosAutoPorPersona[idx] || 0;
+                                const personaCobrada = personasListas.has(idx);
                                 const esEfectivo = String(resolverCategoriaMetodo(pago?.metodo_Pago || 'EFECTIVO')).toUpperCase() === 'EFECTIVO';
                                 const montoDado = Number(montoDadoPorPersona[idx] || 0);
                                 const cambioPersona = esEfectivo && montoDado > totalPersona ? montoDado - totalPersona : 0;
                                 return (
-                                  <div key={`persona-${idx}`} className={`mesas-persona-card mb-2 ${itemsPersona.length > 0 ? 'has-items' : ''}`}>
+                                  <div key={`persona-${idx}`} className={`mesas-persona-card mb-2 ${itemsPersona.length > 0 ? 'has-items' : ''} ${personaCobrada ? 'is-paid' : ''}`}>
                                     {/* Fila 1: número, nombre, total */}
                                     <div className="mesas-persona-header">
                                       <span className="mesas-persona-num">#{idx + 1}</span>
@@ -1503,6 +1579,7 @@ function Mesas() {
                                         className="form-control form-control-sm mesas-persona-nombre"
                                         placeholder={`Persona ${idx + 1}`}
                                         value={pago.nombre || ''}
+                                        disabled={personaCobrada}
                                         onChange={(e) => actualizarPagoMixto(idx, 'nombre', e.target.value)}
                                       />
                                       <span className="mesas-persona-total ms-auto">L {totalPersona.toFixed(2)}</span>
@@ -1512,9 +1589,10 @@ function Mesas() {
                                       <select
                                         className="form-select form-select-sm"
                                         value={pago.metodo_Pago || 'EFECTIVO'}
+                                        disabled={personaCobrada}
                                         onChange={(e) => actualizarPagoMixto(idx, 'metodo_Pago', e.target.value)}
                                       >
-                                        {metodosPago.map(m => (
+                                        {metodosCobroBase.map(m => (
                                           <option key={`pm-${idx}-${m.codigo}`} value={m.codigo}>{m.nombre}</option>
                                         ))}
                                       </select>
@@ -1523,6 +1601,7 @@ function Mesas() {
                                           <select
                                             className="form-select form-select-sm"
                                             value={String(pago?.canalPagoCodigo || '')}
+                                            disabled={personaCobrada}
                                             onChange={(e) => actualizarPagoMixto(idx, 'canalPagoCodigo', e.target.value)}
                                           >
                                             {canalesPersona.map(c => (
@@ -1546,6 +1625,7 @@ function Mesas() {
                                           style={{ width: 90 }}
                                           value={montoDadoPorPersona[idx] || ''}
                                           placeholder="0.00"
+                                          disabled={personaCobrada}
                                           onChange={(e) => setMontoDadoPorPersona(prev => ({ ...prev, [idx]: e.target.value }))}
                                         />
                                         {montoDado > 0 && montoDado >= totalPersona && (
@@ -1566,6 +1646,7 @@ function Mesas() {
                                               type="button"
                                               className="btn-ghost-danger"
                                               title="Devolver al pool"
+                                              disabled={personaCobrada}
                                               onClick={() => {
                                                 setAsignacionDetalles(prev => ({ ...prev, [d.id_Detalle_Cuenta_Mesa]: null }));
                                                 setPersonasListas(prev => { const n = new Set(prev); n.delete(idx); return n; });
@@ -1579,29 +1660,16 @@ function Mesas() {
                                     )}
                                     {/* Cobrar */}
                                     <div className="d-flex justify-content-end align-items-center gap-2 mt-2 pt-2 border-top">
-                                      {personasListas.has(idx) && (
-                                        <span className="badge bg-success">✓ Lista</span>
+                                      {personaCobrada && (
+                                        <span className="badge bg-success">Cobrada</span>
                                       )}
                                       <button
                                         type="button"
-                                        className={`btn btn-sm ${personasListas.has(idx) ? 'btn-outline-secondary' : 'btn-success'}`}
-                                        disabled={itemsPersona.length === 0 || procesando}
-                                        onClick={async () => {
-                                          if (personasListas.has(idx)) {
-                                            setPersonasListas(prev => { const n = new Set(prev); n.delete(idx); return n; });
-                                          } else {
-                                            const newListas = new Set([...personasListas, idx]);
-                                            setPersonasListas(newListas);
-                                            const nPer = Math.max(2, Number(personasDivision || 2));
-                                            const todasListas = Array.from({ length: nPer }, (_, i) => i).every(i => newListas.has(i));
-                                            const otrasOk = !!cajaActual?.abierta && !cargandoCaja && !procesando && !bloqueoPreventivoCobro && todosItemsAsignados && validacionCaiLista && Math.abs(diferenciaPagosMixtos) <= 0.01;
-                                            if (todasListas && otrasOk) {
-                                              await cobrarCuenta();
-                                            }
-                                          }
-                                        }}
+                                        className={`btn btn-sm ${personaCobrada ? 'btn-outline-secondary' : 'btn-success'}`}
+                                        disabled={personaCobrada || itemsPersona.length === 0 || procesando}
+                                        onClick={() => cobrarPersonaDivision(idx)}
                                       >
-                                        {personasListas.has(idx) ? 'Revertir' : 'Cobrar'}
+                                        {personaCobrada ? 'Ticket impreso' : 'Cobrar persona'}
                                       </button>
                                     </div>
                                   </div>

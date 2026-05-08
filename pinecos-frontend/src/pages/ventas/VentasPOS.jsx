@@ -278,17 +278,30 @@ function VentasPOS() {
   );
   const categoriaMetodoPago = useMemo(() => {
     const codigo = String(metodoPago || '').toUpperCase();
-    const cat = String(metodoPagoActivo?.categoria || '').toUpperCase();
-    if (cat) return cat;
     // Respaldo: el chip "Tarjeta / POS" usa codigo POS pero en catálogo suele ser TARJETA; debe cuadrar a categoria POS.
     if (codigo === 'POS' || codigo === 'TARJETA' || codigo === 'TARJETA_POS') return 'POS';
-    if (codigo === 'TRANSFERENCIA') return 'POS';
+    if (codigo === 'TRANSFERENCIA') return 'TRANSFERENCIA';
     if (codigo === 'EFECTIVO') return 'EFECTIVO';
+    const cat = String(metodoPagoActivo?.categoria || '').toUpperCase();
+    if (cat) return cat;
     return 'OTRO';
   }, [metodoPago, metodoPagoActivo]);
+  const esCanalTransferencia = (item) => {
+    const texto = `${item?.codigo || ''} ${item?.nombre || ''}`.toUpperCase();
+    return texto.includes('TRANSFER');
+  };
   const canalesPagoFiltrados = useMemo(() => {
     if (categoriaMetodoPago === 'EFECTIVO') return [];
-    return (metodosPago || []).filter((x) => String(x?.categoria || '').toUpperCase() === categoriaMetodoPago);
+    const canalesNoEfectivo = (metodosPago || []).filter((x) => String(x?.categoria || '').toUpperCase() !== 'EFECTIVO');
+    if (categoriaMetodoPago === 'TRANSFERENCIA') {
+      const especificos = canalesNoEfectivo.filter(esCanalTransferencia);
+      return especificos.length ? especificos : canalesNoEfectivo;
+    }
+    if (categoriaMetodoPago === 'POS') {
+      const especificos = canalesNoEfectivo.filter((x) => !esCanalTransferencia(x));
+      return especificos.length ? especificos : canalesNoEfectivo;
+    }
+    return canalesNoEfectivo.filter((x) => String(x?.categoria || '').toUpperCase() === categoriaMetodoPago);
   }, [metodosPago, categoriaMetodoPago]);
 
   useEffect(() => {
@@ -675,9 +688,8 @@ function VentasPOS() {
   }, [carrito.length]);
 
   useEffect(() => {
-    if (preCuentaEstado === 'VIGENTE' && carrito.length > 0) setVistaSoloCobro(true);
     if (preCuentaEstado === 'DESACTUALIZADA') setVistaSoloCobro(false);
-  }, [preCuentaEstado, carrito.length]);
+  }, [preCuentaEstado]);
 
   const cobrarVenta = async () => {
     limpiarMensajes();
