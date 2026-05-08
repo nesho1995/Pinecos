@@ -393,24 +393,30 @@ namespace Pinecos.Controllers
 
         private string? ResolverLogoPath(string? logoUrl)
         {
-            if (string.IsNullOrWhiteSpace(logoUrl))
-                return null;
-            if (!logoUrl.StartsWith("/uploads/logos/", StringComparison.OrdinalIgnoreCase))
-                return null;
+            var webRoot = _env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot");
+            var fallback = Path.Combine(webRoot, "PinecosCafe.jpeg");
 
-            var relative = logoUrl.TrimStart('/').Replace('/', Path.DirectorySeparatorChar);
-            var fullPath = Path.Combine(_env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot"), relative);
-            return System.IO.File.Exists(fullPath) ? fullPath : null;
+            if (string.IsNullOrWhiteSpace(logoUrl))
+                return System.IO.File.Exists(fallback) ? fallback : null;
+
+            var normalized = logoUrl.Trim();
+            if (!normalized.StartsWith("/", StringComparison.Ordinal))
+                return System.IO.File.Exists(fallback) ? fallback : null;
+
+            var relative = normalized.TrimStart('/').Replace('/', Path.DirectorySeparatorChar);
+            var fullPath = Path.Combine(webRoot, relative);
+            return System.IO.File.Exists(fullPath)
+                ? fullPath
+                : System.IO.File.Exists(fallback) ? fallback : null;
         }
 
         private string? ConstruirLogoUrl(string? logoUrl)
         {
-            if (string.IsNullOrWhiteSpace(logoUrl))
-                return null;
-            if (logoUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
-                logoUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-                return logoUrl;
-            return $"{Request.Scheme}://{Request.Host}{logoUrl}";
+            var normalized = string.IsNullOrWhiteSpace(logoUrl) ? "/PinecosCafe.jpeg" : logoUrl.Trim();
+            if (normalized.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+                normalized.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                return normalized;
+            return $"{Request.Scheme}://{Request.Host}{normalized}";
         }
     }
 }
