@@ -397,7 +397,9 @@ function Mesas() {
     if (!detalles.length) return acumulado;
 
     detalles.forEach((d) => {
-      const idxRaw = Number(asignacionDetalles[d.id_Detalle_Cuenta_Mesa] ?? 0);
+      const asignado = asignacionDetalles[d.id_Detalle_Cuenta_Mesa];
+      if (asignado === null || asignado === undefined) return;
+      const idxRaw = Number(asignado);
       const idx = Number.isFinite(idxRaw) ? Math.min(Math.max(idxRaw, 0), cantidad - 1) : 0;
       acumulado[idx] += Number(d.subtotal || 0);
     });
@@ -474,6 +476,14 @@ function Mesas() {
     if (esOt) return rtnDigits.length === 14;
     return idn.length >= 5;
   }, [emitirFactura, facturacionSar, facturaCliente]);
+  const todosItemsAsignados = useMemo(() => {
+    if (!dividirCuenta) return true;
+    return (detalleCuenta?.detalles || []).every(d => {
+      const v = asignacionDetalles[d.id_Detalle_Cuenta_Mesa];
+      return v !== null && v !== undefined;
+    });
+  }, [dividirCuenta, detalleCuenta, asignacionDetalles]);
+
   const checklistCobro = useMemo(() => {
     const cajaLista = !!cajaActual?.abierta && !cargandoCaja;
     const cuentaConProductos = !!(detalleCuenta?.detalles?.length > 0);
@@ -483,11 +493,12 @@ function Mesas() {
     return [
       { key: 'caja', label: 'Caja abierta', ok: cajaLista },
       { key: 'consumo', label: 'Cuenta con consumo', ok: cuentaConProductos },
+      ...(dividirCuenta ? [{ key: 'asignados', label: 'Todos los items asignados', ok: todosItemsAsignados }] : []),
       { key: 'pagos', label: dividirCuenta ? 'Division cuadra al total' : 'Metodo/cobro listo', ok: pagosCuadrados },
       { key: 'canal', label: 'Canales validados', ok: canalesListos },
       { key: 'cai', label: emitirFactura ? 'Datos CAI completos' : 'CAI no requerido', ok: caiListo }
     ];
-  }, [cajaActual, cargandoCaja, detalleCuenta, dividirCuenta, diferenciaPagosMixtos, bloqueoPreventivoCobro, validacionCaiLista, emitirFactura]);
+  }, [cajaActual, cargandoCaja, detalleCuenta, dividirCuenta, diferenciaPagosMixtos, bloqueoPreventivoCobro, validacionCaiLista, emitirFactura, todosItemsAsignados]);
   const listoParaCobrar = checklistCobro.every((x) => x.ok);
   const cobrarDeshabilitado = cargandoCaja || !cajaActual?.abierta || procesando || bloqueoPreventivoCobro || !listoParaCobrar;
 
@@ -524,8 +535,9 @@ function Mesas() {
       const next = {};
       detalles.forEach((d) => {
         const valorPrevio = prev[d.id_Detalle_Cuenta_Mesa];
-        const raw = Number(valorPrevio ?? 0);
-        next[d.id_Detalle_Cuenta_Mesa] = Number.isFinite(raw) ? Math.min(Math.max(raw, 0), cantidad - 1) : 0;
+        if (valorPrevio === undefined || valorPrevio === null) { next[d.id_Detalle_Cuenta_Mesa] = null; return; }
+        const raw = Number(valorPrevio);
+        next[d.id_Detalle_Cuenta_Mesa] = Number.isFinite(raw) ? Math.min(Math.max(raw, 0), cantidad - 1) : null;
       });
       return next;
     });
@@ -701,6 +713,11 @@ function Mesas() {
     if (subtotalBaseCuenta < 0) return setError('El subtotal base no puede ser negativo');
     if (totalCuenta < 0) return setError('El total no puede ser negativo');
     if (dividirCuenta) {
+      const sinAsignar = (detalleCuenta?.detalles || []).filter(d => {
+        const v = asignacionDetalles[d.id_Detalle_Cuenta_Mesa];
+        return v === null || v === undefined;
+      });
+      if (sinAsignar.length > 0) return setError(`Hay ${sinAsignar.length} producto(s) sin asignar a una persona`);
       if (pagosMixtosNormalizados.length === 0) return setError('Debes ingresar al menos un pago en cobro mixto');
       if (Math.abs(diferenciaPagosMixtos) > 0.01) return setError('La suma de pagos mixtos debe ser igual al total');
       if ((pagosMixtos || []).some((p) => !String(p?.nombre || '').trim())) return setError('Cada persona debe tener nombre');
@@ -1120,19 +1137,15 @@ function Mesas() {
                                 </div>
                                 {(dividirCuenta || modoDescuento !== 'NINGUNO') && (
                                   <div className="mesas-order-item-extras">
-                                    {dividirCuenta && (
-                                      <select
-                                        className="form-select form-select-sm"
-                                        value={asignacionDetalles[d.id_Detalle_Cuenta_Mesa] ?? 0}
-                                        onChange={(e) => asignarDetalleAPersona(d.id_Detalle_Cuenta_Mesa, e.target.value)}
-                                      >
-                                        {Array.from({ length: Math.max(1, Number(personasDivision || 1)) }, (_, idx) => (
-                                          <option key={`detalle-${d.id_Detalle_Cuenta_Mesa}-${idx}`} value={idx}>
-                                            {pagosMixtos[idx]?.nombre || `Persona ${idx + 1}`}
-                                          </option>
-                                        ))}
-                                      </select>
-                                    )}
+                                    {dividirCuenta && (() => {
+                                      const asignado = asignacionDetalles[d.id_Detalle_Cuenta_Mesa];
+                                      const persona = (asignado !== null && asignado !== undefined) ? pagosMixtos[asignado] : null;
+                                      return (
+                                        <span className={`badge ${persona ? 'text-bg-primary' : 'text-bg-warning text-dark'}`} style={{ fontSize: '0.7rem' }}>
+                                          {persona ? (persona.nombre || `P${asignado + 1}`) : 'Sin asignar'}
+                                        </span>
+                                      );
+                                    })()}
                                     {modoDescuento !== 'NINGUNO' && (
                                       <div className="form-check mb-0">
                                         <input
@@ -1393,103 +1406,146 @@ function Mesas() {
                             </div>
                           </div>
                         )}
-                        {dividirCuenta && (
+                        {dividirCuenta && (() => {
+                          const detalles = detalleCuenta?.detalles || [];
+                          const nPersonas = Math.max(2, Number(personasDivision || 2));
+                          const sinAsignar = detalles.filter(d => {
+                            const v = asignacionDetalles[d.id_Detalle_Cuenta_Mesa];
+                            return v === null || v === undefined;
+                          });
+                          return (
                           <div className="col-12">
                             <div className="border rounded p-3 mesas-mixto-wrap">
-                              <div className="row g-2 mb-2">
-                                <div className="col-6">
-                                  <label className="form-label mb-1">Personas</label>
-                                  <input
-                                    type="number"
-                                    min="2"
-                                    max="20"
-                                    className="form-control"
-                                    value={personasDivision}
-                                    onChange={(e) => setPersonasDivision(e.target.value)}
-                                  />
-                                </div>
-                                <div className="col-6">
-                                  <label className="form-label mb-1">Total por persona</label>
-                                  <div className="form-control bg-light">L {totalPorPersona.toFixed(2)}</div>
-                                </div>
+
+                              {/* Cantidad de personas */}
+                              <div className="d-flex align-items-center gap-3 mb-3">
+                                <label className="form-label mb-0 fw-semibold">Personas:</label>
+                                <input
+                                  type="number"
+                                  min="2"
+                                  max="20"
+                                  className="form-control form-control-sm"
+                                  style={{ width: 72 }}
+                                  value={personasDivision}
+                                  onChange={(e) => setPersonasDivision(e.target.value)}
+                                />
+                                <span className="small text-muted ms-auto">Total: L {Number(totalCuenta || 0).toFixed(2)}</span>
                               </div>
-                              <div className="d-flex justify-content-between align-items-center mb-2">
-                                <strong className="small">Division final antes de cobrar</strong>
-                                <span className="small text-muted">Personas: {Math.max(1, Number(personasDivision || 1))}</span>
-                              </div>
-                              {(pagosMixtos || []).map((pago, idx) => {
-                                const canalesPersona = obtenerCanalesPorMetodo(pago?.metodo_Pago);
-                                return (
-                                <div className="mesas-mixto-line mb-2" key={`pago-mixto-${idx}`}>
-                                  <div className="mesas-mixto-field mesas-mixto-nombre">
-                                    <input
-                                      type="text"
-                                      className="form-control"
-                                      placeholder="Nombre"
-                                      value={pago.nombre || ''}
-                                      onChange={(e) => actualizarPagoMixto(idx, 'nombre', e.target.value)}
-                                    />
+
+                              {/* Pool: items sin asignar */}
+                              {sinAsignar.length > 0 ? (
+                                <div className="mesas-pool-wrap mb-3">
+                                  <div className="mesas-pool-header">
+                                    <span className="badge bg-warning text-dark me-2">Sin asignar</span>
+                                    <span className="small text-muted">Toca una persona para asignar cada producto</span>
                                   </div>
-                                  <div className="mesas-mixto-field mesas-mixto-metodo">
-                                    <label className="form-label mb-1 small">Metodo</label>
-                                    <select
-                                      className="form-select"
-                                      value={pago.metodo_Pago}
-                                      onChange={(e) => actualizarPagoMixto(idx, 'metodo_Pago', e.target.value)}
-                                    >
-                                      {metodosPago.map((m) => (
-                                        <option key={`mix-${idx}-${m.codigo}`} value={m.codigo}>{m.nombre}</option>
-                                      ))}
-                                    </select>
-                                  </div>
-                                  {String(resolverCategoriaMetodo(pago?.metodo_Pago || 'EFECTIVO')).toUpperCase() !== 'EFECTIVO' && (
-                                    <div className="mesas-mixto-field mesas-mixto-metodo">
-                                      <label className="form-label mb-1 small">Canal</label>
-                                      <select
-                                        className="form-select"
-                                        value={String(pago?.canalPagoCodigo || '')}
-                                        onChange={(e) => actualizarPagoMixto(idx, 'canalPagoCodigo', e.target.value)}
-                                      >
-                                        {canalesPersona.length === 0 ? (
-                                          <option value="">Configura canales en Administracion</option>
-                                        ) : (
-                                          canalesPersona.map((c) => (
-                                            <option key={`mix-canal-${idx}-${c.codigo}`} value={c.codigo}>{c.nombre}</option>
-                                          ))
-                                        )}
-                                      </select>
-                                      {canalesPersona.length === 0 && (
-                                        <div className="small text-danger mt-1">
-                                          Sin canales para este metodo. Configuralos en Administracion para poder cobrar.
+                                  <div className="mesas-pool-list mt-2">
+                                    {sinAsignar.map(d => (
+                                      <div key={d.id_Detalle_Cuenta_Mesa} className="mesas-pool-item">
+                                        <div className="mesas-pool-item-info">
+                                          <span className="fw-semibold">{d.producto}</span>
+                                          <span className="text-muted small ms-2">{Number(d.cantidad)}× L {Number(d.precio_Unitario || 0).toFixed(2)}</span>
                                         </div>
+                                        <div className="mesas-pool-item-actions">
+                                          {Array.from({ length: nPersonas }, (_, idx) => (
+                                            <button
+                                              key={idx}
+                                              type="button"
+                                              className="btn btn-xs btn-outline-primary"
+                                              onClick={() => asignarDetalleAPersona(d.id_Detalle_Cuenta_Mesa, idx)}
+                                            >
+                                              {pagosMixtos[idx]?.nombre?.trim() || `P${idx + 1}`}
+                                            </button>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="alert alert-success py-2 small mb-3">
+                                  Todos los productos asignados
+                                </div>
+                              )}
+
+                              {/* Tarjeta por persona */}
+                              {Array.from({ length: nPersonas }, (_, idx) => {
+                                const pago = pagosMixtos[idx] || {};
+                                const canalesPersona = obtenerCanalesPorMetodo(pago?.metodo_Pago);
+                                const itemsPersona = detalles.filter(d => Number(asignacionDetalles[d.id_Detalle_Cuenta_Mesa]) === idx);
+                                const totalPersona = montosAutoPorPersona[idx] || 0;
+                                return (
+                                  <div key={`persona-${idx}`} className={`mesas-persona-card mb-2 ${itemsPersona.length > 0 ? 'has-items' : ''}`}>
+                                    <div className="mesas-persona-header">
+                                      <span className="mesas-persona-num">#{idx + 1}</span>
+                                      <input
+                                        type="text"
+                                        className="form-control form-control-sm mesas-persona-nombre"
+                                        placeholder={`Persona ${idx + 1}`}
+                                        value={pago.nombre || ''}
+                                        onChange={(e) => actualizarPagoMixto(idx, 'nombre', e.target.value)}
+                                      />
+                                      <select
+                                        className="form-select form-select-sm mesas-persona-metodo"
+                                        value={pago.metodo_Pago || 'EFECTIVO'}
+                                        onChange={(e) => actualizarPagoMixto(idx, 'metodo_Pago', e.target.value)}
+                                      >
+                                        {metodosPago.map(m => (
+                                          <option key={`pm-${idx}-${m.codigo}`} value={m.codigo}>{m.nombre}</option>
+                                        ))}
+                                      </select>
+                                      {String(resolverCategoriaMetodo(pago?.metodo_Pago || 'EFECTIVO')).toUpperCase() !== 'EFECTIVO' && (
+                                        canalesPersona.length > 0 ? (
+                                          <select
+                                            className="form-select form-select-sm mesas-persona-canal"
+                                            value={String(pago?.canalPagoCodigo || '')}
+                                            onChange={(e) => actualizarPagoMixto(idx, 'canalPagoCodigo', e.target.value)}
+                                          >
+                                            {canalesPersona.map(c => (
+                                              <option key={`pc-${idx}-${c.codigo}`} value={c.codigo}>{c.nombre}</option>
+                                            ))}
+                                          </select>
+                                        ) : (
+                                          <span className="small text-danger">Sin canales</span>
+                                        )
                                       )}
+                                      <span className="mesas-persona-total">L {totalPersona.toFixed(2)}</span>
                                     </div>
-                                  )}
-                                  <div className="mesas-mixto-field mesas-mixto-monto">
-                                    <input
-                                      type="number"
-                                      step="0.01"
-                                      min="0"
-                                      className="form-control"
-                                      placeholder="Monto"
-                                      value={pago.monto}
-                                      readOnly
-                                    />
+                                    {itemsPersona.length > 0 ? (
+                                      <div className="mesas-persona-items">
+                                        {itemsPersona.map(d => (
+                                          <div key={d.id_Detalle_Cuenta_Mesa} className="mesas-persona-item">
+                                            <span className="mesas-persona-item-name">
+                                              {d.producto} <span className="text-muted">×{Number(d.cantidad)}</span>
+                                            </span>
+                                            <span className="mesas-persona-item-price">L {Number(d.subtotal || 0).toFixed(2)}</span>
+                                            <button
+                                              type="button"
+                                              className="btn-ghost-danger"
+                                              title="Devolver al pool"
+                                              onClick={() => setAsignacionDetalles(prev => ({ ...prev, [d.id_Detalle_Cuenta_Mesa]: null }))}
+                                            >
+                                              ×
+                                            </button>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <div className="mesas-persona-empty">Sin productos asignados</div>
+                                    )}
                                   </div>
-                                  <div className="mesas-mixto-field mesas-mixto-remove d-flex align-items-center justify-content-center">
-                                    <span className="badge text-bg-light">#{idx + 1}</span>
-                                  </div>
-                                </div>
-                              )})}
-                              <div className="d-flex justify-content-between align-items-center">
-                                <span className="small text-muted">Edita nombres/metodos y al final asigna quien paga cada producto en "Consumo actual".</span>
-                                <div className={`small ${Math.abs(diferenciaPagosMixtos) <= 0.01 ? 'text-success' : 'text-danger'}`}>
-                                  Ingresado: L {totalPagosMixtos.toFixed(2)} | Diferencia: L {diferenciaPagosMixtos.toFixed(2)}
-                                </div>
+                                );
+                              })}
+
+                              <div className={`small mt-2 text-end ${Math.abs(diferenciaPagosMixtos) <= 0.01 && todosItemsAsignados ? 'text-success' : 'text-danger'}`}>
+                                {todosItemsAsignados
+                                  ? `Total cubierto: L ${totalPagosMixtos.toFixed(2)}`
+                                  : `${sinAsignar.length} producto(s) sin asignar — asigna todos para poder cobrar`}
                               </div>
                             </div>
                           </div>
-                        )}
+                          );
+                        })()}
                         </div>
                       </div>
 
