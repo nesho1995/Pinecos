@@ -46,7 +46,14 @@ namespace Pinecos.Documents
                     column.Item().AlignCenter().Text($"Ticket Venta #{_ticket.IdVenta}").FontSize(11);
                     column.Item().PaddingTop(5).Text($"Fecha: {_ticket.Fecha:dd/MM/yyyy HH:mm}");
                     column.Item().Text($"Cajero: {_ticket.Cajero}");
-                    column.Item().Text($"Método de pago: {_ticket.MetodoPago}");
+                    column.Item().Text($"Metodo de pago: {PagoVentaHelper.FormatearMetodoPublico(_ticket.MetodoPago)}");
+                    var lineasPago = PagoVentaHelper.ConstruirLineasPagoPublicas(_ticket.MetodoPago, _ticket.Total, _ticket.Observacion);
+                    if (lineasPago.Count > 0)
+                    {
+                        column.Item().Text("Detalle de pago:").Bold();
+                        foreach (var linea in lineasPago)
+                            column.Item().Text(linea);
+                    }
                     if (_ticket.EsFacturaCai)
                     {
                         column.Item().PaddingTop(4).AlignCenter().Text("DOCUMENTO FISCAL (SAR)").Bold().FontSize(10);

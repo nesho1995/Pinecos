@@ -82,6 +82,11 @@ namespace Pinecos.Helpers
                 var bannerAnulacionHtml = ticket.EsAnulada
                     ? $"<div class='anulacion-banner'>{Esc(textoAnul)}</div>"
                     : string.Empty;
+                var metodoPagoPublicoFactura = PagoVentaHelper.FormatearMetodoPublico(ticket.MetodoPago);
+                var detallePagoFacturaHtml = string.Join(
+                    "",
+                    PagoVentaHelper.ConstruirLineasPagoPublicas(ticket.MetodoPago, ticket.Total, ticket.Observacion)
+                        .Select(linea => $"<div class='small'>{Esc(linea)}</div>"));
 
                 var formatoEstrecho = ticketThermal;
                 var anchoSheet = formatoEstrecho ? anchoTicketTrim : "210mm";
@@ -248,6 +253,8 @@ namespace Pinecos.Helpers
     <div class='center no-factura'>N° {Esc(ticket.NumeroFactura)}</div>
     <div class='fecha-emision center'><strong>Fecha de emisión:</strong> DÍA: {fv.Day} &nbsp; MES: {fv.Month:00} &nbsp; AÑO: {fv.Year}</div>
     <div class='pago-tipo center'><strong>Forma de pago:</strong> {chkCont} CONTADO &nbsp;&nbsp; {chkCred} CRÉDITO</div>
+    <div class='center small'><strong>Medio de pago:</strong> {Esc(metodoPagoPublicoFactura)}</div>
+    {(string.IsNullOrWhiteSpace(detallePagoFacturaHtml) ? "" : $"<div class='center small'><strong>Detalle de pago</strong></div>{detallePagoFacturaHtml}")}
     <div class='line'></div>
     <div class='row'>
       <div style='flex:1; min-width:48%'><strong>Cliente:</strong> {Esc(ticket.NombreCliente)}</div>
@@ -294,6 +301,11 @@ namespace Pinecos.Helpers
             var bannerTicket = ticket.EsAnulada
                 ? $"<div style='border:2px solid #b91c1c;background:#fee2e2;color:#7f1d1d;padding:8px;margin-bottom:8px;text-align:center;font-weight:800;font-size:11px;'>{Esc(textoAnulTicket)}</div>"
                 : string.Empty;
+            var metodoPagoPublico = PagoVentaHelper.FormatearMetodoPublico(ticket.MetodoPago);
+            var detallePagoHtml = string.Join(
+                "",
+                PagoVentaHelper.ConstruirLineasPagoPublicas(ticket.MetodoPago, ticket.Total, ticket.Observacion)
+                    .Select(linea => $"<div class='small' style='padding-left:8px;'>- {Esc(linea)}</div>"));
 
             var cssTicketSimplePrint = ticketThermal
                 ? $@"
@@ -434,9 +446,8 @@ namespace Pinecos.Helpers
 
         <div class='small'>Fecha: {ticket.Fecha:dd/MM/yyyy HH:mm}</div>
         <div class='small'>Cajero: {ticket.Cajero}</div>
-        <div class='small'>Pago: {ticket.MetodoPago}</div>
-        <div class='small'>CAI sucursal: {(ticket.CaiHabilitadoSucursal ? "ACTIVO" : "INACTIVO")}</div>
-        <div class='small'>Sucursal ticket: {ticket.Sucursal}</div>
+        <div class='small'>Pago: {Esc(metodoPagoPublico)}</div>
+        {(string.IsNullOrWhiteSpace(detallePagoHtml) ? "" : $"<div class='small bold'>Detalle de pago:</div>{detallePagoHtml}")}
 ");
 
             if (ticket.CaiHabilitadoSucursal && !string.IsNullOrWhiteSpace(ticket.CaiSucursalConfigurado))

@@ -24,7 +24,14 @@ namespace Pinecos.Helpers
             sb.AppendLine($"Ticket: {ticket.IdVenta}");
             sb.AppendLine($"Fecha: {ticket.Fecha:dd/MM/yyyy HH:mm}");
             sb.AppendLine($"Cajero: {ticket.Cajero}");
-            sb.AppendLine($"Pago: {ticket.MetodoPago}");
+            sb.AppendLine($"Pago: {PagoVentaHelper.FormatearMetodoPublico(ticket.MetodoPago)}");
+            var lineasPago = PagoVentaHelper.ConstruirLineasPagoPublicas(ticket.MetodoPago, ticket.Total, ticket.Observacion);
+            if (lineasPago.Count > 0)
+            {
+                sb.AppendLine("Detalle de pago:");
+                foreach (var linea in lineasPago)
+                    sb.AppendLine($"  {linea}");
+            }
 
             if (ticket.EsFacturaCai)
             {

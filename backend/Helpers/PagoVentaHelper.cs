@@ -112,5 +112,36 @@ namespace Pinecos.Helpers
         {
             return monto.ToString("0.00", CultureInfo.InvariantCulture);
         }
+
+        public static string FormatearMetodoPublico(string? metodoPago)
+        {
+            var raw = (metodoPago ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(raw)) return "No especificado";
+
+            var upper = raw.ToUpperInvariant();
+            return upper switch
+            {
+                "MIXTO" => "Pago mixto",
+                "EFECTIVO" => "Efectivo",
+                "POS" => "Tarjeta / POS",
+                "TARJETA" => "Tarjeta",
+                "TARJETA_POS" => "Tarjeta / POS",
+                "TRANSFERENCIA" => "Transferencia bancaria",
+                "CORTESIA" => "Cortesia",
+                _ => raw
+            };
+        }
+
+        public static List<string> ConstruirLineasPagoPublicas(string? metodoPago, decimal total, string? observacion)
+        {
+            var pagos = ObtenerPagosVenta(metodoPago, total, observacion);
+            if (pagos.Count <= 1)
+                return new List<string>();
+
+            return pagos
+                .Where(p => p.Monto > 0)
+                .Select(p => $"{FormatearMetodoPublico(p.Metodo_Pago)}: L {p.Monto:N2}")
+                .ToList();
+        }
     }
 }

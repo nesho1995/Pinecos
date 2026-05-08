@@ -19,6 +19,9 @@ namespace Pinecos.Helpers
             "RANGO:",
             "FEXTRA:",
             "PAGOS:",
+            "PAGOS_B64:",
+            "PAGOS_MESA:",
+            "PAGOS_POS:",
             "TIPOPAGO:",
             "CANAL:",
             "DESC:",
@@ -95,7 +98,9 @@ namespace Pinecos.Helpers
                 return true;
 
             if (parte.Equals("Venta POS", StringComparison.OrdinalIgnoreCase) ||
-                parte.Equals("Venta Mesas", StringComparison.OrdinalIgnoreCase))
+                parte.Equals("Venta Mesas", StringComparison.OrdinalIgnoreCase) ||
+                parte.Equals("Cobro de mesa", StringComparison.OrdinalIgnoreCase) ||
+                parte.Equals("Cobro de mesa |", StringComparison.OrdinalIgnoreCase))
                 return true;
 
             return PrefijosInternos.Any(pref =>
