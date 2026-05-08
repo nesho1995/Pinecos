@@ -215,7 +215,9 @@ const construirHtmlTicketPersona = ({
   moneda,
   persona,
   indicePersona,
-  totalPersonas
+  totalPersonas,
+  montoDado = 0,
+  cambio = 0
 }) => {
   const items = Array.isArray(persona?.items) ? persona.items : [];
   const rows = items.length
@@ -227,12 +229,17 @@ const construirHtmlTicketPersona = ({
         </tr>`).join('')
     : `<tr><td colspan="3" class="empty">Sin productos asignados</td></tr>`;
 
+  const ventaLabel = idVenta ? `#${idVenta}` : 'Pendiente';
+  const cambioHtml = cambio > 0 ? `
+      <div class="cambio">Recibido: ${moneda} ${Number(montoDado).toFixed(2)}</div>
+      <div class="cambio cambio--vuelto">Cambio: ${moneda} ${Number(cambio).toFixed(2)}</div>` : '';
+
   return `
 <!doctype html>
 <html lang="es">
 <head>
   <meta charset="utf-8" />
-  <title>Division de cuenta #${idVenta} - Persona ${indicePersona}</title>
+  <title>Division de cuenta ${ventaLabel} - Persona ${indicePersona}</title>
   <style>
     * { box-sizing: border-box; font-family: "Segoe UI", Tahoma, sans-serif; }
     body { margin: 0; background: #fff; color: #0f172a; }
@@ -247,6 +254,8 @@ const construirHtmlTicketPersona = ({
     th, td { padding: 6px; border-bottom: 1px solid #e5e7eb; text-align: left; vertical-align: top; }
     td.num, th.num { text-align: right; white-space: nowrap; }
     .empty { text-align: center; color: #64748b; }
+    .cambio { margin-top: 6px; font-size: 13px; text-align: right; color: #475569; }
+    .cambio--vuelto { font-weight: 700; color: #15803d; font-size: 14px; }
     .foot { margin-top: 10px; font-size: 12px; color: #475569; text-align: right; }
     @media print {
       @page { size: auto; margin: 8mm; }
@@ -257,7 +266,7 @@ const construirHtmlTicketPersona = ({
 <body>
   <div class="shell">
     <div class="meta">
-      <div><strong>Venta:</strong> #${idVenta} | <strong>Mesa:</strong> ${escapeHtml(mesa || '-')} | <strong>Cuenta:</strong> ${escapeHtml(cuenta || '-')}</div>
+      <div><strong>Venta:</strong> ${ventaLabel} | <strong>Mesa:</strong> ${escapeHtml(mesa || '-')} | <strong>Cuenta:</strong> ${escapeHtml(cuenta || '-')}</div>
       <div><strong>Sucursal:</strong> ${escapeHtml(sucursal || '-')} | <strong>Servicio:</strong> ${escapeHtml(formatTipoServicio(tipoServicio))}</div>
       <div><strong>Division:</strong> Persona ${indicePersona} de ${totalPersonas}</div>
     </div>
@@ -276,11 +285,18 @@ const construirHtmlTicketPersona = ({
         <tbody>${rows}</tbody>
       </table>
       <div class="foot">Total persona: ${moneda} ${Number(persona?.total || 0).toFixed(2)}</div>
+      ${cambioHtml}
       <div class="foot">Plataforma empresarial por NesSys</div>
     </div>
   </div>
 </body>
 </html>`;
+};
+
+export const imprimirPreTicketPersona = async (payload) => {
+  const { montoDado = 0, cambio = 0, ...rest } = payload || {};
+  const html = construirHtmlTicketPersona({ ...rest, idVenta: null, montoDado, cambio });
+  await imprimirEnMismaPantalla(html);
 };
 
 export const imprimirTicketsDivisionMesa = async (payload) => {
