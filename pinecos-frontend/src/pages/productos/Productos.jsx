@@ -548,6 +548,7 @@ function Productos() {
             </div>
           </div>
 
+          <div className="table-responsive">
           <table className="table table-bordered align-middle productos-table">
             <thead>
               <tr>
@@ -611,6 +612,7 @@ function Productos() {
               )}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
     </div>

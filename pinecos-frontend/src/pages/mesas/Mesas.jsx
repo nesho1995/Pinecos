@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import api from '../../services/api';
-import { imprimirTicketHtml, imprimirTicketsDivisionMesa, imprimirPreTicketPersona } from '../../utils/printTicket';
+import { imprimirTicketHtml, imprimirTicketsDivisionMesa } from '../../utils/printTicket';
 import { getUsuario } from '../../utils/auth';
 import FacturaCaiClienteForm from '../../components/factura/FacturaCaiClienteForm';
 import { facturaClienteVacio } from '../../components/factura/facturaClienteVacio';
@@ -672,40 +672,6 @@ function Mesas() {
     setAsignacionDetalles((prev) => ({ ...prev, [idDetalle]: Number(personaIndex || 0) }));
   };
 
-  const imprimirPersonaEnCobrar = async (idx) => {
-    const detalles = detalleCuenta?.detalles || [];
-    const pago = pagosMixtos[idx] || {};
-    const itemsPersona = detalles.filter((d) => Number(asignacionDetalles[d.id_Detalle_Cuenta_Mesa]) === idx);
-    const totalPersona = montosAutoPorPersona[idx] || 0;
-    const esEfectivo = String(resolverCategoriaMetodo(pago?.metodo_Pago || 'EFECTIVO')).toUpperCase() === 'EFECTIVO';
-    const montoDado = esEfectivo ? Number(montoDadoPorPersona[idx] || 0) : 0;
-    const cambio = esEfectivo && montoDado > totalPersona ? montoDado - totalPersona : 0;
-    const canalesPersona = obtenerCanalesPorMetodo(pago?.metodo_Pago);
-    const canalPersona = canalesPersona.find((x) => String(x?.codigo || '') === String(pago?.canalPagoCodigo || '')) || null;
-    const metodoLabel = esEfectivo
-      ? 'Efectivo'
-      : (canalPersona?.nombre || canalPersona?.codigo || pago?.metodo_Pago || '');
-    const mesaActual = mesas.find((m) => m.id_Mesa === mesaSeleccionada);
-    const sucursalNombre = sucursales.find((s) => String(s.id_Sucursal) === String(sucursalSeleccionada))?.nombre || 'Sucursal';
-    await imprimirPreTicketPersona({
-      mesa: mesaActual?.nombre || mesaActual?.numero || String(mesaSeleccionada),
-      cuenta: String(detalleCuenta?.cuenta?.id_Cuenta_Mesa || ''),
-      sucursal: sucursalNombre,
-      tipoServicio,
-      moneda: 'L',
-      persona: {
-        nombre: String(pago?.nombre || '').trim() || `Persona ${idx + 1}`,
-        metodoPago: metodoLabel,
-        total: totalPersona,
-        items: itemsPersona.map((d) => ({ producto: d.producto, cantidad: d.cantidad, subtotal: d.subtotal }))
-      },
-      indicePersona: idx + 1,
-      totalPersonas: Math.max(2, Number(personasDivision || 2)),
-      montoDado,
-      cambio
-    });
-  };
-
   const construirPayloadDivisionTickets = (idVenta) => {
     if (!dividirCuenta || !detalleCuenta?.detalles?.length) return null;
 
@@ -873,6 +839,7 @@ function Mesas() {
       let mensajeExito = `Cuenta cobrada. Venta #${idVenta}`;
       try {
         if (payloadDivisionTickets) {
+          await imprimirTicketsDivisionMesa(payloadDivisionTickets);
           mensajeExito += ' | Tickets por persona impresos';
         }
         await imprimirTicketHtml(idVenta);
@@ -1617,14 +1584,20 @@ function Mesas() {
                                       )}
                                       <button
                                         type="button"
-                                        className={`btn btn-sm ${personasListas.has(idx) ? 'btn-outline-secondary' : 'btn-primary'}`}
-                                        disabled={itemsPersona.length === 0}
+                                        className={`btn btn-sm ${personasListas.has(idx) ? 'btn-outline-secondary' : 'btn-success'}`}
+                                        disabled={itemsPersona.length === 0 || procesando}
                                         onClick={async () => {
                                           if (personasListas.has(idx)) {
                                             setPersonasListas(prev => { const n = new Set(prev); n.delete(idx); return n; });
                                           } else {
-                                            try { await imprimirPersonaEnCobrar(idx); } catch { /* impresion fallida, igual marca lista */ }
-                                            setPersonasListas(prev => new Set([...prev, idx]));
+                                            const newListas = new Set([...personasListas, idx]);
+                                            setPersonasListas(newListas);
+                                            const nPer = Math.max(2, Number(personasDivision || 2));
+                                            const todasListas = Array.from({ length: nPer }, (_, i) => i).every(i => newListas.has(i));
+                                            const otrasOk = !!cajaActual?.abierta && !cargandoCaja && !procesando && !bloqueoPreventivoCobro && todosItemsAsignados && validacionCaiLista && Math.abs(diferenciaPagosMixtos) <= 0.01;
+                                            if (todasListas && otrasOk) {
+                                              await cobrarCuenta();
+                                            }
                                           }
                                         }}
                                       >
@@ -1697,9 +1670,15 @@ function Mesas() {
                             Falta seleccionar canal de pago valido para uno o mas cobros no-efectivo.
                           </div>
                         )}
-                        <button className="btn btn-success" onClick={cobrarCuenta} disabled={cobrarDeshabilitado}>
-                          {procesando ? 'Procesando...' : 'Cobrar mesa'}
-                        </button>
+                        {dividirCuenta ? (
+                          <div className="alert py-2 mb-0 small text-center fw-semibold" style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#15803d' }}>
+                            {procesando ? 'Procesando cobro...' : 'Cobra a cada persona con el boton Cobrar de su tarjeta — la mesa se cierra automaticamente al finalizar'}
+                          </div>
+                        ) : (
+                          <button className="btn btn-success" onClick={cobrarCuenta} disabled={cobrarDeshabilitado}>
+                            {procesando ? 'Procesando...' : 'Cobrar mesa'}
+                          </button>
+                        )}
                         <button className="btn btn-outline-danger" onClick={cancelarCuenta} disabled={procesando}>
                           Cancelar cuenta
                         </button>

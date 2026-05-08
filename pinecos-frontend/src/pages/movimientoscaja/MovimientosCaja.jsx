@@ -254,6 +254,7 @@ function MovimientosCaja() {
                 {cargandoMovimientos && (
                   <div className="alert alert-secondary py-2 small">Cargando movimientos...</div>
                 )}
+                <div className="table-responsive">
                 <table className="table table-hover align-middle mb-0">
                   <thead className="table-light">
                     <tr>
@@ -281,6 +282,7 @@ function MovimientosCaja() {
                     )}
                   </tbody>
                 </table>
+                </div>
               </div>
 
               <div className="d-flex justify-content-between align-items-center mt-3">
