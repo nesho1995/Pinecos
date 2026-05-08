@@ -44,6 +44,7 @@ function Mesas() {
   const [pagosMixtos, setPagosMixtos] = useState([{ nombre: 'Persona 1', metodo_Pago: 'EFECTIVO', canalPagoCodigo: '', monto: '' }]);
   const [asignacionDetalles, setAsignacionDetalles] = useState({});
   const [descuentoDetalles, setDescuentoDetalles] = useState({});
+  const [personasListas, setPersonasListas] = useState(new Set());
   const [vistaTablet, setVistaTablet] = useState('mesas');
   /** Oculta plano de mesas y acordeon de consumo para ver solo cobro */
   const [mesaVistaSoloCobro, setMesaVistaSoloCobro] = useState(false);
@@ -484,6 +485,15 @@ function Mesas() {
     });
   }, [dividirCuenta, detalleCuenta, asignacionDetalles]);
 
+  const todasPersonasListas = useMemo(() => {
+    if (!dividirCuenta) return true;
+    const n = Math.max(2, Number(personasDivision || 2));
+    for (let i = 0; i < n; i++) {
+      if (!personasListas.has(i)) return false;
+    }
+    return true;
+  }, [dividirCuenta, personasListas, personasDivision]);
+
   const checklistCobro = useMemo(() => {
     const cajaLista = !!cajaActual?.abierta && !cargandoCaja;
     const cuentaConProductos = !!(detalleCuenta?.detalles?.length > 0);
@@ -493,12 +503,15 @@ function Mesas() {
     return [
       { key: 'caja', label: 'Caja abierta', ok: cajaLista },
       { key: 'consumo', label: 'Cuenta con consumo', ok: cuentaConProductos },
-      ...(dividirCuenta ? [{ key: 'asignados', label: 'Todos los items asignados', ok: todosItemsAsignados }] : []),
+      ...(dividirCuenta ? [
+        { key: 'asignados', label: 'Todos los items asignados', ok: todosItemsAsignados },
+        { key: 'personas_listas', label: 'Cada persona marcada lista', ok: todasPersonasListas }
+      ] : []),
       { key: 'pagos', label: dividirCuenta ? 'Division cuadra al total' : 'Metodo/cobro listo', ok: pagosCuadrados },
       { key: 'canal', label: 'Canales validados', ok: canalesListos },
       { key: 'cai', label: emitirFactura ? 'Datos CAI completos' : 'CAI no requerido', ok: caiListo }
     ];
-  }, [cajaActual, cargandoCaja, detalleCuenta, dividirCuenta, diferenciaPagosMixtos, bloqueoPreventivoCobro, validacionCaiLista, emitirFactura, todosItemsAsignados]);
+  }, [cajaActual, cargandoCaja, detalleCuenta, dividirCuenta, diferenciaPagosMixtos, bloqueoPreventivoCobro, validacionCaiLista, emitirFactura, todosItemsAsignados, todasPersonasListas]);
   const listoParaCobrar = checklistCobro.every((x) => x.ok);
   const cobrarDeshabilitado = cargandoCaja || !cajaActual?.abierta || procesando || bloqueoPreventivoCobro || !listoParaCobrar;
 
@@ -819,6 +832,7 @@ function Mesas() {
       setAsignacionDetalles({});
       setDescuentoDetalles({});
       setPersonasDivision(2);
+      setPersonasListas(new Set());
 
       let mensajeExito = `Cuenta cobrada. Venta #${idVenta}`;
       try {
@@ -859,6 +873,7 @@ function Mesas() {
       setAsignacionDetalles({});
       setDescuentoDetalles({});
       setPersonasDivision(2);
+      setPersonasListas(new Set());
       await cargarCuentasAbiertas();
       await cargarMesas(sucursalSeleccionada);
     } catch (err) {
@@ -1533,6 +1548,23 @@ function Mesas() {
                                     ) : (
                                       <div className="mesas-persona-empty">Sin productos asignados</div>
                                     )}
+                                    <div className="d-flex justify-content-end align-items-center gap-2 mt-2 pt-2 border-top">
+                                      {personasListas.has(idx) && (
+                                        <span className="badge bg-success">✓ Lista</span>
+                                      )}
+                                      <button
+                                        type="button"
+                                        className={`btn btn-sm ${personasListas.has(idx) ? 'btn-outline-secondary' : 'btn-primary'}`}
+                                        disabled={itemsPersona.length === 0}
+                                        onClick={() => setPersonasListas(prev => {
+                                          const next = new Set(prev);
+                                          if (next.has(idx)) next.delete(idx); else next.add(idx);
+                                          return next;
+                                        })}
+                                      >
+                                        {personasListas.has(idx) ? 'Revertir' : 'Cobrar'}
+                                      </button>
+                                    </div>
                                   </div>
                                 );
                               })}
