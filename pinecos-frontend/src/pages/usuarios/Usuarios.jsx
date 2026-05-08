@@ -238,6 +238,7 @@ function Usuarios() {
               />
             </div>
           </div>
+          <div className="table-responsive">
           <table className="table table-bordered align-middle">
             <thead>
               <tr>
@@ -289,6 +290,7 @@ function Usuarios() {
               )}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
     </div>

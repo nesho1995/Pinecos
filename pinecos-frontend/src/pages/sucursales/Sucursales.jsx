@@ -199,6 +199,7 @@ function Sucursales() {
             </div>
           </div>
 
+          <div className="table-responsive">
           <table className="table table-bordered align-middle">
             <thead>
               <tr>
@@ -247,6 +248,7 @@ function Sucursales() {
               )}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
     </div>

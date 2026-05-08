@@ -121,6 +121,7 @@ function Categorias() {
 
       <div className="card shadow-sm">
         <div className="card-body">
+          <div className="table-responsive">
           <table className="table table-bordered align-middle">
             <thead>
               <tr>
@@ -161,6 +162,7 @@ function Categorias() {
               )}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
     </div>
