@@ -26,6 +26,8 @@ function VentasPOS() {
   const [metodoPago, setMetodoPago] = useState('EFECTIVO');
   const [canalPagoCodigo, setCanalPagoCodigo] = useState('');
   const [efectivoRecibido, setEfectivoRecibido] = useState('');
+  const [pagoMixtoActivo, setPagoMixtoActivo] = useState(false);
+  const [pagosMixtos, setPagosMixtos] = useState([{ metodo_Pago: 'EFECTIVO', canalPagoCodigo: '', monto: '', recibido: '' }]);
   const [tipoServicio, setTipoServicio] = useState('COMER_AQUI');
   const [metodosPago, setMetodosPago] = useState([]);
   const [modoDescuento, setModoDescuento] = useState('NINGUNO');
@@ -231,7 +233,7 @@ function VentasPOS() {
   useEffect(() => {
     if (preCuentaEstado !== 'VIGENTE') return;
     invalidarPreCuenta();
-  }, [modoDescuento, descuentoManual, modoImpuesto, impuestoManual, metodoPago, tipoServicio, emitirFactura, canalPagoCodigo]);
+  }, [modoDescuento, descuentoManual, modoImpuesto, impuestoManual, metodoPago, tipoServicio, emitirFactura, canalPagoCodigo, pagoMixtoActivo, pagosMixtos]);
 
   const categorias = useMemo(() => {
     const unique = [...new Set(productos.map((p) => p.categoria).filter(Boolean))];
@@ -286,23 +288,50 @@ function VentasPOS() {
     if (cat) return cat;
     return 'OTRO';
   }, [metodoPago, metodoPagoActivo]);
+  const resolverCategoriaMetodo = (codigoMetodo) => {
+    const codigo = String(codigoMetodo || '').toUpperCase();
+    if (codigo === 'POS' || codigo === 'TARJETA' || codigo === 'TARJETA_POS') return 'POS';
+    if (codigo === 'TRANSFERENCIA') return 'TRANSFERENCIA';
+    if (codigo === 'EFECTIVO') return 'EFECTIVO';
+    const metodo = (metodosPago || []).find((x) => String(x?.codigo || '').toUpperCase() === codigo) || null;
+    const cat = String(metodo?.categoria || '').toUpperCase();
+    if (cat) return cat;
+    return 'OTRO';
+  };
   const esCanalTransferencia = (item) => {
     const texto = `${item?.codigo || ''} ${item?.nombre || ''}`.toUpperCase();
     return texto.includes('TRANSFER');
   };
-  const canalesPagoFiltrados = useMemo(() => {
-    if (categoriaMetodoPago === 'EFECTIVO') return [];
+  const metodosCobroBase = useMemo(() => {
+    const activos = (metodosPago || []).filter((x) => x?.activo !== false);
+    const tieneEfectivo = activos.some((x) => String(x?.categoria || '').toUpperCase() === 'EFECTIVO' || String(x?.codigo || '').toUpperCase() === 'EFECTIVO');
+    const tieneNoEfectivo = activos.some((x) => String(x?.categoria || '').toUpperCase() !== 'EFECTIVO' && String(x?.codigo || '').toUpperCase() !== 'EFECTIVO');
+    return [
+      ...(tieneEfectivo ? [{ codigo: 'EFECTIVO', nombre: 'Efectivo', categoria: 'EFECTIVO', activo: true }] : []),
+      ...(tieneNoEfectivo ? [
+        { codigo: 'POS', nombre: 'Tarjeta / POS', categoria: 'POS', activo: true },
+        { codigo: 'TRANSFERENCIA', nombre: 'Transferencia', categoria: 'TRANSFERENCIA', activo: true }
+      ] : [])
+    ];
+  }, [metodosPago]);
+  const obtenerCanalesPorMetodo = (codigoMetodo) => {
+    const categoria = resolverCategoriaMetodo(codigoMetodo);
+    if (categoria === 'EFECTIVO') return [];
     const canalesNoEfectivo = (metodosPago || []).filter((x) => String(x?.categoria || '').toUpperCase() !== 'EFECTIVO');
-    if (categoriaMetodoPago === 'TRANSFERENCIA') {
+    if (categoria === 'TRANSFERENCIA') {
       const especificos = canalesNoEfectivo.filter(esCanalTransferencia);
       return especificos.length ? especificos : canalesNoEfectivo;
     }
-    if (categoriaMetodoPago === 'POS') {
+    if (categoria === 'POS') {
       const especificos = canalesNoEfectivo.filter((x) => !esCanalTransferencia(x));
       return especificos.length ? especificos : canalesNoEfectivo;
     }
-    return canalesNoEfectivo.filter((x) => String(x?.categoria || '').toUpperCase() === categoriaMetodoPago);
-  }, [metodosPago, categoriaMetodoPago]);
+    return canalesNoEfectivo.filter((x) => String(x?.categoria || '').toUpperCase() === categoria);
+  };
+  const canalesPagoFiltrados = useMemo(() => {
+    if (categoriaMetodoPago === 'EFECTIVO') return [];
+    return obtenerCanalesPorMetodo(metodoPago);
+  }, [metodosPago, categoriaMetodoPago, metodoPago]);
 
   useEffect(() => {
     if (metodoPago === 'EFECTIVO') {
@@ -513,6 +542,8 @@ function VentasPOS() {
     setImpuestoManual('0');
     setEmitirFactura(false);
     setEfectivoRecibido('');
+    setPagoMixtoActivo(false);
+    setPagosMixtos([{ metodo_Pago: 'EFECTIVO', canalPagoCodigo: '', monto: '', recibido: '' }]);
     setTipoServicio('COMER_AQUI');
     setPreCuentaEstado('NINGUNA');
     setPreCuentaFecha(null);
@@ -562,15 +593,84 @@ function VentasPOS() {
 
   const subtotalBase = subtotal - (impuestoIncluidoEnSubtotal ? impuestoCalculado : 0);
   const total = subtotalBase - descuentoCalculado + impuestoCalculado;
+  const redondear2 = (value) => Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
   const soloCortesia = useMemo(
     () => carrito.length > 0 && carrito.every((item) => esLineaCortesia(item)),
     [carrito]
   );
+
+  useEffect(() => {
+    if (soloCortesia && pagoMixtoActivo) setPagoMixtoActivo(false);
+  }, [soloCortesia, pagoMixtoActivo]);
   const canalPagoSeleccionado = canalesPagoFiltrados.find((x) => x.codigo === canalPagoCodigo) || null;
   const esPagoEnEfectivo = String(metodoPago || '').toUpperCase() === 'EFECTIVO';
   const efectivoRecibidoNum = Number(efectivoRecibido || 0);
   const cambioCalculado = esPagoEnEfectivo ? efectivoRecibidoNum - total : 0;
   const efectivoValidoParaCobro = !esPagoEnEfectivo || soloCortesia || (!Number.isNaN(efectivoRecibidoNum) && efectivoRecibidoNum >= total && efectivoRecibidoNum > 0);
+  const pagosMixtosDetalle = useMemo(
+    () => (pagosMixtos || [])
+      .map((p) => {
+        const metodoCodigo = String(p?.metodo_Pago || '').trim().toUpperCase();
+        const categoria = resolverCategoriaMetodo(metodoCodigo);
+        const canales = obtenerCanalesPorMetodo(metodoCodigo);
+        const canalSeleccionado = canales.find((x) => String(x?.codigo || '') === String(p?.canalPagoCodigo || '')) || null;
+        return {
+          metodoBase: metodoCodigo,
+          categoria,
+          metodo_Pago: categoria === 'EFECTIVO'
+            ? metodoCodigo
+            : (canalSeleccionado?.nombre || canalSeleccionado?.codigo || metodoCodigo),
+          monto: redondear2(p?.monto),
+          recibido: redondear2(p?.recibido)
+        };
+      })
+      .filter((p) => p.metodo_Pago && p.monto > 0),
+    [pagosMixtos, metodosPago]
+  );
+  const pagosMixtosNormalizados = useMemo(() => {
+    const acumulado = {};
+    pagosMixtosDetalle.forEach((p) => {
+      const key = p.metodo_Pago;
+      acumulado[key] = redondear2(Number(acumulado[key] || 0) + Number(p.monto || 0));
+    });
+    return Object.entries(acumulado)
+      .map(([metodo_Pago, monto]) => ({ metodo_Pago, monto }))
+      .filter((p) => p.monto > 0);
+  }, [pagosMixtosDetalle]);
+  const totalPagosMixtos = useMemo(
+    () => redondear2(pagosMixtosDetalle.reduce((acc, p) => acc + Number(p.monto || 0), 0)),
+    [pagosMixtosDetalle]
+  );
+  const diferenciaPagosMixtos = redondear2(total - totalPagosMixtos);
+  const pagosMixtosTienenCanalInvalido = useMemo(() => {
+    if (!pagoMixtoActivo) return false;
+    return (pagosMixtos || []).some((p) => {
+      const monto = Number(p?.monto || 0);
+      if (monto <= 0) return false;
+      const metodo = String(p?.metodo_Pago || '').toUpperCase();
+      const categoria = resolverCategoriaMetodo(metodo);
+      if (categoria === 'EFECTIVO') return false;
+      const canales = obtenerCanalesPorMetodo(metodo);
+      if (!canales.length) return true;
+      const canal = String(p?.canalPagoCodigo || '');
+      return !canal || !canales.some((x) => String(x?.codigo || '') === canal);
+    });
+  }, [pagoMixtoActivo, pagosMixtos, metodosPago]);
+  const pagosMixtosEfectivoInvalido = useMemo(() => {
+    if (!pagoMixtoActivo) return false;
+    return (pagosMixtos || []).some((p) => {
+      const monto = Number(p?.monto || 0);
+      if (monto <= 0) return false;
+      if (resolverCategoriaMetodo(p?.metodo_Pago) !== 'EFECTIVO') return false;
+      const recibidoRaw = String(p?.recibido ?? '').trim();
+      if (!recibidoRaw) return false;
+      const recibido = Number(recibidoRaw || 0);
+      return Number.isNaN(recibido) || recibido < monto;
+    });
+  }, [pagoMixtoActivo, pagosMixtos]);
+  const efectivoValidoFinal = pagoMixtoActivo
+    ? !pagosMixtosEfectivoInvalido
+    : efectivoValidoParaCobro;
 
   const tieneLineasInvalidas = useMemo(
     () =>
@@ -691,6 +791,68 @@ function VentasPOS() {
     if (preCuentaEstado === 'DESACTUALIZADA') setVistaSoloCobro(false);
   }, [preCuentaEstado]);
 
+  useEffect(() => {
+    if (!pagoMixtoActivo) return;
+    setPagosMixtos((prev) => {
+      const base = prev.length
+        ? prev
+        : [{ metodo_Pago: 'EFECTIVO', canalPagoCodigo: '', monto: '', recibido: '' }];
+      return base.map((p) => {
+        const metodo = String(p?.metodo_Pago || 'EFECTIVO').toUpperCase();
+        const categoria = resolverCategoriaMetodo(metodo);
+        if (categoria === 'EFECTIVO') return { ...p, metodo_Pago: metodo, canalPagoCodigo: '' };
+        const canales = obtenerCanalesPorMetodo(metodo);
+        const canalValido = canales.some((x) => String(x?.codigo || '') === String(p?.canalPagoCodigo || ''));
+        return {
+          ...p,
+          metodo_Pago: metodo,
+          canalPagoCodigo: canalValido ? String(p?.canalPagoCodigo || '') : (canales[0]?.codigo || '')
+        };
+      });
+    });
+  }, [pagoMixtoActivo, metodosPago]);
+
+  useEffect(() => {
+    if (!pagoMixtoActivo) return;
+    if (pagosMixtos.length !== 1) return;
+    const montoActual = String(pagosMixtos[0]?.monto || '').trim();
+    if (montoActual && Math.abs(Number(montoActual || 0) - Number(total || 0)) > 0.01) return;
+    setPagosMixtos((prev) => prev.map((p, idx) => idx === 0 ? { ...p, monto: total > 0 ? total.toFixed(2) : '' } : p));
+  }, [pagoMixtoActivo, total]);
+
+  const actualizarPagoMixtoPos = (index, campo, valor) => {
+    setPagosMixtos((prev) => prev.map((linea, i) => {
+      if (i !== index) return linea;
+      if (campo !== 'metodo_Pago') return { ...linea, [campo]: valor };
+      const metodoNuevo = String(valor || '').toUpperCase();
+      const categoria = resolverCategoriaMetodo(metodoNuevo);
+      if (categoria === 'EFECTIVO') return { ...linea, metodo_Pago: metodoNuevo, canalPagoCodigo: '' };
+      const canales = obtenerCanalesPorMetodo(metodoNuevo);
+      const canalValido = canales.some((x) => String(x?.codigo || '') === String(linea?.canalPagoCodigo || ''));
+      return {
+        ...linea,
+        metodo_Pago: metodoNuevo,
+        canalPagoCodigo: canalValido ? String(linea?.canalPagoCodigo || '') : (canales[0]?.codigo || '')
+      };
+    }));
+  };
+
+  const agregarPagoMixtoPos = () => {
+    const restante = Math.max(0, diferenciaPagosMixtos);
+    const metodoDefault = metodosCobroBase[0]?.codigo || 'EFECTIVO';
+    setPagosMixtos((prev) => [
+      ...prev,
+      { metodo_Pago: metodoDefault, canalPagoCodigo: '', monto: restante > 0 ? restante.toFixed(2) : '', recibido: '' }
+    ]);
+  };
+
+  const eliminarPagoMixtoPos = (index) => {
+    setPagosMixtos((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      return next.length ? next : [{ metodo_Pago: 'EFECTIVO', canalPagoCodigo: '', monto: total > 0 ? total.toFixed(2) : '', recibido: '' }];
+    });
+  };
+
   const cobrarVenta = async () => {
     limpiarMensajes();
     if (!cajaActual?.abierta) return setError('No hay caja abierta');
@@ -699,7 +861,13 @@ function VentasPOS() {
     if (tieneLineasInvalidas) return setError('Hay productos con cantidad o precio invalidos en la cuenta');
     if (!Number.isFinite(total) || total < 0) return setError('El total no es valido');
     if (!soloCortesia && total <= 0) return setError('El total debe ser mayor a cero');
-    if (!soloCortesia && !esPagoEnEfectivo && !canalPagoSeleccionado) return setError('Selecciona el canal de pago para continuar');
+    if (!soloCortesia && !pagoMixtoActivo && !esPagoEnEfectivo && !canalPagoSeleccionado) return setError('Selecciona el canal de pago para continuar');
+    if (!soloCortesia && pagoMixtoActivo) {
+      if (pagosMixtosNormalizados.length === 0) return setError('Agrega al menos un pago mixto');
+      if (Math.abs(diferenciaPagosMixtos) > 0.01) return setError('La suma de pagos mixtos debe ser igual al total');
+      if (pagosMixtosTienenCanalInvalido) return setError('Cada pago no efectivo debe tener un canal valido');
+      if (pagosMixtosEfectivoInvalido) return setError('En efectivo mixto, el recibido no puede ser menor al monto aplicado');
+    }
     if (descuentoCalculado < 0 || impuestoCalculado < 0) return setError('Descuento e impuesto no pueden ser negativos');
     if (subtotalBase < 0) return setError('El subtotal base no puede ser negativo');
     if (total < 0) return setError('El total no puede ser negativo');
@@ -720,7 +888,7 @@ function VentasPOS() {
         return setError('Factura CAI: ingrese el numero de identidad del adquirente.');
       }
     }
-    if (esPagoEnEfectivo && !soloCortesia) {
+    if (!pagoMixtoActivo && esPagoEnEfectivo && !soloCortesia) {
       if (!efectivoRecibido || Number.isNaN(efectivoRecibidoNum)) {
         return setError('Ingresa el efectivo recibido');
       }
@@ -733,7 +901,16 @@ function VentasPOS() {
       setProcesando(true);
       const metodoPagoFinal = soloCortesia
         ? 'CORTESIA'
-        : canalPagoSeleccionado?.nombre || canalPagoSeleccionado?.codigo || metodoPago;
+        : pagoMixtoActivo
+          ? 'MIXTO'
+          : canalPagoSeleccionado?.nombre || canalPagoSeleccionado?.codigo || metodoPago;
+      const detallePagoMixto = pagoMixtoActivo
+        ? pagosMixtosDetalle.map((p) => {
+            const cambio = p.categoria === 'EFECTIVO' && p.recibido > p.monto ? ` Cambio:${(p.recibido - p.monto).toFixed(2)}` : '';
+            const recibido = p.categoria === 'EFECTIVO' && p.recibido > 0 ? ` Recibido:${p.recibido.toFixed(2)}` : '';
+            return `${p.metodo_Pago}:${p.monto.toFixed(2)}${recibido}${cambio}`;
+          }).join('; ')
+        : '';
       const emiteCaiReq = emitirFactura && !!facturacionSar?.habilitadoCai;
       const response = await api.post('/Ventas', {
         id_Caja: cajaActual.id_Caja,
@@ -757,8 +934,9 @@ function VentasPOS() {
             }
           : null,
         metodo_Pago: metodoPagoFinal,
+        pagos: pagoMixtoActivo && !soloCortesia ? pagosMixtosNormalizados : [],
         tipo_Servicio: tipoServicio,
-        observacion: `Venta POS | TipoPago:${soloCortesia ? 'CORTESIA' : metodoPago}${canalPagoSeleccionado ? ` | Canal:${canalPagoSeleccionado.nombre}` : ''} | Desc:${modoDescuento} | Imp:${modoImpuesto}${esPagoEnEfectivo && !soloCortesia ? ` | Efectivo:${efectivoRecibidoNum.toFixed(2)} | Cambio:${Math.max(0, cambioCalculado).toFixed(2)}` : ''}`,
+        observacion: `Venta POS | TipoPago:${soloCortesia ? 'CORTESIA' : pagoMixtoActivo ? 'MIXTO' : metodoPago}${canalPagoSeleccionado && !pagoMixtoActivo ? ` | Canal:${canalPagoSeleccionado.nombre}` : ''} | Desc:${modoDescuento} | Imp:${modoImpuesto}${!pagoMixtoActivo && esPagoEnEfectivo && !soloCortesia ? ` | Efectivo:${efectivoRecibidoNum.toFixed(2)} | Cambio:${Math.max(0, cambioCalculado).toFixed(2)}` : ''}${detallePagoMixto ? ` | PAGOS_POS:${detallePagoMixto}` : ''}`,
         detalles: carrito.map((item) => ({
           id_Producto: item.id_Producto,
           id_Presentacion: item.id_Presentacion,
@@ -787,6 +965,8 @@ function VentasPOS() {
       setEmitirFactura(false);
       setFacturaCliente(facturaClienteVacio());
       setEfectivoRecibido('');
+      setPagoMixtoActivo(false);
+      setPagosMixtos([{ metodo_Pago: 'EFECTIVO', canalPagoCodigo: '', monto: '', recibido: '' }]);
       setTipoServicio('COMER_AQUI');
       setPreCuentaEstado('NINGUNA');
       setPreCuentaFecha(null);
@@ -1300,9 +1480,138 @@ function VentasPOS() {
 
                 <div className="pro-checkout-flow-block pro-checkout-flow-block--pay mt-3">
                   <div className="pro-checkout-flow-title">4 · Forma de pago</div>
-                  <CheckoutPayMethodChips value={metodoPago} onChange={setMetodoPago} disabled={procesando} />
+                  <div className="d-flex justify-content-between align-items-center gap-2 mb-2">
+                    <div className="small text-muted">
+                      {pagoMixtoActivo ? 'Varios pagos para una sola venta.' : 'Selecciona un metodo para el cobro completo.'}
+                    </div>
+                    <button
+                      type="button"
+                      className={`btn btn-sm ${pagoMixtoActivo ? 'btn-success' : 'btn-outline-success'}`}
+                      onClick={() => setPagoMixtoActivo((prev) => !prev)}
+                      disabled={procesando || soloCortesia}
+                    >
+                      {pagoMixtoActivo ? 'Pago mixto activo' : 'Pago mixto'}
+                    </button>
+                  </div>
+                  <CheckoutPayMethodChips value={metodoPago} onChange={setMetodoPago} disabled={procesando || pagoMixtoActivo} />
 
-                  {!esPagoEnEfectivo && (
+                  {pagoMixtoActivo && (
+                    <div className="pos-mixed-pay-panel mt-2 mb-2">
+                      <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                        <div>
+                          <div className="fw-semibold small">Pagos de la venta</div>
+                          <div className={`small ${Math.abs(diferenciaPagosMixtos) <= 0.01 ? 'text-success' : diferenciaPagosMixtos > 0 ? 'text-danger' : 'text-warning'}`}>
+                            Ingresado: {formatCurrencyHNL(totalPagosMixtos)}
+                            {' '}
+                            {Math.abs(diferenciaPagosMixtos) <= 0.01
+                              ? '| Cuadrado'
+                              : diferenciaPagosMixtos > 0
+                                ? `| Faltan ${formatCurrencyHNL(diferenciaPagosMixtos)}`
+                                : `| Sobra ${formatCurrencyHNL(Math.abs(diferenciaPagosMixtos))}`}
+                          </div>
+                        </div>
+                        <button type="button" className="btn btn-sm btn-outline-primary" onClick={agregarPagoMixtoPos} disabled={procesando}>
+                          Agregar pago
+                        </button>
+                      </div>
+
+                      <div className="d-grid gap-2">
+                        {pagosMixtos.map((pago, idx) => {
+                          const metodo = String(pago?.metodo_Pago || 'EFECTIVO').toUpperCase();
+                          const categoria = resolverCategoriaMetodo(metodo);
+                          const canalesLinea = obtenerCanalesPorMetodo(metodo);
+                          const montoLinea = Number(pago?.monto || 0);
+                          const recibidoLinea = Number(pago?.recibido || 0);
+                          const cambioLinea = categoria === 'EFECTIVO' && recibidoLinea > montoLinea ? recibidoLinea - montoLinea : 0;
+                          return (
+                            <div className="pos-mixed-pay-line" key={`pos-mixed-${idx}`}>
+                              <div className="row g-2 align-items-end">
+                                <div className="col-md-4">
+                                  <label className="form-label mb-1 small">Metodo</label>
+                                  <select
+                                    className="form-select form-select-sm"
+                                    value={metodo}
+                                    onChange={(e) => actualizarPagoMixtoPos(idx, 'metodo_Pago', e.target.value)}
+                                    disabled={procesando}
+                                  >
+                                    {metodosCobroBase.map((m) => (
+                                      <option key={`pos-m-${idx}-${m.codigo}`} value={m.codigo}>{m.nombre}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                                {categoria !== 'EFECTIVO' && (
+                                  <div className="col-md-4">
+                                    <label className="form-label mb-1 small">Canal</label>
+                                    <select
+                                      className="form-select form-select-sm"
+                                      value={String(pago?.canalPagoCodigo || '')}
+                                      onChange={(e) => actualizarPagoMixtoPos(idx, 'canalPagoCodigo', e.target.value)}
+                                      disabled={procesando}
+                                    >
+                                      {canalesLinea.length === 0 ? (
+                                        <option value="">Sin canales</option>
+                                      ) : (
+                                        canalesLinea.map((canal) => (
+                                          <option key={`pos-c-${idx}-${canal.codigo}`} value={canal.codigo}>{canal.nombre}</option>
+                                        ))
+                                      )}
+                                    </select>
+                                  </div>
+                                )}
+                                <div className={categoria === 'EFECTIVO' ? 'col-md-3' : 'col-md-2'}>
+                                  <label className="form-label mb-1 small">Monto</label>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    className="form-control form-control-sm"
+                                    value={pago?.monto || ''}
+                                    onChange={(e) => actualizarPagoMixtoPos(idx, 'monto', e.target.value)}
+                                    disabled={procesando}
+                                    placeholder="0.00"
+                                  />
+                                </div>
+                                {categoria === 'EFECTIVO' && (
+                                  <div className="col-md-3">
+                                    <label className="form-label mb-1 small">Recibido</label>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="0.01"
+                                      className="form-control form-control-sm"
+                                      value={pago?.recibido || ''}
+                                      onChange={(e) => actualizarPagoMixtoPos(idx, 'recibido', e.target.value)}
+                                      disabled={procesando}
+                                      placeholder="Opcional"
+                                    />
+                                  </div>
+                                )}
+                                <div className="col-md-2 d-grid">
+                                  <button
+                                    type="button"
+                                    className="btn btn-sm btn-outline-danger"
+                                    onClick={() => eliminarPagoMixtoPos(idx)}
+                                    disabled={procesando || pagosMixtos.length <= 1}
+                                  >
+                                    Quitar
+                                  </button>
+                                </div>
+                              </div>
+                              {categoria === 'EFECTIVO' && pago?.recibido && (
+                                <div className={`small mt-1 ${recibidoLinea >= montoLinea ? 'text-success' : 'text-danger'}`}>
+                                  {recibidoLinea >= montoLinea
+                                    ? `Cambio de esta linea: ${formatCurrencyHNL(cambioLinea)}`
+                                    : `Faltan ${formatCurrencyHNL(montoLinea - recibidoLinea)} en efectivo recibido`}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {!pagoMixtoActivo && !esPagoEnEfectivo && (
                     <div className="mb-2 mt-2">
                       <label className="form-label">Canal / terminal</label>
                       <select className="form-select" value={canalPagoCodigo} onChange={(e) => setCanalPagoCodigo(e.target.value)}>
@@ -1317,7 +1626,7 @@ function VentasPOS() {
                     </div>
                   )}
 
-                  {esPagoEnEfectivo && (
+                  {!pagoMixtoActivo && esPagoEnEfectivo && (
                     <div className="pro-cash-strip mb-2 mt-2">
                       <label className="form-label">Efectivo recibido (obligatorio)</label>
                       <input
@@ -1394,7 +1703,7 @@ function VentasPOS() {
                       )}
                     </>
                   )}
-                  <button type="button" className="btn btn-success" onClick={cobrarVenta} disabled={procesando || carrito.length === 0 || (tipoServicio !== 'LLEVAR' && preCuentaEstado !== 'VIGENTE') || !efectivoValidoParaCobro}>
+                  <button type="button" className="btn btn-success" onClick={cobrarVenta} disabled={procesando || carrito.length === 0 || (tipoServicio !== 'LLEVAR' && preCuentaEstado !== 'VIGENTE') || !efectivoValidoFinal || (pagoMixtoActivo && !soloCortesia && (Math.abs(diferenciaPagosMixtos) > 0.01 || pagosMixtosTienenCanalInvalido))}>
                     {procesando ? 'Procesando...' : 'Cobro final'}
                   </button>
                   <div className="small text-muted text-center">Atajo: <kbd className="px-1">Alt</kbd> + <kbd className="px-1">C</kbd> (fuera de campos de texto)</div>

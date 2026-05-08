@@ -1493,6 +1493,20 @@ body {
   border: 1px solid #e2e8f0;
 }
 
+.pos-mixed-pay-panel {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  padding: 0.75rem;
+}
+
+.pos-mixed-pay-line {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.6rem;
+}
+
 /* === Mesa node – total badge === */
 .mesa-total-badge {
   font-size: 0.67rem;
