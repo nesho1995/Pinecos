@@ -274,21 +274,21 @@ function Mesas() {
   );
   const categoriaMetodoPago = useMemo(() => {
     const codigo = String(metodoPago || '').toUpperCase();
+    const cat = String(metodoPagoActivo?.categoria || '').toUpperCase();
+    if (cat) return cat;
     if (codigo === 'POS' || codigo === 'TARJETA' || codigo === 'TARJETA_POS') return 'POS';
     if (codigo === 'TRANSFERENCIA') return 'TRANSFERENCIA';
     if (codigo === 'EFECTIVO') return 'EFECTIVO';
-    const cat = String(metodoPagoActivo?.categoria || '').toUpperCase();
-    if (cat) return cat;
     return 'OTRO';
   }, [metodoPago, metodoPagoActivo]);
   const resolverCategoriaMetodo = (codigoMetodo) => {
     const codigo = String(codigoMetodo || '').toUpperCase();
-    if (codigo === 'POS' || codigo === 'TARJETA' || codigo === 'TARJETA_POS') return 'POS';
-    if (codigo === 'TRANSFERENCIA') return 'TRANSFERENCIA';
-    if (codigo === 'EFECTIVO') return 'EFECTIVO';
     const metodo = (metodosPago || []).find((x) => String(x?.codigo || '').toUpperCase() === codigo) || null;
     const cat = String(metodo?.categoria || '').toUpperCase();
     if (cat) return cat;
+    if (codigo === 'POS' || codigo === 'TARJETA' || codigo === 'TARJETA_POS') return 'POS';
+    if (codigo === 'TRANSFERENCIA') return 'TRANSFERENCIA';
+    if (codigo === 'EFECTIVO') return 'EFECTIVO';
     return 'OTRO';
   };
   const esCanalTransferencia = (item) => {
@@ -296,20 +296,42 @@ function Mesas() {
     return texto.includes('TRANSFER');
   };
   const metodosCobroBase = useMemo(() => {
-    const activos = (metodosPago || []).filter((x) => x?.activo !== false);
-    const tieneEfectivo = activos.some((x) => String(x?.categoria || '').toUpperCase() === 'EFECTIVO' || String(x?.codigo || '').toUpperCase() === 'EFECTIVO');
-    const tieneNoEfectivo = activos.some((x) => String(x?.categoria || '').toUpperCase() !== 'EFECTIVO' && String(x?.codigo || '').toUpperCase() !== 'EFECTIVO');
-    return [
-      ...(tieneEfectivo ? [{ codigo: 'EFECTIVO', nombre: 'Efectivo', categoria: 'EFECTIVO', activo: true }] : []),
-      ...(tieneNoEfectivo ? [
-        { codigo: 'POS', nombre: 'Tarjeta / POS', categoria: 'POS', activo: true },
-        { codigo: 'TRANSFERENCIA', nombre: 'Transferencia', categoria: 'TRANSFERENCIA', activo: true }
-      ] : [])
-    ];
+    const activos = (metodosPago || [])
+      .filter((x) => x?.activo !== false)
+      .map((x) => ({
+        codigo: String(x?.codigo || x?.nombre || '').trim().toUpperCase(),
+        nombre: String(x?.nombre || x?.codigo || '').trim(),
+        categoria: String(x?.categoria || '').trim().toUpperCase() || 'OTRO',
+        activo: true
+      }))
+      .filter((x) => x.codigo && x.nombre);
+
+    const vistos = new Set();
+    const unicos = activos.filter((x) => {
+      if (vistos.has(x.codigo)) return false;
+      vistos.add(x.codigo);
+      return true;
+    });
+
+    return unicos.length
+      ? unicos
+      : [{ codigo: 'EFECTIVO', nombre: 'Efectivo', categoria: 'EFECTIVO', activo: true }];
   }, [metodosPago]);
+  const buscarMetodoConfig = (codigoMetodo) =>
+    (metodosPago || []).find((x) => String(x?.codigo || '').toUpperCase() === String(codigoMetodo || '').toUpperCase()) || null;
+  const requiereCanalParaMetodo = (codigoMetodo) => {
+    const categoria = resolverCategoriaMetodo(codigoMetodo);
+    if (categoria === 'EFECTIVO') return false;
+    return !buscarMetodoConfig(codigoMetodo);
+  };
+  const nombreMetodoCobro = (codigoMetodo) => {
+    const metodo = buscarMetodoConfig(codigoMetodo) || (metodosCobroBase || []).find((x) => String(x?.codigo || '').toUpperCase() === String(codigoMetodo || '').toUpperCase());
+    return String(metodo?.nombre || metodo?.codigo || codigoMetodo || '').trim().toUpperCase();
+  };
   const obtenerCanalesPorMetodo = (codigoMetodo) => {
     const categoria = resolverCategoriaMetodo(codigoMetodo);
     if (categoria === 'EFECTIVO') return [];
+    if (!requiereCanalParaMetodo(codigoMetodo)) return [];
     const canalesNoEfectivo = (metodosPago || []).filter((x) => String(x?.categoria || '').toUpperCase() !== 'EFECTIVO');
     if (categoria === 'TRANSFERENCIA') {
       const especificos = canalesNoEfectivo.filter(esCanalTransferencia);
@@ -327,7 +349,7 @@ function Mesas() {
   }, [metodosPago, categoriaMetodoPago, metodoPago]);
 
   useEffect(() => {
-    if (String(categoriaMetodoPago || '').toUpperCase() === 'EFECTIVO' || dividirCuenta) {
+    if (String(categoriaMetodoPago || '').toUpperCase() === 'EFECTIVO' || dividirCuenta || !requiereCanalParaMetodo(metodoPago)) {
       setCanalPagoCodigo('');
       return;
     }
@@ -442,9 +464,10 @@ function Mesas() {
         const categoria = resolverCategoriaMetodo(metodoCodigo);
         const canales = obtenerCanalesPorMetodo(metodoCodigo);
         const canalSeleccionado = canales.find((x) => String(x?.codigo || '') === String(p?.canalPagoCodigo || '')) || null;
+        const metodoDirecto = !requiereCanalParaMetodo(metodoCodigo);
         return {
           nombre: String(p?.nombre || '').trim() || (dividirCuenta ? `Persona ${idx + 1}` : `Pago ${idx + 1}`),
-          metodo_Pago: categoria === 'EFECTIVO'
+          metodo_Pago: categoria === 'EFECTIVO' || metodoDirecto
             ? metodoCodigo
             : (canalSeleccionado?.nombre || canalSeleccionado?.codigo || metodoCodigo),
           monto: redondear2(p?.monto),
@@ -477,7 +500,7 @@ function Mesas() {
       if (monto <= 0) return false;
       const metodo = String(p?.metodo_Pago || '').toUpperCase();
       const categoria = resolverCategoriaMetodo(metodo);
-      if (categoria === 'EFECTIVO') return false;
+      if (categoria === 'EFECTIVO' || !requiereCanalParaMetodo(metodo)) return false;
       const canales = obtenerCanalesPorMetodo(metodo);
       if (!canales.length) return true;
       const canal = String(p?.canalPagoCodigo || '');
@@ -499,9 +522,10 @@ function Mesas() {
   const bloqueoPreventivoCobro = useMemo(() => {
     if (cobroMixto) return tieneCanalesInvalidosEnCobroMixto || tieneEfectivoInvalidoEnCobroMixto;
     if (String(categoriaMetodoPago || '').toUpperCase() === 'EFECTIVO') return false;
+    if (!requiereCanalParaMetodo(metodoPago)) return false;
     if (canalesPagoFiltrados.length === 0) return true;
     return !canalPagoCodigo;
-  }, [cobroMixto, tieneCanalesInvalidosEnCobroMixto, tieneEfectivoInvalidoEnCobroMixto, categoriaMetodoPago, canalesPagoFiltrados, canalPagoCodigo]);
+  }, [cobroMixto, tieneCanalesInvalidosEnCobroMixto, tieneEfectivoInvalidoEnCobroMixto, categoriaMetodoPago, metodoPago, canalesPagoFiltrados, canalPagoCodigo]);
   const validacionCaiLista = useMemo(() => {
     const emiteCai = emitirFactura && !!facturacionSar?.habilitadoCai;
     if (!emiteCai) return true;
@@ -571,7 +595,7 @@ function Mesas() {
       }));
       return base.map((p) => {
         const categoria = resolverCategoriaMetodo(p.metodo_Pago);
-        if (categoria === 'EFECTIVO') return { ...p, canalPagoCodigo: '' };
+        if (categoria === 'EFECTIVO' || !requiereCanalParaMetodo(p.metodo_Pago)) return { ...p, canalPagoCodigo: '' };
         const canales = obtenerCanalesPorMetodo(p.metodo_Pago);
         const esValido = canales.some((x) => String(x?.codigo || '') === String(p.canalPagoCodigo || ''));
         return { ...p, canalPagoCodigo: esValido ? p.canalPagoCodigo : (canales[0]?.codigo || '') };
@@ -619,7 +643,7 @@ function Mesas() {
         const monto = idx === 0 && base.length === 1 && (!montoActual || Math.abs(Number(montoActual || 0) - Number(totalCuenta || 0)) <= 0.01)
           ? (totalCuenta > 0 ? totalCuenta.toFixed(2) : '')
           : p.monto;
-        if (categoria === 'EFECTIVO') return { ...p, nombre: p.nombre || `Pago ${idx + 1}`, metodo_Pago: metodo, canalPagoCodigo: '', monto };
+        if (categoria === 'EFECTIVO' || !requiereCanalParaMetodo(metodo)) return { ...p, nombre: p.nombre || `Pago ${idx + 1}`, metodo_Pago: metodo, canalPagoCodigo: '', monto };
         const canales = obtenerCanalesPorMetodo(metodo);
         const esValido = canales.some((x) => String(x?.codigo || '') === String(p?.canalPagoCodigo || ''));
         return {
@@ -722,7 +746,7 @@ function Mesas() {
       if (campo !== 'metodo_Pago') return { ...linea, [campo]: valor };
       const metodoNuevo = String(valor || '').toUpperCase();
       const categoria = resolverCategoriaMetodo(metodoNuevo);
-      if (categoria === 'EFECTIVO') return { ...linea, metodo_Pago: metodoNuevo, canalPagoCodigo: '' };
+      if (categoria === 'EFECTIVO' || !requiereCanalParaMetodo(metodoNuevo)) return { ...linea, metodo_Pago: metodoNuevo, canalPagoCodigo: '' };
       const canales = obtenerCanalesPorMetodo(metodoNuevo);
       const canalValido = canales.some((x) => String(x?.codigo || '') === String(linea?.canalPagoCodigo || ''));
       return {
@@ -778,7 +802,9 @@ function Mesas() {
     const canalPersona = canalesPersona.find((x) => String(x?.codigo || '') === String(pago?.canalPagoCodigo || '')) || null;
     const metodoPagoPersona = resolverCategoriaMetodo(metodoPersonaCodigo) === 'EFECTIVO'
       ? metodoPersonaCodigo
-      : `${metodoPersonaCodigo === 'TRANSFERENCIA' ? 'Transferencia' : 'Tarjeta / POS'}${canalPersona ? ` - ${canalPersona.nombre || canalPersona.codigo}` : ''}`;
+      : requiereCanalParaMetodo(metodoPersonaCodigo)
+        ? `${metodoPersonaCodigo === 'TRANSFERENCIA' ? 'Transferencia' : 'Tarjeta / POS'}${canalPersona ? ` - ${canalPersona.nombre || canalPersona.codigo}` : ''}`
+        : nombreMetodoCobro(metodoPersonaCodigo);
     const items = (detalleCuenta?.detalles || [])
       .filter((d) => Number(asignacionDetalles[d.id_Detalle_Cuenta_Mesa] ?? 0) === idx)
       .map((d) => ({
@@ -831,7 +857,7 @@ function Mesas() {
 
     const metodo = String(pago?.metodo_Pago || 'EFECTIVO').toUpperCase();
     const categoria = resolverCategoriaMetodo(metodo);
-    if (categoria !== 'EFECTIVO') {
+    if (categoria !== 'EFECTIVO' && requiereCanalParaMetodo(metodo)) {
       const canales = obtenerCanalesPorMetodo(metodo);
       const canal = String(pago?.canalPagoCodigo || '');
       if (!canal || !canales.some((x) => String(x?.codigo || '') === canal)) {
@@ -886,7 +912,7 @@ function Mesas() {
       const canalInvalido = (pagosMixtos || []).some((p) => {
         const metodo = String(p?.metodo_Pago || '').toUpperCase();
         const categoria = resolverCategoriaMetodo(metodo);
-        if (categoria === 'EFECTIVO') return false;
+        if (categoria === 'EFECTIVO' || !requiereCanalParaMetodo(metodo)) return false;
         const canales = obtenerCanalesPorMetodo(metodo);
         if (!canales.length) return true;
         const canal = String(p?.canalPagoCodigo || '');
@@ -903,7 +929,8 @@ function Mesas() {
       if (tieneEfectivoInvalidoEnCobroMixto) return setError('En efectivo mixto, el recibido no puede ser menor al monto aplicado.');
     } else {
       const esEfectivo = String(categoriaMetodoPago || '').toUpperCase() === 'EFECTIVO';
-      if (!esEfectivo) {
+      const requiereCanal = requiereCanalParaMetodo(metodoPago);
+      if (!esEfectivo && requiereCanal) {
         if (canalesPagoFiltrados.length === 0) return setError('Configura canales en administracion para este metodo de pago.');
         if (!canalPagoCodigo) return setError('Selecciona un canal de pago antes de cobrar.');
       }
@@ -932,7 +959,7 @@ function Mesas() {
       const canalPagoSeleccionado = canalesPagoFiltrados.find((x) => String(x?.codigo || '') === String(canalPagoCodigo || '')) || null;
       const metodoPagoFinal = cobroMixto
         ? 'MIXTO'
-        : canalPagoSeleccionado?.nombre || canalPagoSeleccionado?.codigo || metodoPago;
+        : canalPagoSeleccionado?.nombre || canalPagoSeleccionado?.codigo || nombreMetodoCobro(metodoPago);
       const detalleDivision = dividirCuenta
         ? pagosMixtosDetalle.map((p) => `${p.nombre}:${p.monto.toFixed(2)}(${p.metodo_Pago})`).join('; ')
         : '';
@@ -943,7 +970,7 @@ function Mesas() {
             return `${p.metodo_Pago}:${p.monto.toFixed(2)}${recibido}${cambio}`;
           }).join('; ')
         : '';
-      const observacionCobro = `Cobro de mesa | TipoPago:${cobroMixto ? 'MIXTO' : metodoPago}${canalPagoSeleccionado && !cobroMixto ? ` | Canal:${canalPagoSeleccionado.nombre || canalPagoSeleccionado.codigo}` : ''} | Desc:${modoDescuento} | Imp:${modoImpuesto}${detalleDivision ? ` | DIVISION:${detalleDivision}` : ''}${detallePagoMixto ? ` | PAGOS_MESA:${detallePagoMixto}` : ''}`;
+      const observacionCobro = `Cobro de mesa | TipoPago:${cobroMixto ? 'MIXTO' : nombreMetodoCobro(metodoPago)}${canalPagoSeleccionado && !cobroMixto ? ` | Canal:${canalPagoSeleccionado.nombre || canalPagoSeleccionado.codigo}` : ''} | Desc:${modoDescuento} | Imp:${modoImpuesto}${detalleDivision ? ` | DIVISION:${detalleDivision}` : ''}${detallePagoMixto ? ` | PAGOS_MESA:${detallePagoMixto}` : ''}`;
       const emiteCaiReq = emitirFactura && !!facturacionSar?.habilitadoCai;
       const response = await api.post(`/CuentasMesa/${detalleCuenta.cuenta.id_Cuenta_Mesa}/cobrar`, {
         id_Caja: cajaActual.id_Caja,
@@ -1575,7 +1602,7 @@ function Mesas() {
                               : undefined}
                           />
                         </div>
-                        {!dividirCuenta && !cobroMixto && String(categoriaMetodoPago || '').toUpperCase() !== 'EFECTIVO' && (
+                        {!dividirCuenta && !cobroMixto && String(categoriaMetodoPago || '').toUpperCase() !== 'EFECTIVO' && requiereCanalParaMetodo(metodoPago) && (
                           <div className="col-12">
                             <label className="form-label mb-1">Canal de pago</label>
                             <select
@@ -1626,6 +1653,7 @@ function Mesas() {
                                 {pagosMixtos.map((pago, idx) => {
                                   const metodo = String(pago?.metodo_Pago || 'EFECTIVO').toUpperCase();
                                   const categoria = resolverCategoriaMetodo(metodo);
+                                  const requiereCanalLinea = requiereCanalParaMetodo(metodo);
                                   const canalesLinea = obtenerCanalesPorMetodo(metodo);
                                   const montoLinea = Number(pago?.monto || 0);
                                   const recibidoLinea = Number(pago?.recibido || 0);
@@ -1646,7 +1674,7 @@ function Mesas() {
                                             ))}
                                           </select>
                                         </div>
-                                        {categoria !== 'EFECTIVO' && (
+                                        {categoria !== 'EFECTIVO' && requiereCanalLinea && (
                                           <div className="col-md-4">
                                             <label className="form-label mb-1 small">Canal</label>
                                             <select
@@ -1786,6 +1814,8 @@ function Mesas() {
                               {/* Tarjeta por persona */}
                               {Array.from({ length: nPersonas }, (_, idx) => {
                                 const pago = pagosMixtos[idx] || {};
+                                const metodoPersona = String(pago?.metodo_Pago || 'EFECTIVO').toUpperCase();
+                                const requiereCanalPersona = requiereCanalParaMetodo(metodoPersona);
                                 const canalesPersona = obtenerCanalesPorMetodo(pago?.metodo_Pago);
                                 const itemsPersona = detalles.filter(d => Number(asignacionDetalles[d.id_Detalle_Cuenta_Mesa]) === idx);
                                 const totalPersona = montosAutoPorPersona[idx] || 0;
@@ -1820,7 +1850,7 @@ function Mesas() {
                                           <option key={`pm-${idx}-${m.codigo}`} value={m.codigo}>{m.nombre}</option>
                                         ))}
                                       </select>
-                                      {!esEfectivo && (
+                                      {!esEfectivo && requiereCanalPersona && (
                                         canalesPersona.length > 0 ? (
                                           <select
                                             className="form-select form-select-sm"
