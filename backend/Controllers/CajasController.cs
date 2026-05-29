@@ -87,6 +87,12 @@ namespace Pinecos.Controllers
             return t.Contains("EGRESO") || t == "SALIDA";
         }
 
+        private static bool EsEgresoGastoAutomatico(string? tipo)
+        {
+            var t = (tipo ?? string.Empty).Trim().ToUpperInvariant();
+            return t == "EGRESO_GASTO";
+        }
+
         private static string NormalizeCanal(string? canal)
         {
             var raw = (canal ?? string.Empty).Trim().ToUpperInvariant();
@@ -152,7 +158,9 @@ namespace Pinecos.Controllers
             var ventasTotal = ventas.Sum(x => x.Total);
 
             var ingresosCaja = movimientos.Where(x => EsIngreso(x.Tipo)).Sum(x => x.Monto);
-            var egresosCaja = movimientos.Where(x => EsEgreso(x.Tipo)).Sum(x => x.Monto);
+            var egresosCaja = movimientos
+                .Where(x => EsEgreso(x.Tipo) && !EsEgresoGastoAutomatico(x.Tipo))
+                .Sum(x => x.Monto);
             var totalGastos = gastos.Sum(x => x.Monto);
 
             var pagosExpandidos = ventas
