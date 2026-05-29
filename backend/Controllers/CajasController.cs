@@ -346,11 +346,10 @@ namespace Pinecos.Controllers
                 .Take(300)
                 .ToListAsync();
 
-            var data = cajas.Select(c =>
+            var data = new List<object>();
+            foreach (var c in cajas)
             {
-                bool? cuadro = null;
-                decimal? diferencia = null;
-                decimal? totalEsperado = null;
+                var resumen = await ConstruirResumenCuadreAsync(c, c.Fecha_Cierre ?? FechaHelper.AhoraHonduras());
                 decimal? totalDeclarado = null;
 
                 if (!string.IsNullOrWhiteSpace(c.Observacion))
@@ -359,14 +358,6 @@ namespace Pinecos.Controllers
                     {
                         using var doc = JsonDocument.Parse(c.Observacion);
                         var root = doc.RootElement;
-                        if (root.TryGetProperty("cuadro", out var cuadroEl) && cuadroEl.ValueKind is JsonValueKind.True or JsonValueKind.False)
-                            cuadro = cuadroEl.GetBoolean();
-                        if (root.TryGetProperty("diferencia", out var difEl) && difEl.ValueKind == JsonValueKind.Number)
-                            diferencia = difEl.GetDecimal();
-                        if (root.TryGetProperty("esperado", out var espEl) &&
-                            espEl.TryGetProperty("TotalEsperado", out var teEl) &&
-                            teEl.ValueKind == JsonValueKind.Number)
-                            totalEsperado = teEl.GetDecimal();
                         if (root.TryGetProperty("declarado", out var decEl) &&
                             decEl.TryGetProperty("total", out var tdEl) &&
                             tdEl.ValueKind == JsonValueKind.Number)
@@ -377,7 +368,10 @@ namespace Pinecos.Controllers
                     }
                 }
 
-                return new
+                var diferencia = totalDeclarado.HasValue ? totalDeclarado.Value - resumen.TotalEsperado : (decimal?)null;
+                var cuadro = diferencia.HasValue ? Math.Abs(diferencia.Value) <= 0.01m : (bool?)null;
+
+                data.Add(new
                 {
                     c.Id_Caja,
                     c.Id_Sucursal,
@@ -387,10 +381,10 @@ namespace Pinecos.Controllers
                     c.Monto_Cierre,
                     cuadro,
                     diferencia,
-                    totalEsperado,
+                    totalEsperado = resumen.TotalEsperado,
                     totalDeclarado
-                };
-            });
+                });
+            }
 
             return Ok(data);
         }
