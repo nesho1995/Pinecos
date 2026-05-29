@@ -81,8 +81,8 @@ function Reportes() {
   const exportarVentasMetodo = () =>
     exportToExcelCsv(
       'reporte_ventas_metodo_pago.csv',
-      ['Metodo', 'Cantidad', 'Total'],
-      ventasMetodoPago.map((x) => [x.metodoPago, x.cantidad, Number(x.total || 0).toFixed(2)])
+      ['Categoria', 'Metodo', 'Cantidad', 'Total'],
+      ventasMetodoPago.map((x) => [x.categoria || 'OTRO', x.metodoPago, x.cantidad, Number(x.total || 0).toFixed(2)])
     );
 
   const exportarVentasTipoServicio = () =>
@@ -454,12 +454,12 @@ function Reportes() {
                 </div>
                 <div className="compact-table-wrap">
                   <table className="table table-bordered mb-0">
-                    <thead><tr><th>Metodo</th><th>Cantidad</th><th>Total</th></tr></thead>
+                    <thead><tr><th>Categoria</th><th>Metodo</th><th>Cantidad</th><th>Total</th></tr></thead>
                     <tbody>
                       {ventasMetodoPago.map((item, idx) => (
-                        <tr key={idx}><td>{item.metodoPago}</td><td>{item.cantidad}</td><td>L {Number(item.total || 0).toFixed(2)}</td></tr>
+                        <tr key={idx}><td>{item.categoria || 'OTRO'}</td><td>{item.metodoPago}</td><td>{item.cantidad}</td><td>L {Number(item.total || 0).toFixed(2)}</td></tr>
                       ))}
-                      {ventasMetodoPago.length === 0 && <tr><td colSpan="3" className="text-center">Sin datos</td></tr>}
+                      {ventasMetodoPago.length === 0 && <tr><td colSpan="4" className="text-center">Sin datos</td></tr>}
                     </tbody>
                   </table>
                 </div>

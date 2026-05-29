@@ -220,21 +220,6 @@ function VentasPOS() {
     return () => clearInterval(intervalId);
   }, [cajaActual?.abierta, sucursalObjetivoSeleccionada]);
 
-  useEffect(() => {
-    if (!['EFECTIVO', 'POS', 'TRANSFERENCIA', 'OTRO'].includes(metodoPago)) {
-      setMetodoPago('EFECTIVO');
-    }
-  }, [metodoPago]);
-
-  useEffect(() => {
-    setEfectivoRecibido('');
-  }, [metodoPago]);
-
-  useEffect(() => {
-    if (preCuentaEstado !== 'VIGENTE') return;
-    invalidarPreCuenta();
-  }, [modoDescuento, descuentoManual, modoImpuesto, impuestoManual, metodoPago, tipoServicio, emitirFactura, canalPagoCodigo, pagoMixtoActivo, pagosMixtos]);
-
   const categorias = useMemo(() => {
     const unique = [...new Set(productos.map((p) => p.categoria).filter(Boolean))];
     return unique.sort((a, b) => a.localeCompare(b));
@@ -280,22 +265,21 @@ function VentasPOS() {
   );
   const categoriaMetodoPago = useMemo(() => {
     const codigo = String(metodoPago || '').toUpperCase();
-    // Respaldo: el chip "Tarjeta / POS" usa codigo POS pero en catálogo suele ser TARJETA; debe cuadrar a categoria POS.
+    const cat = String(metodoPagoActivo?.categoria || '').toUpperCase();
+    if (cat) return cat;
     if (codigo === 'POS' || codigo === 'TARJETA' || codigo === 'TARJETA_POS') return 'POS';
     if (codigo === 'TRANSFERENCIA') return 'TRANSFERENCIA';
     if (codigo === 'EFECTIVO') return 'EFECTIVO';
-    const cat = String(metodoPagoActivo?.categoria || '').toUpperCase();
-    if (cat) return cat;
     return 'OTRO';
   }, [metodoPago, metodoPagoActivo]);
   const resolverCategoriaMetodo = (codigoMetodo) => {
     const codigo = String(codigoMetodo || '').toUpperCase();
-    if (codigo === 'POS' || codigo === 'TARJETA' || codigo === 'TARJETA_POS') return 'POS';
-    if (codigo === 'TRANSFERENCIA') return 'TRANSFERENCIA';
-    if (codigo === 'EFECTIVO') return 'EFECTIVO';
     const metodo = (metodosPago || []).find((x) => String(x?.codigo || '').toUpperCase() === codigo) || null;
     const cat = String(metodo?.categoria || '').toUpperCase();
     if (cat) return cat;
+    if (codigo === 'POS' || codigo === 'TARJETA' || codigo === 'TARJETA_POS') return 'POS';
+    if (codigo === 'TRANSFERENCIA') return 'TRANSFERENCIA';
+    if (codigo === 'EFECTIVO') return 'EFECTIVO';
     return 'OTRO';
   };
   const esCanalTransferencia = (item) => {
@@ -303,20 +287,40 @@ function VentasPOS() {
     return texto.includes('TRANSFER');
   };
   const metodosCobroBase = useMemo(() => {
-    const activos = (metodosPago || []).filter((x) => x?.activo !== false);
-    const tieneEfectivo = activos.some((x) => String(x?.categoria || '').toUpperCase() === 'EFECTIVO' || String(x?.codigo || '').toUpperCase() === 'EFECTIVO');
-    const tieneNoEfectivo = activos.some((x) => String(x?.categoria || '').toUpperCase() !== 'EFECTIVO' && String(x?.codigo || '').toUpperCase() !== 'EFECTIVO');
-    return [
-      ...(tieneEfectivo ? [{ codigo: 'EFECTIVO', nombre: 'Efectivo', categoria: 'EFECTIVO', activo: true }] : []),
-      ...(tieneNoEfectivo ? [
-        { codigo: 'POS', nombre: 'Tarjeta / POS', categoria: 'POS', activo: true },
-        { codigo: 'TRANSFERENCIA', nombre: 'Transferencia', categoria: 'TRANSFERENCIA', activo: true }
-      ] : [])
-    ];
+    const activos = (metodosPago || [])
+      .filter((x) => x?.activo !== false)
+      .map((x) => ({
+        codigo: String(x?.codigo || x?.nombre || '').trim().toUpperCase(),
+        nombre: String(x?.nombre || x?.codigo || '').trim(),
+        categoria: String(x?.categoria || '').trim().toUpperCase() || 'OTRO',
+        activo: true
+      }))
+      .filter((x) => x.codigo);
+    const vistos = new Set();
+    const unicos = activos.filter((x) => {
+      if (vistos.has(x.codigo)) return false;
+      vistos.add(x.codigo);
+      return true;
+    });
+    return unicos.length
+      ? unicos
+      : [{ codigo: 'EFECTIVO', nombre: 'Efectivo', categoria: 'EFECTIVO', activo: true }];
   }, [metodosPago]);
+  const buscarMetodoConfig = (codigoMetodo) =>
+    (metodosPago || []).find((x) => String(x?.codigo || '').toUpperCase() === String(codigoMetodo || '').toUpperCase()) || null;
+  const requiereCanalParaMetodo = (codigoMetodo) => {
+    const categoria = resolverCategoriaMetodo(codigoMetodo);
+    if (categoria === 'EFECTIVO') return false;
+    return !buscarMetodoConfig(codigoMetodo);
+  };
+  const nombreMetodoCobro = (codigoMetodo) => {
+    const metodo = buscarMetodoConfig(codigoMetodo) || (metodosCobroBase || []).find((x) => String(x?.codigo || '').toUpperCase() === String(codigoMetodo || '').toUpperCase());
+    return String(metodo?.nombre || metodo?.codigo || codigoMetodo || '').trim().toUpperCase();
+  };
   const obtenerCanalesPorMetodo = (codigoMetodo) => {
     const categoria = resolverCategoriaMetodo(codigoMetodo);
     if (categoria === 'EFECTIVO') return [];
+    if (!requiereCanalParaMetodo(codigoMetodo)) return [];
     const canalesNoEfectivo = (metodosPago || []).filter((x) => String(x?.categoria || '').toUpperCase() !== 'EFECTIVO');
     if (categoria === 'TRANSFERENCIA') {
       const especificos = canalesNoEfectivo.filter(esCanalTransferencia);
@@ -334,14 +338,34 @@ function VentasPOS() {
   }, [metodosPago, categoriaMetodoPago, metodoPago]);
 
   useEffect(() => {
-    if (metodoPago === 'EFECTIVO') {
+    const permitidos = (metodosCobroBase || []).map((m) => String(m?.codigo || '').toUpperCase()).filter(Boolean);
+    if (!permitidos.length) return;
+    const actual = String(metodoPago || '').toUpperCase();
+    if (!permitidos.includes(actual)) {
+      setMetodoPago(permitidos[0] || 'EFECTIVO');
+    } else if (metodoPago !== actual) {
+      setMetodoPago(actual);
+    }
+  }, [metodoPago, metodosCobroBase]);
+
+  useEffect(() => {
+    setEfectivoRecibido('');
+  }, [metodoPago]);
+
+  useEffect(() => {
+    if (preCuentaEstado !== 'VIGENTE') return;
+    invalidarPreCuenta();
+  }, [modoDescuento, descuentoManual, modoImpuesto, impuestoManual, metodoPago, tipoServicio, emitirFactura, canalPagoCodigo, pagoMixtoActivo, pagosMixtos]);
+
+  useEffect(() => {
+    if (categoriaMetodoPago === 'EFECTIVO' || !requiereCanalParaMetodo(metodoPago)) {
       setCanalPagoCodigo('');
       return;
     }
-    if (!canalesPagoFiltrados.some((x) => x.codigo === canalPagoCodigo)) {
+    if (!canalesPagoFiltrados.some((x) => String(x?.codigo || '') === String(canalPagoCodigo || ''))) {
       setCanalPagoCodigo(canalesPagoFiltrados[0]?.codigo || '');
     }
-  }, [metodoPago, canalesPagoFiltrados, canalPagoCodigo]);
+  }, [metodoPago, categoriaMetodoPago, canalesPagoFiltrados, canalPagoCodigo]);
 
   const construirContextoAjuste = () =>
     [
@@ -602,8 +626,8 @@ function VentasPOS() {
   useEffect(() => {
     if (soloCortesia && pagoMixtoActivo) setPagoMixtoActivo(false);
   }, [soloCortesia, pagoMixtoActivo]);
-  const canalPagoSeleccionado = canalesPagoFiltrados.find((x) => x.codigo === canalPagoCodigo) || null;
-  const esPagoEnEfectivo = String(metodoPago || '').toUpperCase() === 'EFECTIVO';
+  const canalPagoSeleccionado = canalesPagoFiltrados.find((x) => String(x?.codigo || '') === String(canalPagoCodigo || '')) || null;
+  const esPagoEnEfectivo = String(categoriaMetodoPago || '').toUpperCase() === 'EFECTIVO';
   const efectivoRecibidoNum = Number(efectivoRecibido || 0);
   const cambioCalculado = esPagoEnEfectivo ? efectivoRecibidoNum - total : 0;
   const efectivoValidoParaCobro = !esPagoEnEfectivo || soloCortesia || (!Number.isNaN(efectivoRecibidoNum) && efectivoRecibidoNum >= total && efectivoRecibidoNum > 0);
@@ -614,10 +638,11 @@ function VentasPOS() {
         const categoria = resolverCategoriaMetodo(metodoCodigo);
         const canales = obtenerCanalesPorMetodo(metodoCodigo);
         const canalSeleccionado = canales.find((x) => String(x?.codigo || '') === String(p?.canalPagoCodigo || '')) || null;
+        const metodoDirecto = !requiereCanalParaMetodo(metodoCodigo);
         return {
           metodoBase: metodoCodigo,
           categoria,
-          metodo_Pago: categoria === 'EFECTIVO'
+          metodo_Pago: categoria === 'EFECTIVO' || metodoDirecto
             ? metodoCodigo
             : (canalSeleccionado?.nombre || canalSeleccionado?.codigo || metodoCodigo),
           monto: redondear2(p?.monto),
@@ -649,7 +674,7 @@ function VentasPOS() {
       if (monto <= 0) return false;
       const metodo = String(p?.metodo_Pago || '').toUpperCase();
       const categoria = resolverCategoriaMetodo(metodo);
-      if (categoria === 'EFECTIVO') return false;
+      if (categoria === 'EFECTIVO' || !requiereCanalParaMetodo(metodo)) return false;
       const canales = obtenerCanalesPorMetodo(metodo);
       if (!canales.length) return true;
       const canal = String(p?.canalPagoCodigo || '');
@@ -800,7 +825,7 @@ function VentasPOS() {
       return base.map((p) => {
         const metodo = String(p?.metodo_Pago || 'EFECTIVO').toUpperCase();
         const categoria = resolverCategoriaMetodo(metodo);
-        if (categoria === 'EFECTIVO') return { ...p, metodo_Pago: metodo, canalPagoCodigo: '' };
+        if (categoria === 'EFECTIVO' || !requiereCanalParaMetodo(metodo)) return { ...p, metodo_Pago: metodo, canalPagoCodigo: '' };
         const canales = obtenerCanalesPorMetodo(metodo);
         const canalValido = canales.some((x) => String(x?.codigo || '') === String(p?.canalPagoCodigo || ''));
         return {
@@ -826,7 +851,7 @@ function VentasPOS() {
       if (campo !== 'metodo_Pago') return { ...linea, [campo]: valor };
       const metodoNuevo = String(valor || '').toUpperCase();
       const categoria = resolverCategoriaMetodo(metodoNuevo);
-      if (categoria === 'EFECTIVO') return { ...linea, metodo_Pago: metodoNuevo, canalPagoCodigo: '' };
+      if (categoria === 'EFECTIVO' || !requiereCanalParaMetodo(metodoNuevo)) return { ...linea, metodo_Pago: metodoNuevo, canalPagoCodigo: '' };
       const canales = obtenerCanalesPorMetodo(metodoNuevo);
       const canalValido = canales.some((x) => String(x?.codigo || '') === String(linea?.canalPagoCodigo || ''));
       return {
@@ -861,7 +886,8 @@ function VentasPOS() {
     if (tieneLineasInvalidas) return setError('Hay productos con cantidad o precio invalidos en la cuenta');
     if (!Number.isFinite(total) || total < 0) return setError('El total no es valido');
     if (!soloCortesia && total <= 0) return setError('El total debe ser mayor a cero');
-    if (!soloCortesia && !pagoMixtoActivo && !esPagoEnEfectivo && !canalPagoSeleccionado) return setError('Selecciona el canal de pago para continuar');
+    const requiereCanalPagoActual = requiereCanalParaMetodo(metodoPago);
+    if (!soloCortesia && !pagoMixtoActivo && !esPagoEnEfectivo && requiereCanalPagoActual && !canalPagoSeleccionado) return setError('Selecciona el canal de pago para continuar');
     if (!soloCortesia && pagoMixtoActivo) {
       if (pagosMixtosNormalizados.length === 0) return setError('Agrega al menos un pago mixto');
       if (Math.abs(diferenciaPagosMixtos) > 0.01) return setError('La suma de pagos mixtos debe ser igual al total');
@@ -903,7 +929,7 @@ function VentasPOS() {
         ? 'CORTESIA'
         : pagoMixtoActivo
           ? 'MIXTO'
-          : canalPagoSeleccionado?.nombre || canalPagoSeleccionado?.codigo || metodoPago;
+          : canalPagoSeleccionado?.nombre || canalPagoSeleccionado?.codigo || nombreMetodoCobro(metodoPago);
       const detallePagoMixto = pagoMixtoActivo
         ? pagosMixtosDetalle.map((p) => {
             const cambio = p.categoria === 'EFECTIVO' && p.recibido > p.monto ? ` Cambio:${(p.recibido - p.monto).toFixed(2)}` : '';
@@ -936,7 +962,7 @@ function VentasPOS() {
         metodo_Pago: metodoPagoFinal,
         pagos: pagoMixtoActivo && !soloCortesia ? pagosMixtosNormalizados : [],
         tipo_Servicio: tipoServicio,
-        observacion: `Venta POS | TipoPago:${soloCortesia ? 'CORTESIA' : pagoMixtoActivo ? 'MIXTO' : metodoPago}${canalPagoSeleccionado && !pagoMixtoActivo ? ` | Canal:${canalPagoSeleccionado.nombre}` : ''} | Desc:${modoDescuento} | Imp:${modoImpuesto}${!pagoMixtoActivo && esPagoEnEfectivo && !soloCortesia ? ` | Efectivo:${efectivoRecibidoNum.toFixed(2)} | Cambio:${Math.max(0, cambioCalculado).toFixed(2)}` : ''}${detallePagoMixto ? ` | PAGOS_POS:${detallePagoMixto}` : ''}`,
+        observacion: `Venta POS | TipoPago:${soloCortesia ? 'CORTESIA' : pagoMixtoActivo ? 'MIXTO' : nombreMetodoCobro(metodoPago)}${canalPagoSeleccionado && !pagoMixtoActivo ? ` | Canal:${canalPagoSeleccionado.nombre || canalPagoSeleccionado.codigo}` : ''} | Desc:${modoDescuento} | Imp:${modoImpuesto}${!pagoMixtoActivo && esPagoEnEfectivo && !soloCortesia ? ` | Efectivo:${efectivoRecibidoNum.toFixed(2)} | Cambio:${Math.max(0, cambioCalculado).toFixed(2)}` : ''}${detallePagoMixto ? ` | PAGOS_POS:${detallePagoMixto}` : ''}`,
         detalles: carrito.map((item) => ({
           id_Producto: item.id_Producto,
           id_Presentacion: item.id_Presentacion,
@@ -1493,7 +1519,18 @@ function VentasPOS() {
                       {pagoMixtoActivo ? 'Pago mixto activo' : 'Pago mixto'}
                     </button>
                   </div>
-                  <CheckoutPayMethodChips value={metodoPago} onChange={setMetodoPago} disabled={procesando || pagoMixtoActivo} />
+                  <CheckoutPayMethodChips
+                    value={metodoPago}
+                    onChange={setMetodoPago}
+                    disabled={procesando || pagoMixtoActivo}
+                    options={(metodosCobroBase || []).length
+                      ? metodosCobroBase.map((m) => ({
+                          codigo: String(m.codigo || '').toUpperCase(),
+                          label: m.nombre || m.codigo,
+                          title: m.nombre
+                        }))
+                      : undefined}
+                  />
 
                   {pagoMixtoActivo && (
                     <div className="pos-mixed-pay-panel mt-2 mb-2">
@@ -1519,6 +1556,7 @@ function VentasPOS() {
                         {pagosMixtos.map((pago, idx) => {
                           const metodo = String(pago?.metodo_Pago || 'EFECTIVO').toUpperCase();
                           const categoria = resolverCategoriaMetodo(metodo);
+                          const requiereCanalLinea = requiereCanalParaMetodo(metodo);
                           const canalesLinea = obtenerCanalesPorMetodo(metodo);
                           const montoLinea = Number(pago?.monto || 0);
                           const recibidoLinea = Number(pago?.recibido || 0);
@@ -1539,7 +1577,7 @@ function VentasPOS() {
                                     ))}
                                   </select>
                                 </div>
-                                {categoria !== 'EFECTIVO' && (
+                                {categoria !== 'EFECTIVO' && requiereCanalLinea && (
                                   <div className="col-md-4">
                                     <label className="form-label mb-1 small">Canal</label>
                                     <select
@@ -1611,7 +1649,7 @@ function VentasPOS() {
                     </div>
                   )}
 
-                  {!pagoMixtoActivo && !esPagoEnEfectivo && (
+                  {!pagoMixtoActivo && !esPagoEnEfectivo && requiereCanalParaMetodo(metodoPago) && (
                     <div className="mb-2 mt-2">
                       <label className="form-label">Canal / terminal</label>
                       <select className="form-select" value={canalPagoCodigo} onChange={(e) => setCanalPagoCodigo(e.target.value)}>

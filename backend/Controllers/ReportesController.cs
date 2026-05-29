@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using Pinecos.Attributes;
 using Pinecos.Data;
+using Pinecos.DTOs;
 using Pinecos.Helpers;
 
 namespace Pinecos.Controllers
@@ -12,10 +13,12 @@ namespace Pinecos.Controllers
     public class ReportesController : ControllerBase
     {
         private readonly PinecosDbContext _context;
+        private readonly IWebHostEnvironment _env;
 
-        public ReportesController(PinecosDbContext context)
+        public ReportesController(PinecosDbContext context, IWebHostEnvironment env)
         {
             _context = context;
+            _env = env;
         }
 
         private ActionResult ErrorInternoReportes()
@@ -29,6 +32,52 @@ namespace Pinecos.Controllers
         private static string NormalizarTipoServicioDesdeObservacion(string? observacion)
         {
             return ObservacionVentaHelper.ObtenerTipoServicio(observacion);
+        }
+
+        private static string NormalizeCanal(string? canal)
+        {
+            var raw = (canal ?? string.Empty).Trim().ToUpperInvariant();
+            if (string.IsNullOrWhiteSpace(raw)) return string.Empty;
+            return new string(raw.Where(char.IsLetterOrDigit).ToArray());
+        }
+
+        private static Dictionary<string, HashSet<string>> ConstruirMapaMetodos(CuadreCanalesConfigDto config)
+        {
+            var mapa = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["EFECTIVO"] = new HashSet<string>(StringComparer.Ordinal),
+                ["POS"] = new HashSet<string>(StringComparer.Ordinal),
+                ["DELIVERY"] = new HashSet<string>(StringComparer.Ordinal)
+            };
+
+            foreach (var metodo in config.MetodosPago ?? new List<MetodoPagoConfigDto>())
+            {
+                if (!metodo.Activo) continue;
+                var categoria = (metodo.Categoria ?? string.Empty).Trim().ToUpperInvariant();
+                if (!mapa.ContainsKey(categoria)) continue;
+
+                var codigo = NormalizeCanal(metodo.Codigo);
+                var nombre = NormalizeCanal(metodo.Nombre);
+                if (!string.IsNullOrWhiteSpace(codigo)) mapa[categoria].Add(codigo);
+                if (!string.IsNullOrWhiteSpace(nombre)) mapa[categoria].Add(nombre);
+            }
+
+            if (mapa["EFECTIVO"].Count == 0)
+            {
+                mapa["EFECTIVO"].Add(NormalizeCanal("EFECTIVO"));
+                mapa["EFECTIVO"].Add(NormalizeCanal("CASH"));
+            }
+
+            return mapa;
+        }
+
+        private static string ResolverCategoriaPago(string? metodoPago, Dictionary<string, HashSet<string>> mapa)
+        {
+            var normalizado = NormalizeCanal(metodoPago);
+            if (mapa["EFECTIVO"].Contains(normalizado)) return "EFECTIVO";
+            if (mapa["POS"].Contains(normalizado)) return "POS";
+            if (mapa["DELIVERY"].Contains(normalizado)) return "DELIVERY";
+            return "OTRO";
         }
 
         private static object ConstruirResumenPeriodoVacio(DateTime fechaDesde, DateTime fechaHasta)
@@ -412,31 +461,43 @@ namespace Pinecos.Controllers
                 var ventas = await query
                     .Select(x => new
                     {
+                        IdSucursal = x.Id_Sucursal,
                         MetodoPago = x.Metodo_Pago ?? string.Empty,
                         x.Total,
                         Observacion = x.Observacion ?? string.Empty
                     })
                     .ToListAsync();
 
+                var mapasPorSucursal = ventas
+                    .Select(x => x.IdSucursal)
+                    .Distinct()
+                    .ToDictionary(
+                        id => id,
+                        id => ConstruirMapaMetodos(CuadreCanalesStore.GetConfig(_env.ContentRootPath, id))
+                    );
+
                 var pagos = ventas
                     .SelectMany(v => PagoVentaHelper.ObtenerPagosVenta(v.MetodoPago, v.Total, v.Observacion)
                         .Select(p => new
                         {
                             MetodoPago = (p.Metodo_Pago ?? string.Empty).Trim().ToUpperInvariant(),
+                            Categoria = ResolverCategoriaPago(p.Metodo_Pago, mapasPorSucursal[v.IdSucursal]),
                             p.Monto
                         }))
                     .Where(x => x.Monto > 0)
                     .ToList();
 
                 var data = pagos
-                    .GroupBy(x => x.MetodoPago)
+                    .GroupBy(x => new { x.MetodoPago, x.Categoria })
                     .Select(g => new
                     {
-                        MetodoPago = g.Key,
+                        MetodoPago = g.Key.MetodoPago,
+                        Categoria = g.Key.Categoria,
                         Cantidad = g.Count(),
                         Total = g.Sum(x => x.Monto)
                     })
-                    .OrderByDescending(x => x.Total)
+                    .OrderBy(x => x.Categoria == "EFECTIVO" ? 0 : x.Categoria == "POS" ? 1 : x.Categoria == "DELIVERY" ? 2 : 3)
+                    .ThenByDescending(x => x.Total)
                     .ToList();
 
                 return Ok(data);
