@@ -286,9 +286,11 @@ function VentasPOS() {
     const texto = `${item?.codigo || ''} ${item?.nombre || ''}`.toUpperCase();
     return texto.includes('TRANSFER');
   };
+  const esMetodoDelivery = (item) => String(item?.categoria || '').trim().toUpperCase() === 'DELIVERY';
   const metodosCobroBase = useMemo(() => {
     const activos = (metodosPago || [])
       .filter((x) => x?.activo !== false)
+      .filter((x) => !esMetodoDelivery(x))
       .map((x) => ({
         codigo: String(x?.codigo || x?.nombre || '').trim().toUpperCase(),
         nombre: String(x?.nombre || x?.codigo || '').trim(),
@@ -317,11 +319,19 @@ function VentasPOS() {
     const metodo = buscarMetodoConfig(codigoMetodo) || (metodosCobroBase || []).find((x) => String(x?.codigo || '').toUpperCase() === String(codigoMetodo || '').toUpperCase());
     return String(metodo?.nombre || metodo?.codigo || codigoMetodo || '').trim().toUpperCase();
   };
+  const metodoCobroPermitido = (codigoMetodo) =>
+    (metodosCobroBase || []).some((x) => String(x?.codigo || '').toUpperCase() === String(codigoMetodo || '').toUpperCase());
+  const normalizarMetodoCobro = (codigoMetodo) => {
+    const codigo = String(codigoMetodo || '').toUpperCase();
+    return metodoCobroPermitido(codigo) ? codigo : (metodosCobroBase[0]?.codigo || 'EFECTIVO');
+  };
   const obtenerCanalesPorMetodo = (codigoMetodo) => {
     const categoria = resolverCategoriaMetodo(codigoMetodo);
     if (categoria === 'EFECTIVO') return [];
     if (!requiereCanalParaMetodo(codigoMetodo)) return [];
-    const canalesNoEfectivo = (metodosPago || []).filter((x) => String(x?.categoria || '').toUpperCase() !== 'EFECTIVO');
+    const canalesNoEfectivo = (metodosPago || [])
+      .filter((x) => String(x?.categoria || '').toUpperCase() !== 'EFECTIVO')
+      .filter((x) => !esMetodoDelivery(x));
     if (categoria === 'TRANSFERENCIA') {
       const especificos = canalesNoEfectivo.filter(esCanalTransferencia);
       return especificos.length ? especificos : canalesNoEfectivo;
@@ -823,7 +833,7 @@ function VentasPOS() {
         ? prev
         : [{ metodo_Pago: 'EFECTIVO', canalPagoCodigo: '', monto: '', recibido: '' }];
       return base.map((p) => {
-        const metodo = String(p?.metodo_Pago || 'EFECTIVO').toUpperCase();
+        const metodo = normalizarMetodoCobro(p?.metodo_Pago || 'EFECTIVO');
         const categoria = resolverCategoriaMetodo(metodo);
         if (categoria === 'EFECTIVO' || !requiereCanalParaMetodo(metodo)) return { ...p, metodo_Pago: metodo, canalPagoCodigo: '' };
         const canales = obtenerCanalesPorMetodo(metodo);

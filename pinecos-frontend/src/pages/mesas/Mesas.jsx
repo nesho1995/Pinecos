@@ -295,9 +295,11 @@ function Mesas() {
     const texto = `${item?.codigo || ''} ${item?.nombre || ''}`.toUpperCase();
     return texto.includes('TRANSFER');
   };
+  const esMetodoDelivery = (item) => String(item?.categoria || '').trim().toUpperCase() === 'DELIVERY';
   const metodosCobroBase = useMemo(() => {
     const activos = (metodosPago || [])
       .filter((x) => x?.activo !== false)
+      .filter((x) => !esMetodoDelivery(x))
       .map((x) => ({
         codigo: String(x?.codigo || x?.nombre || '').trim().toUpperCase(),
         nombre: String(x?.nombre || x?.codigo || '').trim(),
@@ -328,11 +330,19 @@ function Mesas() {
     const metodo = buscarMetodoConfig(codigoMetodo) || (metodosCobroBase || []).find((x) => String(x?.codigo || '').toUpperCase() === String(codigoMetodo || '').toUpperCase());
     return String(metodo?.nombre || metodo?.codigo || codigoMetodo || '').trim().toUpperCase();
   };
+  const metodoCobroPermitido = (codigoMetodo) =>
+    (metodosCobroBase || []).some((x) => String(x?.codigo || '').toUpperCase() === String(codigoMetodo || '').toUpperCase());
+  const normalizarMetodoCobro = (codigoMetodo) => {
+    const codigo = String(codigoMetodo || '').toUpperCase();
+    return metodoCobroPermitido(codigo) ? codigo : (metodosCobroBase[0]?.codigo || 'EFECTIVO');
+  };
   const obtenerCanalesPorMetodo = (codigoMetodo) => {
     const categoria = resolverCategoriaMetodo(codigoMetodo);
     if (categoria === 'EFECTIVO') return [];
     if (!requiereCanalParaMetodo(codigoMetodo)) return [];
-    const canalesNoEfectivo = (metodosPago || []).filter((x) => String(x?.categoria || '').toUpperCase() !== 'EFECTIVO');
+    const canalesNoEfectivo = (metodosPago || [])
+      .filter((x) => String(x?.categoria || '').toUpperCase() !== 'EFECTIVO')
+      .filter((x) => !esMetodoDelivery(x));
     if (categoria === 'TRANSFERENCIA') {
       const especificos = canalesNoEfectivo.filter(esCanalTransferencia);
       return especificos.length ? especificos : canalesNoEfectivo;
@@ -594,11 +604,12 @@ function Mesas() {
         recibido: prev[idx]?.recibido || ''
       }));
       return base.map((p) => {
-        const categoria = resolverCategoriaMetodo(p.metodo_Pago);
-        if (categoria === 'EFECTIVO' || !requiereCanalParaMetodo(p.metodo_Pago)) return { ...p, canalPagoCodigo: '' };
-        const canales = obtenerCanalesPorMetodo(p.metodo_Pago);
+        const metodo = normalizarMetodoCobro(p.metodo_Pago);
+        const categoria = resolverCategoriaMetodo(metodo);
+        if (categoria === 'EFECTIVO' || !requiereCanalParaMetodo(metodo)) return { ...p, metodo_Pago: metodo, canalPagoCodigo: '' };
+        const canales = obtenerCanalesPorMetodo(metodo);
         const esValido = canales.some((x) => String(x?.codigo || '') === String(p.canalPagoCodigo || ''));
-        return { ...p, canalPagoCodigo: esValido ? p.canalPagoCodigo : (canales[0]?.codigo || '') };
+        return { ...p, metodo_Pago: metodo, canalPagoCodigo: esValido ? p.canalPagoCodigo : (canales[0]?.codigo || '') };
       });
     });
   }, [dividirCuenta, personasDivision, metodoPago, metodosPago, metodosCobroBase]);
@@ -637,7 +648,7 @@ function Mesas() {
         ? prev
         : [{ nombre: 'Pago 1', metodo_Pago: metodosCobroBase[0]?.codigo || 'EFECTIVO', canalPagoCodigo: '', monto: totalCuenta > 0 ? totalCuenta.toFixed(2) : '', recibido: '' }];
       return base.map((p, idx) => {
-        const metodo = String(p?.metodo_Pago || metodosCobroBase[0]?.codigo || 'EFECTIVO').toUpperCase();
+        const metodo = normalizarMetodoCobro(p?.metodo_Pago || metodosCobroBase[0]?.codigo || 'EFECTIVO');
         const categoria = resolverCategoriaMetodo(metodo);
         const montoActual = String(p?.monto || '').trim();
         const monto = idx === 0 && base.length === 1 && (!montoActual || Math.abs(Number(montoActual || 0) - Number(totalCuenta || 0)) <= 0.01)
